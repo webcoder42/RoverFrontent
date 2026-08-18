@@ -1,4 +1,4 @@
-﻿import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Sparkles,
@@ -30,11 +30,6 @@ import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs"
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/plans")({
-  beforeLoad: () => {
-    if (!isAuthenticated()) {
-      throw redirect({ to: "/" });
-    }
-  },
   head: () => ({ meta: [{ title: "Subscription Plans — Webotme" }] }),
   component: PlansPage,
 });
@@ -156,9 +151,60 @@ function InfoTip({
   );
 }
 
+const fallbackPlans: Plan[] = [
+  {
+    _id: "free",
+    name: "Free",
+    price: 0,
+    totalChatbots: 1,
+    bookingAgency: 0,
+    databaseAccess: false,
+    databaseCollections: 0,
+    apiRequests: "200",
+    trainingStorage: 0.25,
+    ragModel: false,
+    emailSupport: false,
+    emailLimit: 0,
+    apiAccess: true,
+    expiresInDays: 0,
+  },
+  {
+    _id: "pro",
+    name: "Pro",
+    price: 20,
+    totalChatbots: 10,
+    bookingAgency: 5,
+    databaseAccess: true,
+    databaseCollections: 5,
+    apiRequests: "5000",
+    trainingStorage: 2,
+    ragModel: true,
+    emailSupport: true,
+    emailLimit: 100,
+    apiAccess: true,
+    expiresInDays: 30,
+  },
+  {
+    _id: "premium",
+    name: "Premium",
+    price: 30,
+    totalChatbots: 10,
+    bookingAgency: 10,
+    databaseAccess: true,
+    databaseCollections: 10,
+    apiRequests: "Unlimited",
+    trainingStorage: 5,
+    ragModel: true,
+    emailSupport: true,
+    emailLimit: 500,
+    apiAccess: true,
+    expiresInDays: 30,
+  },
+];
+
 function PlansPage() {
   const navigate = useNavigate();
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<Plan[]>(fallbackPlans);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [activePurchase, setActivePurchase] = useState<PurchaseRecord | null>(null);
   const [history, setHistory] = useState<PurchaseRecord[]>([]);
@@ -167,6 +213,11 @@ function PlansPage() {
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
   const choosePlan = async (plan: Plan) => {
+    if (!isAuthenticated()) {
+      navigate({ to: "/" });
+      return;
+    }
+
     if (plan.price > 0) {
       navigate({ to: "/checkout/$planId", params: { planId: plan._id } });
       return;
@@ -202,9 +253,15 @@ function PlansPage() {
     fetch("/api/plans", { headers })
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setPlans(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setPlans(data);
+        } else {
+          setPlans(fallbackPlans);
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        setPlans(fallbackPlans);
+      })
       .finally(() => setLoading(false));
 
     fetch("/api/plan-purchase/active", { headers })
@@ -239,10 +296,10 @@ function PlansPage() {
           <img src={logo} alt="Webotme" className="h-14 w-auto shrink-0 object-contain" />
         </div>
         <button
-          onClick={() => navigate({ to: "/dashboard" })}
+          onClick={() => navigate({ to: isAuthenticated() ? "/dashboard" : "/" })}
           className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
         >
-          <LogIn className="h-4 w-4" /> Dashboard
+          <LogIn className="h-4 w-4" /> {isAuthenticated() ? "Dashboard" : "Login"}
         </button>
       </div>
 
