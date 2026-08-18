@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Sparkles,
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/checkout/$planId")({
       throw redirect({ to: "/" });
     }
   },
-  head: () => ({ meta: [{ title: "Checkout — Rover" }] }),
+  head: () => ({ meta: [{ title: "Checkout — Webotme" }] }),
   component: CheckoutPage,
 });
 
@@ -124,7 +124,7 @@ function CheckoutPage() {
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between border-b border-border/60 bg-background/70 px-6 py-4 backdrop-blur-xl">
         <div className="flex items-center">
-          <img src={logo} alt="Rover" className="h-10 object-contain" />
+          <img src={logo} alt="Webotme" className="h-14 w-auto shrink-0 object-contain" />
         </div>
         <Link
           to="/plans"

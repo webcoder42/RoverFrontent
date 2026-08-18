@@ -34,6 +34,15 @@ export interface Chatbot {
   messageFontSize?: "sm" | "md" | "lg";
   inputStyle?: "rounded" | "pill" | "minimal";
   headerSubtitle?: string;
+  widgetLauncher?: "icon" | "button";
+  widgetLauncherText?: string;
+  widgetLauncherStyle?: "rounded" | "square" | "soft" | "pill";
+  widgetPosition?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  widgetOpenMode?: "overlay" | "sidebar" | "fullscreen" | "newtab";
+  widgetWidth?: number;
+  widgetHeight?: number;
+  widgetSmartPosition?: boolean;
+  widgetCustomCss?: string;
   knowledgeFiles?: Array<{ name: string; content: string; url?: string }>;
   knowledgeBase?: Array<{ name: string; content: string; url?: string }>;
   trainingKnowledge?: Array<{ name: string; content: string; url?: string }>;

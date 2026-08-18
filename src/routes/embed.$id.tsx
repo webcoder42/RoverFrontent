@@ -739,7 +739,7 @@ function EmbedChatWidget() {
           <div className="flex items-center gap-3 z-10">
             <div className="relative">
               <div
-                className={`grid h-9 w-9 place-items-center overflow-hidden shrink-0 ${
+                className={`grid h-12 w-12 place-items-center overflow-hidden shrink-0 ${
                   isMinimal ? "rounded-md" : "rounded-xl bg-white/20 backdrop-blur border border-white/10"
                 }`}
                 style={{
@@ -749,10 +749,10 @@ function EmbedChatWidget() {
                 {bot.logo ? (
                   <img src={bot.logo} alt={bot.name} className="h-full w-full object-cover" />
                 ) : (
-                  <Bot className={`h-5 w-5 ${isMinimal ? (isDarkMode ? "text-slate-400" : "text-slate-500") : "text-white"}`} />
+                  <Bot className={`h-6 w-6 ${isMinimal ? (isDarkMode ? "text-slate-400" : "text-slate-500") : "text-white"}`} />
                 )}
               </div>
-              <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white" />
+              <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" />
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-wide leading-none">{bot.name}</h2>

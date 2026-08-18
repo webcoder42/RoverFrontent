@@ -26,6 +26,13 @@ export interface BotPreviewProps {
   textStyle?: "default" | "bold" | "italic" | "romantic" | "playful" | "elegant";
   currency?: string;
   currencySymbol?: string;
+  widgetLauncher?: "icon" | "button";
+  widgetLauncherText?: string;
+  widgetLauncherStyle?: "rounded" | "square" | "soft" | "pill";
+  widgetPosition?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  widgetOpenMode?: "overlay" | "sidebar" | "fullscreen" | "newtab";
+  widgetWidth?: number;
+  widgetHeight?: number;
 }
 
 const bubbleRadius: Record<string, string> = {
@@ -47,7 +54,7 @@ const cannedReplies = (input: string): string => {
 };
 
 export function LiveBotPreview(props: BotPreviewProps) {
-  const { name, welcome, primary, secondary, radius, bubble, logo, preview = "light", template = "Modern Glass UI", className, extractedServices, trainingSheetServices, headerStyle = "gradient", botBubbleColor, botTextColor, showAvatar = true, messageFontSize = "md", inputStyle = "rounded", headerSubtitle = "Online", textStyle = "default", currency, currencySymbol } = props;
+  const { name, welcome, primary, secondary, radius, bubble, logo, preview = "light", template = "Modern Glass UI", className, extractedServices, trainingSheetServices, headerStyle = "gradient", botBubbleColor, botTextColor, showAvatar = true, messageFontSize = "md", inputStyle = "rounded", headerSubtitle = "Online", textStyle = "default", currency, currencySymbol, widgetLauncher = "icon", widgetLauncherText = "Chat with us", widgetLauncherStyle = "rounded", widgetPosition = "bottom-right", widgetOpenMode = "overlay", widgetWidth = 400, widgetHeight = 540 } = props;
 
   const sym = currencySymbol || (currency ? currency.match(/\(([^)]+)\)/)?.[1] || currency : "$");
 
@@ -338,6 +345,13 @@ export function LiveBotPreview(props: BotPreviewProps) {
     return elements;
   };
 
+  const isRight = widgetPosition.endsWith("-right");
+  const isTop = widgetPosition.startsWith("top-");
+  const cornerStyle = {
+    ...(isTop ? { top: 16 } : { bottom: 16 }),
+    ...(isRight ? { right: 16 } : { left: 16 }),
+  } as const;
+
   return (
     <div className={cn("relative mx-auto w-full max-w-sm h-[450px] flex flex-col justify-end overflow-hidden rounded-xl border border-border/50 bg-muted/20 p-4", className)}>
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '16px 16px' }} />
@@ -350,9 +364,10 @@ export function LiveBotPreview(props: BotPreviewProps) {
             animate="visible"
             exit="exit"
             transition={transition}
-            className="absolute bottom-20 right-4 w-[calc(100%-2rem)] max-w-[320px] h-[270px] flex flex-col overflow-hidden origin-bottom-right"
+            className="absolute w-[calc(100%-2rem)] max-w-[320px] h-[270px] flex flex-col overflow-hidden origin-bottom-right"
             style={{
-              borderRadius: actualRadius + 8,
+              ...(widgetOpenMode === "sidebar" ? { top: 0, bottom: 0, right: 0, height: "100%", maxWidth: 280, borderRadius: 0 } : widgetOpenMode === "fullscreen" ? { top: 0, left: 0, right: 0, bottom: 0, width: "100%", maxWidth: "none", height: "100%", borderRadius: 0 } : isTop ? { top: 16, ...(isRight ? { right: 16 } : { left: 16 }) } : { bottom: 16, ...(isRight ? { right: 16 } : { left: 16 }) }),
+              borderRadius: widgetOpenMode === "overlay" ? actualRadius + 8 : 0,
               background: wrapperBg,
               border: wrapperBorder,
               boxShadow: wrapperBoxShadow,
@@ -367,8 +382,8 @@ export function LiveBotPreview(props: BotPreviewProps) {
                 borderColor: dark ? "#334155" : "#e2e8f0",
               }}
             >
-              <div className={cn("grid h-9 w-9 place-items-center overflow-hidden shrink-0", isMinimal ? "rounded-md bg-muted" : "rounded-xl bg-white/20 backdrop-blur")} style={{ background: isMinimal ? (dark ? "#334155" : "#e2e8f0") : undefined }}>
-                {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <Bot className="h-5 w-5" />}
+              <div className={cn("grid h-12 w-12 place-items-center overflow-hidden shrink-0", isMinimal ? "rounded-md bg-muted" : "rounded-xl bg-white/20 backdrop-blur")} style={{ background: isMinimal ? (dark ? "#334155" : "#e2e8f0") : undefined }}>
+                {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <Bot className="h-6 w-6" />}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold leading-tight">{name || "Chatbot"}</div>
@@ -592,18 +607,37 @@ export function LiveBotPreview(props: BotPreviewProps) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="absolute bottom-4 right-4 z-10 grid h-12 w-12 place-items-center overflow-hidden"
+        className="absolute z-10 grid place-items-center overflow-hidden"
         style={{
+          ...cornerStyle,
+          ...(widgetLauncher === "button"
+            ? { padding: "6px 18px 6px 8px", gap: 8, gridAutoFlow: "column", width: "auto" }
+            : { width: 48, height: 48 }),
           background: sendBtnBg,
           color: sendBtnText,
-          borderRadius: actualBubble === "square" ? 8 : 9999,
+          borderRadius: widgetLauncher === "button"
+            ? widgetLauncherStyle === "pill"
+              ? 9999
+              : widgetLauncherStyle === "square"
+                ? 10
+                : widgetLauncherStyle === "soft"
+                  ? 18
+                  : 12
+            : actualBubble === "square" ? 8 : 9999,
           border: "1px solid rgba(255,255,255,0.15)",
           boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
         }}
       >
         {isOpen
           ? <X className="h-[22px] w-[22px]" />
-          : logo
+          : widgetLauncher === "button" ? (
+            <>
+              {logo
+                ? <img src={logo} alt="Bot Icon" className="h-8 w-8 rounded-full object-cover" />
+                : <MessageCircle className="h-5 w-5" />}
+              <span className="text-xs font-semibold">{widgetLauncherText}</span>
+            </>
+          ) : logo
             ? <img src={logo} alt="Bot Icon" className="h-full w-full object-cover" />
             : <MessageCircle className="h-[22px] w-[22px]" />}
       </motion.button>

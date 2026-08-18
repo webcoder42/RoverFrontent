@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rover</title>
+  <title>Webotme</title>
   <link rel="icon" type="image/png" href="/logo.png" />
  </head>
 
@@ -13,6 +13,27 @@
   
   <script type="module" src="/src/main.tsx"></script>
 
-  <!-- ECM chatbot widget -->
-<script async src="http://localhost:3001/static/widget.js" data-bot-id="6a6380943bf8ff65a3d8c43f" data-api-host="http://localhost:3001" data-chat-host="http://localhost:5173"></script>
+<!-- BabyCare chatbot widget -->
+<script async src="http://localhost:3001/static/widget.js" data-bot-id="6a622d7ce64d969b51f79631" data-api-host="http://localhost:3001" data-chat-host="http://localhost:5173"></script>
+
+<!-- ================================================================
+  Webotme Widget Custom CSS
+  Is block me CSS likh kar apne widget ko apne hisab se position,
+  size aur style dein — ye styles automatic apply ho jayengi.
+
+  Selectors:
+    #rover-chatbot-bubble  → launcher button / icon
+    #rover-chatbot-frame   → chat panel
+
+  Optionally you can override from the script tag itself:
+  data-widget-position="top-left"  data-widget-open-mode="sidebar"
+  data-widget-width="480"          data-widget-height="640"
+  data-widget-launcher="button"    data-widget-launcher-text="Chat with us"
+================================================================= -->
+<style data-rover-custom-css="true">
+  /* Apni CSS yahan lagayen — e.g. widget ko upar le jayen ya bada karen */
+  /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
+  /* #rover-chatbot-frame { width: 480px; height: 640px; } */
+  /* -- saved custom CSS will appear here -- */
+</style>
   </html>

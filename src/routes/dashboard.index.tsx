@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bot, Code2, LayoutTemplate, MessageSquareText, TrendingUp, Activity, Sparkles, DollarSign } from "lucide-react";
 import { motion } from "motion/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/format";
 import { getStoredUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/")({
-  head: () => ({ meta: [{ title: "Overview — Rover" }] }),
+  head: () => ({ meta: [{ title: "Overview — Webotme" }] }),
   component: Overview,
 });
 

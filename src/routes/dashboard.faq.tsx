@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/faq")({
-  head: () => ({ meta: [{ title: "FAQ Manager — Rover" }] }),
+  head: () => ({ meta: [{ title: "FAQ Manager — Webotme" }] }),
   component: FaqPage,
 });
 

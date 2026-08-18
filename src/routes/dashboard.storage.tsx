@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   HardDrive, Database, TrendingUp, Shield, ArrowUpCircle,
@@ -9,7 +9,7 @@ import { PageTransition } from "@/components/common/PageTransition";
 import { clearAuth, getAuthHeaders } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/storage")({
-  head: () => ({ meta: [{ title: "Storage — Rover" }] }),
+  head: () => ({ meta: [{ title: "Storage — Webotme" }] }),
   component: StoragePage,
 });
 

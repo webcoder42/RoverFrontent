@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { CreditCard, ExternalLink, Loader2, Unplug, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -61,7 +61,7 @@ export function StripeConnectCard({ compact = false, onStatusChange, className }
   };
 
   const handleDisconnect = async () => {
-    if (!window.confirm("Disconnect Stripe from Rover? Online payments will stop until you connect again.")) {
+    if (!window.confirm("Disconnect Stripe from Webotme? Online payments will stop until you connect again.")) {
       return;
     }
 

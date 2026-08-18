@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { Bot, Lock, Mail, Sparkles, User as UserIcon, ArrowRight, Check, ChevronLeft, Loader2 } from "lucide-react";
 import logo from "@/asset/logo.png";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Rover — Premium AI Chatbot Console" },
+      { title: "Webotme — Premium AI Chatbot Console" },
       { name: "description", content: "Sign in to manage AI chatbots, FAQs, templates, and embed scripts." },
     ],
   }),
@@ -275,7 +275,7 @@ function LoginPage() {
           <div className="relative hidden flex-col justify-between overflow-hidden rounded-3xl bg-gradient-primary p-10 text-primary-foreground shadow-glow md:flex">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold opacity-90">
-                <img src={logo} alt="Rover" className="h-6 w-6 rounded object-cover" /> Console
+                <img src={logo} alt="Webotme" className="h-10 w-10 shrink-0 rounded object-cover" /> Console
               </div>
               <h1 className="mt-8 text-4xl font-bold leading-tight tracking-tight">
                 Launch beautiful AI chatbots in minutes.
@@ -314,7 +314,7 @@ function LoginPage() {
               <div>
                 <div className="text-base font-bold">{isLogin ? "Welcome back" : "Create an account"}</div>
                 <div className="text-xs text-muted-foreground">
-                  {isLogin ? "Sign in to your Rover console" : "Get started with Rover"}
+                  {isLogin ? "Sign in to your Webotme console" : "Get started with Webotme"}
                 </div>
               </div>
             </div>
@@ -390,7 +390,7 @@ function LoginPage() {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            placeholder="roveradmin"
+                            placeholder="Webotmeadmin"
                           />
                         </div>
                       </label>
@@ -431,7 +431,7 @@ function LoginPage() {
                   {step === 2 && (
                     <div className="space-y-4">
                       <div>
-                        <div className="text-sm font-semibold">What will you use Rover for?</div>
+                        <div className="text-sm font-semibold">What will you use Webotme for?</div>
                         <p className="text-xs text-muted-foreground">Select all that apply</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">

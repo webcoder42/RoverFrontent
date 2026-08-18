@@ -1,11 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, Loader2, Code, Copy, Check, ExternalLink, X } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { clearAuth, getAuthHeaders, getStoredUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/inbox")({
-  head: () => ({ meta: [{ title: "Installer — Rover" }] }),
+  head: () => ({ meta: [{ title: "Installer — Webotme" }] }),
   component: InboxPage,
 });
 

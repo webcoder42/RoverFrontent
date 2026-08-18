@@ -28,6 +28,15 @@ interface Draft {
   inputStyle: "rounded" | "pill" | "minimal";
   headerSubtitle: string;
   textStyle: "default" | "bold" | "italic" | "romantic" | "playful" | "elegant";
+  widgetLauncher: "icon" | "button";
+  widgetLauncherText: string;
+  widgetLauncherStyle: "rounded" | "square" | "soft" | "pill";
+  widgetPosition: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  widgetOpenMode: "overlay" | "sidebar" | "fullscreen" | "newtab";
+  widgetWidth: number;
+  widgetHeight: number;
+  widgetSmartPosition: boolean;
+  widgetCustomCss: string;
   collectionDb: string;
   collectionUsername: string;
   collectionPassword: string;
@@ -97,6 +106,15 @@ const initial = {
   inputStyle: "rounded" as const,
   headerSubtitle: "Online",
   textStyle: "default" as const,
+  widgetLauncher: "icon" as const,
+  widgetLauncherText: "Chat with us",
+  widgetLauncherStyle: "rounded" as const,
+  widgetPosition: "bottom-right" as const,
+  widgetOpenMode: "overlay" as const,
+  widgetWidth: 400,
+  widgetHeight: 540,
+  widgetSmartPosition: true,
+  widgetCustomCss: "",
   collectionDb: "",
   collectionUsername: "",
   collectionPassword: "",

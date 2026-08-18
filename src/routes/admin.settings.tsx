@@ -1,9 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { PageTransition } from "@/components/common/PageTransition";
 import { Settings } from "lucide-react";
 
 export const Route = createFileRoute("/admin/settings")({
-  head: () => ({ meta: [{ title: "Admin Settings — Rover" }] }),
+  head: () => ({ meta: [{ title: "Admin Settings — Webotme" }] }),
   component: AdminSettings,
 });
 

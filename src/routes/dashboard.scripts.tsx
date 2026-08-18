@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -58,7 +58,7 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/dashboard/scripts")({
-  head: () => ({ meta: [{ title: "Generated Scripts — Rover" }] }),
+  head: () => ({ meta: [{ title: "Generated Scripts — Webotme" }] }),
   component: ScriptsPage,
 });
 
@@ -124,6 +124,15 @@ type EditDraft = {
   messageFontSize: "sm" | "md" | "lg";
   inputStyle: "rounded" | "pill" | "minimal";
   headerSubtitle: string;
+  widgetLauncher: "icon" | "button";
+  widgetLauncherText: string;
+  widgetLauncherStyle: "rounded" | "square" | "soft" | "pill";
+  widgetPosition: "bottom-right" | "bottom-left" | "top-right" | "top-left";
+  widgetOpenMode: "overlay" | "sidebar" | "fullscreen" | "newtab";
+  widgetWidth: number;
+  widgetHeight: number;
+  widgetSmartPosition: boolean;
+  widgetCustomCss: string;
   knowledgeFiles: Array<{ name: string; content: string; url?: string }>;
   knowledgeBase: Array<{ name: string; content: string; url?: string }>;
   trainingKnowledge: Array<{ name: string; content: string; url?: string }>;
@@ -191,6 +200,15 @@ const emptyDraft: EditDraft = {
   messageFontSize: "md",
   inputStyle: "rounded",
   headerSubtitle: "Online",
+  widgetLauncher: "icon",
+  widgetLauncherText: "Chat with us",
+  widgetLauncherStyle: "rounded",
+  widgetPosition: "bottom-right",
+  widgetOpenMode: "overlay",
+  widgetWidth: 400,
+  widgetHeight: 540,
+  widgetSmartPosition: true,
+  widgetCustomCss: "",
   knowledgeFiles: [],
   knowledgeBase: [],
   trainingKnowledge: [],
@@ -277,6 +295,7 @@ const mapChatbot = (cb: any): Chatbot => {
   const agency = cb.agency || {};
   const dbCol = cb.dbCollection || {};
   const prodCol = cb.productCollection || {};
+  const widget = cb.widget || {};
   return {
     id: cb._id,
     type: cb.type || "simple",
@@ -322,6 +341,15 @@ const mapChatbot = (cb: any): Chatbot => {
     messageFontSize: theme.messageFontSize || cb.messageFontSize || "md",
     inputStyle: theme.inputStyle || cb.inputStyle || "rounded",
     headerSubtitle: theme.headerSubtitle || cb.headerSubtitle || "Online",
+    widgetLauncher: widget.launcher ?? cb.widgetLauncher ?? "icon",
+    widgetLauncherText: widget.launcherText ?? cb.widgetLauncherText ?? "Chat with us",
+    widgetLauncherStyle: widget.launcherStyle ?? cb.widgetLauncherStyle ?? "rounded",
+    widgetPosition: widget.position ?? cb.widgetPosition ?? "bottom-right",
+    widgetOpenMode: widget.openMode ?? cb.widgetOpenMode ?? "overlay",
+    widgetWidth: widget.width ?? cb.widgetWidth ?? 400,
+    widgetHeight: widget.height ?? cb.widgetHeight ?? 540,
+    widgetSmartPosition: widget.smartPosition ?? cb.widgetSmartPosition ?? true,
+    widgetCustomCss: widget.customCss ?? cb.widgetCustomCss ?? "",
     knowledgeFiles: knowledge.files ?? cb.knowledgeFiles ?? [],
     knowledgeBase: knowledge.knowledgeBase ?? cb.knowledgeBase ?? [],
     trainingKnowledge: knowledge.trainingKnowledge ?? cb.trainingKnowledge ?? [],
@@ -384,6 +412,7 @@ function ScriptsPage() {
   const [filter, setFilter] = useState<string>("all");
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [genStage, setGenStage] = useState<Record<string, string>>({});
+  const [cssOpen, setCssOpen] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<Chatbot | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Chatbot | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -511,6 +540,52 @@ function ScriptsPage() {
 
   const templateOptions = ["all", ...Array.from(new Set(chatbots.map((b) => b.template)))];
 
+  const buildEmbedScript = (botId: string, botName: string, opts?: Partial<Pick<Chatbot, "widgetLauncher" | "widgetLauncherText" | "widgetLauncherStyle" | "widgetPosition" | "widgetOpenMode" | "widgetWidth" | "widgetHeight" | "widgetSmartPosition" | "widgetCustomCss">>) => {
+    const launcher = opts?.widgetLauncher || "icon";
+    const launcherText = opts?.widgetLauncherText || "Chat with us";
+    const launcherStyle = opts?.widgetLauncherStyle || "rounded";
+    const position = opts?.widgetPosition || "bottom-right";
+    const openMode = opts?.widgetOpenMode || "overlay";
+    const width = opts?.widgetWidth || 400;
+    const height = opts?.widgetHeight || 540;
+    const smartPosition = opts?.widgetSmartPosition ?? true;
+    const customCss = opts?.widgetCustomCss || "";
+
+    return `<!-- ${botName} chatbot widget -->
+<script async src="${getWidgetScriptUrl()}" data-bot-id="${botId}" data-api-host="${config.apiBaseUrl}" data-chat-host="${config.chatBaseUrl}"></script>
+
+<!-- ================================================================
+  Webotme Widget Custom CSS
+  Is block me CSS likh kar apne widget ko apne hisab se position,
+  size aur style dein — ye styles automatic apply ho jayengi.
+
+  Selectors:
+    #rover-chatbot-bubble  → launcher button / icon
+    #rover-chatbot-frame   → chat panel
+
+  Optionally you can override from the script tag itself:
+  data-widget-position="top-left"  data-widget-open-mode="sidebar"
+  data-widget-width="480"          data-widget-height="640"
+  data-widget-launcher="button"    data-widget-launcher-text="Chat with us"
+  data-widget-launcher-style="pill"
+================================================================= -->
+<style data-rover-custom-css="true">
+  /* Apni CSS yahan lagayen — e.g. widget ko upar le jayen ya bada karen */
+  /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
+  /* #rover-chatbot-frame { width: 480px; height: 640px; } */
+${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- saved custom CSS will appear here -- */"}
+</style>`;
+  };
+
+  const splitEmbedScript = (script: string) => {
+    const marker = "Webotme Widget Custom CSS";
+    const idx = script.indexOf(marker);
+    if (idx === -1) return { tag: script, css: "" };
+    const tag = script.slice(0, script.lastIndexOf("<!--", idx)).replace(/\n+$/, "");
+    const css = script.slice(script.lastIndexOf("<!--", idx));
+    return { tag, css };
+  };
+
   const handleGenerate = async (botId: string, botName: string) => {
     setGenerating((prev) => ({ ...prev, [botId]: true }));
     setGenStage((prev) => ({ ...prev, [botId]: "Packaging UI components..." }));
@@ -518,7 +593,8 @@ function ScriptsPage() {
     setGenStage((prev) => ({ ...prev, [botId]: "Saving script..." }));
     await new Promise((r) => setTimeout(r, 400));
 
-    const scriptText = `<!-- ${botName} chatbot widget -->\n<script async src="${getWidgetScriptUrl()}" data-bot-id="${botId}" data-api-host="${config.apiBaseUrl}" data-chat-host="${config.chatBaseUrl}"></script>`;
+    const currentBot = chatbots.find((cb) => cb.id === botId);
+    const scriptText = buildEmbedScript(botId, botName, currentBot || undefined);
 
     try {
       const res = await fetch(`/api/chatbot/${botId}`, {
@@ -558,7 +634,17 @@ function ScriptsPage() {
       let scriptText = data.embedScript || "";
 
       if (!scriptText && botId) {
-        scriptText = `<!-- ${data.chatbot.name} chatbot widget -->\n<script async src="${getWidgetScriptUrl()}" data-bot-id="${botId}" data-api-host="${config.apiBaseUrl}" data-chat-host="${config.chatBaseUrl}"></script>`;
+        scriptText = buildEmbedScript(botId, data.chatbot.name, {
+          widgetLauncher: data.chatbot.widget?.launcher,
+          widgetLauncherText: data.chatbot.widget?.launcherText,
+          widgetLauncherStyle: data.chatbot.widget?.launcherStyle,
+          widgetPosition: data.chatbot.widget?.position,
+          widgetOpenMode: data.chatbot.widget?.openMode,
+          widgetWidth: data.chatbot.widget?.width,
+          widgetHeight: data.chatbot.widget?.height,
+          widgetSmartPosition: data.chatbot.widget?.smartPosition,
+          widgetCustomCss: data.chatbot.widget?.customCss,
+        });
         await fetch(`/api/chatbot/${botId}`, {
           method: "PUT",
           headers: getAuthHeaders(),
@@ -676,6 +762,14 @@ function ScriptsPage() {
       messageFontSize: bot.messageFontSize || "md",
       inputStyle: bot.inputStyle || "rounded",
       headerSubtitle: bot.headerSubtitle || "Online",
+      widgetLauncher: bot.widgetLauncher ?? "icon",
+      widgetLauncherText: bot.widgetLauncherText ?? "Chat with us",
+      widgetPosition: bot.widgetPosition ?? "bottom-right",
+      widgetOpenMode: bot.widgetOpenMode ?? "overlay",
+      widgetWidth: bot.widgetWidth ?? 400,
+      widgetHeight: bot.widgetHeight ?? 540,
+      widgetSmartPosition: bot.widgetSmartPosition ?? true,
+      widgetCustomCss: bot.widgetCustomCss ?? "",
       knowledgeFiles: bot.knowledgeFiles ?? [],
       knowledgeBase: bot.knowledgeBase ?? [],
       trainingKnowledge: bot.trainingKnowledge ?? [],
@@ -1008,6 +1102,17 @@ function ScriptsPage() {
           inputStyle: draft.inputStyle,
           headerSubtitle: draft.headerSubtitle,
         },
+        widget: {
+          launcher: draft.widgetLauncher,
+          launcherText: draft.widgetLauncherText,
+          launcherStyle: draft.widgetLauncherStyle,
+          position: draft.widgetPosition,
+          openMode: draft.widgetOpenMode,
+          width: draft.widgetWidth,
+          height: draft.widgetHeight,
+          smartPosition: draft.widgetSmartPosition,
+          customCss: draft.widgetCustomCss,
+        },
         knowledge: { files: draft.knowledgeFiles, knowledgeBase: draft.knowledgeBase, trainingKnowledge: draft.trainingKnowledge, trainingSheet: draft.trainingSheet, extractedServices: draft.extractedServices, trainingSheetServices: draft.trainingSheetServices, trainingFlow: draft.trainingFlow },
       };
 
@@ -1227,8 +1332,24 @@ function ScriptsPage() {
                                 <Code2 className="h-3 w-3" /> embed
                               </div>
                               <pre className="mt-1 overflow-x-auto whitespace-pre-wrap">
-                                {b.embedScript}
+                                {splitEmbedScript(b.embedScript || "").tag}
                               </pre>
+                              {splitEmbedScript(b.embedScript || "").css && (
+                                <>
+                                  <button
+                                    onClick={() => setCssOpen((prev) => ({ ...prev, [b.id]: !prev[b.id] }))}
+                                    className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  >
+                                    <ChevronDown className={`h-3 w-3 transition-transform ${cssOpen[b.id] ? "rotate-180" : ""}`} />
+                                    {cssOpen[b.id] ? "Hide CSS" : "CSS (customize)"}
+                                  </button>
+                                  {cssOpen[b.id] && (
+                                    <pre className="mt-1.5 max-h-28 overflow-y-auto overflow-x-auto whitespace-pre-wrap border-t border-border/60 pt-1.5">
+                                      {splitEmbedScript(b.embedScript || "").css}
+                                    </pre>
+                                  )}
+                                </>
+                              )}
                             </motion.div>
                           ) : (
                             <motion.div
@@ -1419,6 +1540,13 @@ function ScriptsPage() {
                 messageFontSize={preview.messageFontSize}
                 inputStyle={preview.inputStyle}
                 headerSubtitle={preview.headerSubtitle}
+                widgetLauncher={preview.widgetLauncher}
+                widgetLauncherText={preview.widgetLauncherText}
+                widgetLauncherStyle={preview.widgetLauncherStyle}
+                widgetPosition={preview.widgetPosition}
+                widgetOpenMode={preview.widgetOpenMode}
+                widgetWidth={preview.widgetWidth}
+                widgetHeight={preview.widgetHeight}
               />
             </div>
           )}
@@ -1533,6 +1661,67 @@ function ScriptsPage() {
                           <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])} />
                         </label>
                       </div>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Launcher button
+                      </label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {([
+                          { v: "icon" as const, l: "Icon", d: "Logo icon" },
+                          { v: "button" as const, l: "Button", d: "Text button" },
+                        ]).map((s) => (
+                          <button
+                            key={s.v}
+                            type="button"
+                            onClick={() => setDraft((p) => ({ ...p, widgetLauncher: s.v }))}
+                            className={`flex-1 min-w-[120px] rounded-xl border px-3 py-2.5 text-left transition ${draft.widgetLauncher === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                          >
+                            <span className="block text-xs font-semibold">{s.l}</span>
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {draft.widgetLauncher === "button" && (
+                        <div className="mt-3 space-y-3">
+                          <input
+                            value={draft.widgetLauncherText}
+                            onChange={(e) => setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))}
+                            className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            placeholder="Chat with us"
+                          />
+                          <div className="grid grid-cols-4 gap-2">
+                            {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => setDraft((p) => ({ ...p, widgetLauncherStyle: st }))}
+                                className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-3">
+                            <div
+                              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all"
+                              style={{
+                                background: `linear-gradient(135deg, ${draft.primary || "#7c3aed"}, ${draft.secondary || "#db2777"})`,
+                                borderRadius:
+                                  draft.widgetLauncherStyle === "pill"
+                                    ? 999
+                                    : draft.widgetLauncherStyle === "square"
+                                      ? 6
+                                      : draft.widgetLauncherStyle === "soft"
+                                        ? 18
+                                        : 12,
+                              }}
+                            >
+                              {draft.widgetLauncherText || "Chat with us"}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -3267,6 +3456,177 @@ function ScriptsPage() {
                     </div>
                   </div>
                 </details>
+                <details className="group">
+                  <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                    <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
+                    Widget Behaviour (launcher, position, open mode)
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Launcher style
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { v: "icon" as const, l: "Icon only" },
+                          { v: "button" as const, l: "Text button" },
+                        ].map((s) => (
+                          <button
+                            key={s.v}
+                            type="button"
+                            onClick={() => setDraft((p) => ({ ...p, widgetLauncher: s.v }))}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.widgetLauncher === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                          >
+                            {s.l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {draft.widgetLauncher === "button" && (
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                          Button text
+                        </label>
+                        <input
+                          value={draft.widgetLauncherText}
+                          onChange={(e) =>
+                            setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))
+                          }
+                          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder="Chat with us"
+                        />
+                        <div className="mt-3">
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Button style
+                          </label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => setDraft((p) => ({ ...p, widgetLauncherStyle: st }))}
+                                className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-4">
+                          <div
+                            className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all"
+                            style={{
+                              background: `linear-gradient(135deg, ${draft.primaryColor || "#7c3aed"}, ${draft.secondaryColor || "#db2777"})`,
+                              borderRadius:
+                                draft.widgetLauncherStyle === "pill"
+                                  ? 999
+                                  : draft.widgetLauncherStyle === "square"
+                                    ? 6
+                                    : draft.widgetLauncherStyle === "soft"
+                                      ? 18
+                                      : 12,
+                            }}
+                          >
+                            {draft.widgetLauncherText || "Chat with us"}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Launcher position
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["bottom-right", "bottom-left", "top-right", "top-left"] as const).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setDraft((d) => ({ ...d, widgetPosition: p }))}
+                            className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${draft.widgetPosition === p ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                          >
+                            {p.replace("-", " ")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Open mode
+                      </label>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {[
+                          { v: "overlay" as const, l: "Popup window", d: "Floats over the page" },
+                          { v: "sidebar" as const, l: "Side panel", d: "Page shrinks, panel slides from side" },
+                          { v: "fullscreen" as const, l: "Fullscreen", d: "Covers the whole screen" },
+                          { v: "newtab" as const, l: "New tab", d: "Opens chat in a new tab" },
+                        ].map((s) => (
+                          <button
+                            key={s.v}
+                            type="button"
+                            onClick={() => setDraft((p) => ({ ...p, widgetOpenMode: s.v }))}
+                            className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${draft.widgetOpenMode === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                          >
+                            <span className="block font-semibold">{s.l}</span>
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={draft.widgetSmartPosition}
+                        onChange={(e) => setDraft((p) => ({ ...p, widgetSmartPosition: e.target.checked }))}
+                        className="rounded border-border"
+                      />
+                      Smart opening direction (panel opens towards the free space automatically)
+                    </label>
+                    {draft.widgetOpenMode === "overlay" && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Panel width — {draft.widgetWidth}px
+                          </label>
+                          <input
+                            type="range"
+                            min={280}
+                            max={700}
+                            value={draft.widgetWidth}
+                            onChange={(e) => setDraft((p) => ({ ...p, widgetWidth: Number(e.target.value) }))}
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Panel height — {draft.widgetHeight}px
+                          </label>
+                          <input
+                            type="range"
+                            min={360}
+                            max={900}
+                            value={draft.widgetHeight}
+                            onChange={(e) => setDraft((p) => ({ ...p, widgetHeight: Number(e.target.value) }))}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Custom CSS (advanced)
+                      </label>
+                      <textarea
+                        value={draft.widgetCustomCss}
+                        onChange={(e) => setDraft((p) => ({ ...p, widgetCustomCss: e.target.value }))}
+                        className="min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder={"/** Move / resize the widget from your site **/\n#rover-chatbot-frame { width: 480px; height: 640px; }\n#rover-chatbot-bubble { bottom: 80px; right: 40px; }"}
+                      />
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        These styles are injected with the widget script — no extra CSS needed on your site.
+                      </p>
+                    </div>
+                  </div>
+                </details>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
                     Description
@@ -3626,6 +3986,13 @@ function ScriptsPage() {
                   trainingSheetServices={draft.trainingSheetServices}
                   currency={draft.currency}
                   currencySymbol={draft.currencySymbol}
+                  widgetLauncher={draft.widgetLauncher}
+                  widgetLauncherText={draft.widgetLauncherText}
+                  widgetLauncherStyle={draft.widgetLauncherStyle}
+                  widgetPosition={draft.widgetPosition}
+                  widgetOpenMode={draft.widgetOpenMode}
+                  widgetWidth={draft.widgetWidth}
+                  widgetHeight={draft.widgetHeight}
                 />
               </div>
             </div>

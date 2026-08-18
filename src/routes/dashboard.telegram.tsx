@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Send, Bot, MessageCircle, Sparkles } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
@@ -7,7 +7,7 @@ import { MyBots, type ConnectedBot } from "@/components/telegram/MyBots";
 import { getStoredUser, getAuthHeaders } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/telegram")({
-  head: () => ({ meta: [{ title: "Telegram Bot — Rover" }] }),
+  head: () => ({ meta: [{ title: "Telegram Bot — Webotme" }] }),
   component: TelegramBotPage,
 });
 
@@ -67,7 +67,7 @@ function TelegramBotPage() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Telegram Bot</h1>
         </div>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Connect your Telegram bot token — Rover verifies it, sets up the webhook and routes every
+          Connect your Telegram bot token — Webotme verifies it, sets up the webhook and routes every
           incoming message through your AI chatbot.
         </p>
       </div>

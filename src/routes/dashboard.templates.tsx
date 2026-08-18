@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
@@ -6,7 +6,7 @@ import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import type { Template } from "@/store/chatbots";
 
 export const Route = createFileRoute("/dashboard/templates")({
-  head: () => ({ meta: [{ title: "Templates — Rover" }] }),
+  head: () => ({ meta: [{ title: "Templates — Webotme" }] }),
   component: TemplatesPage,
 });
 

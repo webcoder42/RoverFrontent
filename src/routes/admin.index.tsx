@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
@@ -8,7 +8,7 @@ import { AnimatedCounter } from "@/components/common/AnimatedCounter";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/")({
-  head: () => ({ meta: [{ title: "Admin Dashboard — Rover" }] }),
+  head: () => ({ meta: [{ title: "Admin Dashboard — Webotme" }] }),
   component: AdminDashboard,
 });
 

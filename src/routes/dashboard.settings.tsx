@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Bell, Mail, Save, User } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/settings")({
-  head: () => ({ meta: [{ title: "Settings — Rover" }] }),
+  head: () => ({ meta: [{ title: "Settings — Webotme" }] }),
   component: SettingsPage,
 });
 

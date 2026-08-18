@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Check, ChevronLeft, ChevronRight, Eye, FileText, Upload, Sun, Moon, Sparkles, Trash2, Database, Loader2, MessageSquareText, Building2, EyeIcon, Pencil, Save, ShoppingCart, Plane, Heart, BookOpen, Building, UtensilsCrossed, Scissors, Truck, Landmark, Car, Scale, Film, Settings, Mail } from "lucide-react";
@@ -11,7 +11,7 @@ import { useChatbotsStore, type Template } from "@/store/chatbots";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/create")({
-  head: () => ({ meta: [{ title: "Create Chatbot — Rover" }] }),
+  head: () => ({ meta: [{ title: "Create Chatbot — Webotme" }] }),
   component: CreateBot,
 });
 
@@ -568,6 +568,17 @@ function CreateBot() {
           inputStyle: draft.inputStyle,
           headerSubtitle: draft.headerSubtitle,
         },
+        widget: {
+          launcher: draft.widgetLauncher,
+          launcherText: draft.widgetLauncherText,
+          launcherStyle: draft.widgetLauncherStyle,
+          position: draft.widgetPosition,
+          openMode: draft.widgetOpenMode,
+          width: draft.widgetWidth,
+          height: draft.widgetHeight,
+          smartPosition: draft.widgetSmartPosition,
+          customCss: draft.widgetCustomCss,
+        },
         ai: {
           provider: 'groq',
           model: 'llama-3.1-8b-instant',
@@ -871,7 +882,7 @@ function CreateBot() {
                               : "border-border/60 hover:border-primary/40 bg-card"
                           }`}
                         >
-                          No, I'll use Rover's built-in
+                          No, I'll use Webotme's built-in
                         </button>
                       </div>
                     </div>
@@ -921,6 +932,53 @@ function CreateBot() {
                     </div>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])} />
                   </label>
+                </div>
+              </Field>
+              <Field label="Launcher button">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {([
+                      { v: "icon" as const, l: "Icon", d: "Logo icon" },
+                      { v: "button" as const, l: "Button", d: "Text button" },
+                    ]).map((s) => (
+                      <button key={s.v} type="button" onClick={() => draft.set({ widgetLauncher: s.v })}
+                        className={`flex-1 min-w-[120px] rounded-xl border px-3 py-2.5 text-left transition ${draft.widgetLauncher === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}>
+                        <span className="block text-xs font-semibold">{s.l}</span>
+                        <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {draft.widgetLauncher === "button" && (
+                    <>
+                      <input value={draft.widgetLauncherText} onChange={(e) => draft.set({ widgetLauncherText: e.target.value })} className="input" placeholder="Chat with us" />
+                      <div className="grid grid-cols-4 gap-2">
+                        {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                          <button key={st} type="button" onClick={() => draft.set({ widgetLauncherStyle: st })}
+                            className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}>
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-3">
+                        <div
+                          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all"
+                          style={{
+                            background: `linear-gradient(135deg, ${draft.primary || "#7c3aed"}, ${draft.secondary || "#db2777"})`,
+                            borderRadius:
+                              draft.widgetLauncherStyle === "pill"
+                                ? 999
+                                : draft.widgetLauncherStyle === "square"
+                                  ? 6
+                                  : draft.widgetLauncherStyle === "soft"
+                                    ? 18
+                                    : 12,
+                          }}
+                        >
+                          {draft.widgetLauncherText || "Chat with us"}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Field>
             </div>
@@ -1086,6 +1144,101 @@ function CreateBot() {
                     <input type="checkbox" checked={draft.showAvatar} onChange={(e) => draft.set({ showAvatar: e.target.checked })} className="rounded border-border" />
                     Show bot avatar in messages
                   </label>
+                </div>
+              </details>
+
+              <details className="rounded-2xl border border-border/70 bg-muted/30 p-4" open>
+                <summary className="cursor-pointer text-sm font-semibold flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-primary" />
+                  Widget Behaviour <span className="text-xs text-muted-foreground font-normal">(launcher, position, open mode)</span>
+                </summary>
+                <div className="mt-4 space-y-4">
+                  <Field label="Launcher style">
+                    <div className="inline-flex rounded-xl border border-border bg-card p-1">
+                      {([{ v: "icon", l: "Icon only", d: "Floating round icon" }, { v: "button", l: "Text button", d: "Button with label text" }] as const).map((s) => (
+                        <button key={s.v} onClick={() => draft.set({ widgetLauncher: s.v })}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.widgetLauncher === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                          {s.l}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  {draft.widgetLauncher === "button" && (
+                    <>
+                      <Field label="Button text">
+                        <input value={draft.widgetLauncherText} onChange={(e) => draft.set({ widgetLauncherText: e.target.value })} className="input" placeholder="Chat with us" />
+                      </Field>
+                      <Field label="Button style">
+                        <div className="grid grid-cols-4 gap-2">
+                          {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                            <button key={st} onClick={() => draft.set({ widgetLauncherStyle: st })}
+                              className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}>
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                      <div className="flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-4">
+                        <div
+                          className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all"
+                          style={{
+                            background: `linear-gradient(135deg, ${draft.primary || "#7c3aed"}, ${draft.secondary || "#db2777"})`,
+                            borderRadius:
+                              draft.widgetLauncherStyle === "pill"
+                                ? 999
+                                : draft.widgetLauncherStyle === "square"
+                                  ? 6
+                                  : draft.widgetLauncherStyle === "soft"
+                                    ? 18
+                                    : 12,
+                          }}
+                        >
+                          {draft.widgetLauncherText || "Chat with us"}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <Field label="Launcher position">
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["bottom-right", "bottom-left", "top-right", "top-left"] as const).map((p) => (
+                        <button key={p} onClick={() => draft.set({ widgetPosition: p })}
+                          className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${draft.widgetPosition === p ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}>
+                          {p.replace("-", " ")}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Open mode">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {([{ v: "overlay", l: "Popup window", d: "Floats over the page (like now)" }, { v: "sidebar", l: "Side panel", d: "Page shrinks, panel slides from the side" }, { v: "fullscreen", l: "Fullscreen", d: "Covers the whole screen" }, { v: "newtab", l: "New tab", d: "Opens the chat in a new tab" }] as const).map((s) => (
+                        <button key={s.v} onClick={() => draft.set({ widgetOpenMode: s.v })}
+                          className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${draft.widgetOpenMode === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}>
+                          <span className="block font-semibold">{s.l}</span>
+                          <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={draft.widgetSmartPosition} onChange={(e) => draft.set({ widgetSmartPosition: e.target.checked })} className="rounded border-border" />
+                    Smart opening direction (panel opens towards the free space automatically)
+                  </label>
+                  {draft.widgetOpenMode === "overlay" && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label={`Panel width — ${draft.widgetWidth}px`}>
+                        <input type="range" min={280} max={700} value={draft.widgetWidth} onChange={(e) => draft.set({ widgetWidth: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
+                      </Field>
+                      <Field label={`Panel height — ${draft.widgetHeight}px`}>
+                        <input type="range" min={360} max={900} value={draft.widgetHeight} onChange={(e) => draft.set({ widgetHeight: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
+                      </Field>
+                    </div>
+                  )}
+                  <Field label="Custom CSS (advanced)">
+                    <textarea value={draft.widgetCustomCss} onChange={(e) => draft.set({ widgetCustomCss: e.target.value })}
+                      className="input min-h-20 font-mono text-xs"
+                      placeholder="/* e.g. move or resize the widget from your site */&#10;#rover-chatbot-frame { width: 480px; height: 640px; }&#10;#rover-chatbot-bubble { bottom: 80px; right: 40px; }" />
+                    <p className="mt-1 text-[10px] text-muted-foreground">These styles are injected with the widget script — no extra CSS needed on your site.</p>
+                  </Field>
                 </div>
               </details>
             </div>
@@ -2027,6 +2180,13 @@ function CreateBot() {
                 inputStyle={draft.inputStyle}
                 headerSubtitle={draft.headerSubtitle}
                 textStyle={draft.textStyle}
+                widgetLauncher={draft.widgetLauncher}
+                widgetLauncherText={draft.widgetLauncherText}
+                widgetLauncherStyle={draft.widgetLauncherStyle}
+                widgetPosition={draft.widgetPosition}
+                widgetOpenMode={draft.widgetOpenMode}
+                widgetWidth={draft.widgetWidth}
+                widgetHeight={draft.widgetHeight}
               />
             </div>
           </div>
@@ -2065,6 +2225,13 @@ function CreateBot() {
                     inputStyle={draft.inputStyle}
                     headerSubtitle={draft.headerSubtitle}
                     textStyle={draft.textStyle}
+                    widgetLauncher={draft.widgetLauncher}
+                    widgetLauncherText={draft.widgetLauncherText}
+                    widgetLauncherStyle={draft.widgetLauncherStyle}
+                    widgetPosition={draft.widgetPosition}
+                    widgetOpenMode={draft.widgetOpenMode}
+                    widgetWidth={draft.widgetWidth}
+                    widgetHeight={draft.widgetHeight}
                   />
                   {/* Drag-drop overlay zones */}
                   <div className="absolute inset-0 pointer-events-none">
