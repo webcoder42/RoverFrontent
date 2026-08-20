@@ -330,28 +330,25 @@ function PlansPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      initializePaddleClient(),
-      fetch("/api/paddle/config").then(async (response) => {
-        const data = (await response.json().catch(() => ({}))) as {
-          countryCode?: string;
-          message?: string;
-        };
-        if (!response.ok) {
-          throw new Error(data.message || "Paddle configuration failed");
-        }
-        return data;
-      }),
-    ])
-      .then(([client, config]) => {
-        if (cancelled) return;
-        setPaddle(client);
-        setCountryCode(config.countryCode);
+    initializePaddleClient()
+      .then((client) => {
+        if (!cancelled) setPaddle(client);
       })
       .catch((error) => {
         if (!cancelled)
           setPaddleError(error instanceof Error ? error.message : "Paddle failed to load");
       });
+
+    // Country detection improves localized previews but must not block Paddle prices.
+    fetch("/api/paddle/config")
+      .then(async (response) => {
+        const data = (await response.json().catch(() => ({}))) as {
+          countryCode?: string;
+        };
+        if (!cancelled && response.ok) setCountryCode(data.countryCode);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
