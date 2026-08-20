@@ -1249,7 +1249,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
               <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
                 <Bot className="h-4 w-4" /> Your Chatbots
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((b, i) => {
                   const isGen = generating[b.id];
                   const stage = genStage[b.id] || "";
@@ -1259,7 +1259,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04 }}
-                      className="flex flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
+                      className="flex h-full flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -1326,7 +1326,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                               key="script"
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
-                              className="rounded-xl border border-border/60 bg-muted/40 p-3 font-mono text-[11px] leading-5 text-foreground/80"
+                              className="h-[220px] overflow-y-auto rounded-xl border border-border/60 bg-muted/40 p-3 font-mono text-[11px] leading-5 text-foreground/80"
                             >
                               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                                 <Code2 className="h-3 w-3" /> embed
