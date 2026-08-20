@@ -333,9 +333,14 @@ function PlansPage() {
     Promise.all([
       initializePaddleClient(),
       fetch("/api/paddle/config").then(async (response) => {
-        if (!response.ok)
-          throw new Error((await response.json()).message || "Paddle configuration failed");
-        return response.json() as Promise<{ countryCode?: string }>;
+        const data = (await response.json().catch(() => ({}))) as {
+          countryCode?: string;
+          message?: string;
+        };
+        if (!response.ok) {
+          throw new Error(data.message || "Paddle configuration failed");
+        }
+        return data;
       }),
     ])
       .then(([client, config]) => {
