@@ -10,12 +10,12 @@ export interface Tier {
   priceId: { month: string; year: string };
 }
 
-const paddleEnvironment = import.meta.env.VITE_PADDLE_ENV?.trim();
-const paddleToken = import.meta.env.VITE_PADDLE_CLIENT_TOKEN?.trim();
+const paddleEnvironment = import.meta.env.PADDLE_ENV?.trim();
+const paddleToken = import.meta.env.PADDLE_CLIENT_TOKEN?.trim();
 const priceEnvPrefix = paddleEnvironment === "sandbox" ? "SANDBOX_" : "";
 
 function getPriceEnv(name: string) {
-  return import.meta.env[`VITE_PADDLE_${priceEnvPrefix}PRICE_${name}`]?.trim() || "";
+  return import.meta.env[`PADDLE_${priceEnvPrefix}PRICE_${name}`]?.trim() || "";
 }
 
 export const PADDLE_PRICE_IDS = {
@@ -39,7 +39,7 @@ export const hasYearlyPaddlePrices = Boolean(
 
 export function getPaddleEnvironment(): PaddleEnvironment {
   if (paddleEnvironment !== "live" && paddleEnvironment !== "sandbox") {
-    throw new Error("VITE_PADDLE_ENV must be set to live or sandbox");
+    throw new Error("PADDLE_ENV must be set to live or sandbox");
   }
   return paddleEnvironment;
 }
@@ -61,10 +61,10 @@ export function getPaddlePriceId(planId: string, interval: BillingInterval, plan
 export async function initializePaddleClient(): Promise<Paddle> {
   getPaddleEnvironment();
   if (!paddleToken || (!paddleToken.startsWith("live_") && paddleEnvironment === "live")) {
-    throw new Error("VITE_PADDLE_CLIENT_TOKEN must contain the live_ client token");
+    throw new Error("PADDLE_CLIENT_TOKEN must contain the live_ client token");
   }
   if (!paddleToken) {
-    throw new Error("VITE_PADDLE_CLIENT_TOKEN is not configured");
+    throw new Error("PADDLE_CLIENT_TOKEN is not configured");
   }
 
   const paddle = await initializePaddle({

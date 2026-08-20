@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const apiBaseUrl = env.VITE_API_BASE_URL || "https://rover-uoik.onrender.com";
 
   return {
+    envPrefix: ["VITE_", "PADDLE_"],
     plugins: [
       TanStackRouterVite(),
       react(),
