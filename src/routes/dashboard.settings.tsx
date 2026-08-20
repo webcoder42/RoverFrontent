@@ -1,11 +1,12 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell, Mail, Save, User } from "lucide-react";
+import { Bell, ExternalLink, Mail, Save, User } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
 import { StripeConnectCard } from "@/components/stripe/StripeConnectCard";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { getAuthHeaders } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — Webotme" }] }),
@@ -18,6 +19,7 @@ function SettingsPage() {
 
   const [name, setName] = useState(storedUser?.username || "");
   const [saving, setSaving] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [notif, setNotif] = useState({ product: true, weekly: true, security: false });
 
   useEffect(() => {
@@ -61,6 +63,22 @@ function SettingsPage() {
       toast.error(err.message || "Failed to save changes");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleOpenBilling = async () => {
+    setOpeningPortal(true);
+    try {
+      const response = await fetch("/api/paddle/portal", {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.message || "Unable to open billing portal");
+      window.location.assign(data.url);
+    } catch (error: any) {
+      toast.error(error.message || "Unable to open billing portal");
+      setOpeningPortal(false);
     }
   };
 
@@ -117,6 +135,18 @@ function SettingsPage() {
         </section>
 
         <StripeConnectCard className="lg:col-span-3" />
+
+        <section className="rounded-2xl border border-border/60 bg-card p-6 shadow-soft lg:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold">Paddle billing</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Manage your payment method, subscription, and invoices.</p>
+            </div>
+            <GradientButton onClick={handleOpenBilling} disabled={openingPortal}>
+              <ExternalLink className="h-4 w-4" /> {openingPortal ? "Opening..." : "Manage billing"}
+            </GradientButton>
+          </div>
+        </section>
 
         {/* Right Column */}
         <div className="flex flex-col gap-6">

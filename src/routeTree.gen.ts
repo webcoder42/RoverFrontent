@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -33,6 +34,11 @@ import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlansRoute = PlansRouteImport.update({
   id: '/plans',
   path: '/plans',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/plans': typeof PlansRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/plans': typeof PlansRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/plans': typeof PlansRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/plans'
+    | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
     | '/admin/products'
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/plans'
+    | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
     | '/admin/products'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/plans'
+    | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
     | '/admin/products'
@@ -304,12 +316,20 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRouteWithChildren
   PlansRoute: typeof PlansRoute
+  WelcomeRoute: typeof WelcomeRoute
   CheckoutPlanIdRoute: typeof CheckoutPlanIdRoute
   EmbedIdRoute: typeof EmbedIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plans': {
       id: '/plans'
       path: '/plans'
@@ -531,6 +551,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRouteWithChildren,
   PlansRoute: PlansRoute,
+  WelcomeRoute: WelcomeRoute,
   CheckoutPlanIdRoute: CheckoutPlanIdRoute,
   EmbedIdRoute: EmbedIdRoute,
 }

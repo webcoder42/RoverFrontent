@@ -24,7 +24,13 @@ import {
   Ban,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { isAuthenticated, getStoredToken } from "@/lib/auth";
+import { getStoredUser, isAuthenticated, getStoredToken } from "@/lib/auth";
+import {
+  getPaddlePriceId,
+  hasYearlyPaddlePrices,
+  initializePaddleClient,
+  type BillingInterval,
+} from "@/lib/paddle";
 import { cn } from "@/lib/utils";
 import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs";
 import logo from "@/asset/logo.png";
@@ -154,7 +160,7 @@ function InfoTip({
 const fallbackPlans: Plan[] = [
   {
     _id: "free",
-    name: "Free",
+    name: "Starter",
     price: 0,
     totalChatbots: 1,
     bookingAgency: 0,
@@ -186,7 +192,7 @@ const fallbackPlans: Plan[] = [
   },
   {
     _id: "premium",
-    name: "Premium",
+    name: "Advanced",
     price: 30,
     totalChatbots: 10,
     bookingAgency: 10,
@@ -211,6 +217,13 @@ function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  const [paddle, setPaddle] = useState<Awaited<ReturnType<typeof initializePaddleClient>> | null>(
+    null,
+  );
+  const [countryCode, setCountryCode] = useState<string | undefined>();
+  const [formattedPrices, setFormattedPrices] = useState<Record<string, string>>({});
+  const [paddleError, setPaddleError] = useState<string | null>(null);
 
   const choosePlan = async (plan: Plan) => {
     if (!isAuthenticated()) {
@@ -218,8 +231,30 @@ function PlansPage() {
       return;
     }
 
-    if (plan.price > 0) {
-      navigate({ to: "/checkout/$planId", params: { planId: plan._id } });
+    const paddlePriceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
+    if (paddlePriceId) {
+      try {
+        if (!paddle) throw new Error("Paddle checkout is not ready");
+        const email = getStoredUser()?.email;
+        const userId = getStoredUser()?.id;
+        paddle.Checkout.open({
+          items: [{ priceId: paddlePriceId, quantity: 1 }],
+          ...(typeof email === "string" && email ? { customer: { email } } : {}),
+          settings: {
+            displayMode: "overlay",
+            variant: "one-page",
+            successUrl: `${window.location.origin}/welcome`,
+          },
+          customData: {
+            planId: plan._id,
+            planName: plan.name,
+            billingInterval,
+            ...(typeof userId === "string" && userId ? { userId } : {}),
+          },
+        });
+      } catch (error) {
+        setPaddleError(error instanceof Error ? error.message : "Unable to open Paddle checkout");
+      }
       return;
     }
 
@@ -254,7 +289,15 @@ function PlansPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          setPlans(data);
+          setPlans(
+            data.map((plan: Plan) =>
+              plan.name === "Free"
+                ? { ...plan, name: "Starter" }
+                : plan.name === "Premium" || plan.name === "Prinum"
+                  ? { ...plan, name: "Advanced" }
+                  : plan,
+            ),
+          );
         } else {
           setPlans(fallbackPlans);
         }
@@ -284,6 +327,62 @@ function PlansPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      initializePaddleClient(),
+      fetch("/api/paddle/config").then(async (response) => {
+        if (!response.ok)
+          throw new Error((await response.json()).message || "Paddle configuration failed");
+        return response.json() as Promise<{ countryCode?: string }>;
+      }),
+    ])
+      .then(([client, config]) => {
+        if (cancelled) return;
+        setPaddle(client);
+        setCountryCode(config.countryCode);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setPaddleError(error instanceof Error ? error.message : "Paddle failed to load");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!paddle) return;
+    let cancelled = false;
+    const paidPlans = plans.filter((plan) =>
+      getPaddlePriceId(plan._id, billingInterval, plan.name),
+    );
+    Promise.all(
+      paidPlans.map(async (plan) => {
+        const priceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
+        if (!priceId) return null;
+        const preview = await paddle.PricePreview({
+          items: [{ priceId, quantity: 1 }],
+          ...(countryCode ? { address: { countryCode } } : {}),
+        });
+        return [plan._id, preview.data.details.lineItems[0]?.formattedTotals.total] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!cancelled)
+          setFormattedPrices(Object.fromEntries(entries.filter(Boolean) as [string, string][]));
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setPaddleError(
+            error instanceof Error ? error.message : "Unable to preview Paddle prices",
+          );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [billingInterval, countryCode, paddle, plans]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
@@ -317,6 +416,28 @@ function PlansPage() {
           <p className="mt-3 text-muted-foreground max-w-lg mx-auto">
             Pick the perfect plan for your needs. Upgrade anytime.
           </p>
+          <div className="mx-auto mt-6 inline-flex rounded-xl border border-border/60 bg-card/70 p-1">
+            {(["month", ...(hasYearlyPaddlePrices ? ["year"] : [])] as BillingInterval[]).map(
+              (interval) => (
+                <button
+                  key={interval}
+                  type="button"
+                  onClick={() => setBillingInterval(interval)}
+                  className={cn(
+                    "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+                    billingInterval === interval
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {interval === "month" ? "Monthly" : "Yearly"}
+                </button>
+              ),
+            )}
+          </div>
+          {paddleError && (
+            <p className="mx-auto mt-4 max-w-xl text-sm text-destructive">{paddleError}</p>
+          )}
         </motion.div>
       </div>
 
@@ -355,9 +476,11 @@ function PlansPage() {
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold tracking-tight">${plan.price}</span>
+                    <span className="text-4xl font-extrabold tracking-tight">
+                      {formattedPrices[plan._id] || (plan.price > 0 ? "Loading price…" : "Free")}
+                    </span>
                     <span className="text-sm text-muted-foreground">
-                      {plan.price > 0 ? `/${plan.expiresInDays || 30} days` : "Lifetime"}
+                      {formattedPrices[plan._id] ? `/${billingInterval}` : "Lifetime"}
                     </span>
                   </div>
                 </div>
@@ -464,7 +587,9 @@ function PlansPage() {
                       ) : (
                         <ArrowRight className="h-4 w-4" />
                       )}
-                      {plan.price > 0 ? `Choose ${plan.name}` : `Start ${plan.name}`}
+                      {formattedPrices[plan._id]
+                        ? `Subscribe to ${plan.name}`
+                        : `Start ${plan.name}`}
                     </button>
                   )}
                 </div>

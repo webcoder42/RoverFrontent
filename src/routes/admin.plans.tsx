@@ -44,6 +44,22 @@ interface Plan {
   createdAt: string;
 }
 
+const sandboxCatalogPricing: Record<
+  string,
+  { displayName: string; monthly: number; yearly: number }
+> = {
+  free: { displayName: "Starter", monthly: 0, yearly: 0 },
+  starter: { displayName: "Starter", monthly: 0, yearly: 0 },
+  pro: { displayName: "Pro", monthly: 20, yearly: 200 },
+  premium: { displayName: "Advanced", monthly: 30, yearly: 300 },
+  advanced: { displayName: "Advanced", monthly: 30, yearly: 300 },
+  prinum: { displayName: "Advanced", monthly: 30, yearly: 300 },
+};
+
+function getSandboxCatalogPricing(plan: Plan) {
+  return sandboxCatalogPricing[plan.name.trim().toLowerCase()];
+}
+
 function AdminPlans() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -487,129 +503,148 @@ function AdminPlans() {
               key={plan._id}
               className="group relative rounded-2xl border border-border/60 bg-card p-5 shadow-soft hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-base font-bold">{plan.name}</h3>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold">${plan.price}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {plan.price > 0 ? `/${(plan as any).expiresInDays ?? 30} days` : "Lifetime"}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => handleEdit(plan)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity grid h-8 w-8 place-items-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(plan._id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity grid h-8 w-8 place-items-center rounded-lg border border-border/60 text-muted-foreground hover:bg-red-50 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Bot className="h-4 w-4" />{" "}
-                  <span>
-                    {plan.totalChatbots} chatbot{plan.totalChatbots !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Building2 className="h-4 w-4" />{" "}
-                  <span>
-                    {plan.bookingAgency} booking agenc{plan.bookingAgency !== 1 ? "ies" : "y"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Database className="h-4 w-4" />{" "}
-                  <span>
-                    Database:{" "}
-                    {plan.databaseAccess ? (
-                      <span className="text-emerald-500 flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> {(plan as any).databaseCollections || 0}{" "}
-                        collections
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground flex items-center gap-0.5">
-                        <X className="h-3 w-3" /> Not included
-                      </span>
-                    )}
-                  </span>
-                </div>
-                {plan.databaseAccess && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Globe className="h-4 w-4" />{" "}
-                    <span>API: {(plan as any).apiRequests || "0"}/day</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <HardDrive className="h-4 w-4" />{" "}
-                  <span>{plan.trainingStorage} GB training storage</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Brain className="h-4 w-4" />{" "}
-                  <span>
-                    RAG Model:{" "}
-                    {plan.ragModel ? (
-                      <span className="text-emerald-500 flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> Available
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground flex items-center gap-0.5">
-                        <X className="h-3 w-3" /> Not Available
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Headphones className="h-4 w-4" />{" "}
-                  <span>
-                    Email Support:{" "}
-                    {(plan as any).emailSupport ? (
-                      <span className="text-emerald-500 flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> {(plan as any).emailLimit || 0}/day
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground flex items-center gap-0.5">
-                        <X className="h-3 w-3" /> Not included
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Globe className="h-4 w-4" />{" "}
-                  <span>
-                    Script API:{" "}
-                    {(plan as any).apiAccess ? (
-                      <span className="text-emerald-500 flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> Available
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground flex items-center gap-0.5">
-                        <X className="h-3 w-3" /> Not available
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Citrus className="h-4 w-4" />{" "}
-                  <span>
-                    Lemon Squeezy:{" "}
-                    {plan.lemonSqueezyVariantId ? (
-                      <span className="font-mono text-emerald-500">
-                        #{plan.lemonSqueezyVariantId}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">No variant — PayPal only</span>
-                    )}
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const catalogPricing = getSandboxCatalogPricing(plan);
+                const displayName = catalogPricing?.displayName || plan.name;
+                return (
+                  <>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-base font-bold">{displayName}</h3>
+                        <div className="mt-1 flex items-baseline gap-1">
+                          <span className="text-2xl font-bold">
+                            ${catalogPricing?.monthly ?? plan.price}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {catalogPricing
+                              ? "/month"
+                              : plan.price > 0
+                                ? `/${(plan as any).expiresInDays ?? 30} days`
+                                : "Lifetime"}
+                          </span>
+                        </div>
+                        {catalogPricing && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Yearly: ${catalogPricing.yearly}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(plan)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity grid h-8 w-8 place-items-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(plan._id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity grid h-8 w-8 place-items-center rounded-lg border border-border/60 text-muted-foreground hover:bg-red-50 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Bot className="h-4 w-4" />{" "}
+                        <span>
+                          {plan.totalChatbots} chatbot{plan.totalChatbots !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="h-4 w-4" />{" "}
+                        <span>
+                          {plan.bookingAgency} booking agenc{plan.bookingAgency !== 1 ? "ies" : "y"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Database className="h-4 w-4" />{" "}
+                        <span>
+                          Database:{" "}
+                          {plan.databaseAccess ? (
+                            <span className="text-emerald-500 flex items-center gap-0.5">
+                              <Check className="h-3 w-3" /> {(plan as any).databaseCollections || 0}{" "}
+                              collections
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground flex items-center gap-0.5">
+                              <X className="h-3 w-3" /> Not included
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {plan.databaseAccess && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Globe className="h-4 w-4" />{" "}
+                          <span>API: {(plan as any).apiRequests || "0"}/day</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <HardDrive className="h-4 w-4" />{" "}
+                        <span>{plan.trainingStorage} GB training storage</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Brain className="h-4 w-4" />{" "}
+                        <span>
+                          RAG Model:{" "}
+                          {plan.ragModel ? (
+                            <span className="text-emerald-500 flex items-center gap-0.5">
+                              <Check className="h-3 w-3" /> Available
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground flex items-center gap-0.5">
+                              <X className="h-3 w-3" /> Not Available
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Headphones className="h-4 w-4" />{" "}
+                        <span>
+                          Email Support:{" "}
+                          {(plan as any).emailSupport ? (
+                            <span className="text-emerald-500 flex items-center gap-0.5">
+                              <Check className="h-3 w-3" /> {(plan as any).emailLimit || 0}/day
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground flex items-center gap-0.5">
+                              <X className="h-3 w-3" /> Not included
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Globe className="h-4 w-4" />{" "}
+                        <span>
+                          Script API:{" "}
+                          {(plan as any).apiAccess ? (
+                            <span className="text-emerald-500 flex items-center gap-0.5">
+                              <Check className="h-3 w-3" /> Available
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground flex items-center gap-0.5">
+                              <X className="h-3 w-3" /> Not available
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Citrus className="h-4 w-4" />{" "}
+                        <span>
+                          Lemon Squeezy:{" "}
+                          {plan.lemonSqueezyVariantId ? (
+                            <span className="font-mono text-emerald-500">
+                              #{plan.lemonSqueezyVariantId}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">No variant — PayPal only</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>
