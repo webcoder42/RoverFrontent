@@ -70,6 +70,12 @@ export async function initializePaddleClient(): Promise<Paddle> {
   const paddle = await initializePaddle({
     environment: paddleEnvironment === "live" ? "production" : "sandbox",
     token: paddleToken,
+    checkout: {
+      settings: {
+        showAddDiscounts: false,
+        showAddTaxId: false,
+      },
+    },
   });
   if (!paddle) {
     throw new Error("Paddle failed to initialize");
