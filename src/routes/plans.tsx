@@ -34,6 +34,7 @@ import {
 } from "@/lib/paddle";
 import { cn } from "@/lib/utils";
 import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs";
+import { SiteFooter } from "@/components/common/SiteFooter";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/plans")({
@@ -716,6 +717,8 @@ function PlansPage() {
           </div>
         </div>
       )}
+
+      <SiteFooter />
     </div>
   );
 }

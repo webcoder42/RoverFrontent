@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as RefundsRouteImport } from './routes/refunds'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -37,6 +40,21 @@ import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundsRoute = RefundsRouteImport.update({
+  id: '/refunds',
+  path: '/refunds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlansRoute = PlansRouteImport.update({
@@ -160,6 +178,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/plans': typeof PlansRoute
+  '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -184,6 +205,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/plans': typeof PlansRoute
+  '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -211,6 +235,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
   '/plans': typeof PlansRoute
+  '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -239,6 +266,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/plans'
+    | '/privacy'
+    | '/refunds'
+    | '/terms'
     | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
@@ -263,6 +293,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/plans'
+    | '/privacy'
+    | '/refunds'
+    | '/terms'
     | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
@@ -289,6 +322,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/plans'
+    | '/privacy'
+    | '/refunds'
+    | '/terms'
     | '/welcome'
     | '/admin/chatbots'
     | '/admin/plans'
@@ -316,6 +352,9 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRouteWithChildren
   PlansRoute: typeof PlansRoute
+  PrivacyRoute: typeof PrivacyRoute
+  RefundsRoute: typeof RefundsRoute
+  TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
   CheckoutPlanIdRoute: typeof CheckoutPlanIdRoute
   EmbedIdRoute: typeof EmbedIdRoute
@@ -328,6 +367,27 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refunds': {
+      id: '/refunds'
+      path: '/refunds'
+      fullPath: '/refunds'
+      preLoaderRoute: typeof RefundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans': {
@@ -551,6 +611,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRouteWithChildren,
   PlansRoute: PlansRoute,
+  PrivacyRoute: PrivacyRoute,
+  RefundsRoute: RefundsRoute,
+  TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
   CheckoutPlanIdRoute: CheckoutPlanIdRoute,
   EmbedIdRoute: EmbedIdRoute,
