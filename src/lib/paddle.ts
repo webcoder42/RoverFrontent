@@ -12,6 +12,7 @@ export interface Tier {
 
 const paddleEnvironment = import.meta.env.PADDLE_ENV?.trim();
 const paddleToken = import.meta.env.PADDLE_CLIENT_TOKEN?.trim();
+const paddleSuccessUrl = import.meta.env.PADDLE_SUCCESS_URL?.trim();
 const priceEnvPrefix = paddleEnvironment === "sandbox" ? "SANDBOX_" : "";
 
 function getPriceEnv(name: string) {
@@ -42,6 +43,13 @@ export function getPaddleEnvironment(): PaddleEnvironment {
     throw new Error("PADDLE_ENV must be set to live or sandbox");
   }
   return paddleEnvironment;
+}
+
+export function getPaddleSuccessUrl() {
+  if (paddleEnvironment === "live" && !paddleSuccessUrl) {
+    throw new Error("PADDLE_SUCCESS_URL must be configured for live checkout");
+  }
+  return paddleSuccessUrl || `${window.location.origin}/welcome`;
 }
 
 export function getPaddlePriceId(planId: string, interval: BillingInterval, planName?: string) {

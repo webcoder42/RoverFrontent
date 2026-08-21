@@ -26,6 +26,7 @@ import {
 import { motion } from "motion/react";
 import { getStoredUser, isAuthenticated, getStoredToken } from "@/lib/auth";
 import {
+  getPaddleSuccessUrl,
   getPaddlePriceId,
   hasYearlyPaddlePrices,
   initializePaddleClient,
@@ -243,7 +244,7 @@ function PlansPage() {
           settings: {
             displayMode: "overlay",
             variant: "one-page",
-            successUrl: `${window.location.origin}/welcome`,
+            successUrl: getPaddleSuccessUrl(),
           },
           customData: {
             planId: plan._id,
