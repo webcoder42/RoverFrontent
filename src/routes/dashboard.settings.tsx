@@ -21,6 +21,54 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [notif, setNotif] = useState({ product: true, weekly: true, security: false });
+  const [autoRenew, setAutoRenew] = useState<boolean | null>(null);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [renewEndsAt, setRenewEndsAt] = useState<string | null>(null);
+  const [renewBusy, setRenewBusy] = useState(false);
+
+  const loadAutoRenew = async () => {
+    try {
+      const res = await fetch("/api/paddle/auto-renew", { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setHasSubscription(Boolean(data.hasSubscription));
+      setAutoRenew(Boolean(data.autoRenew));
+      setRenewEndsAt(data.endsAt || null);
+    } catch {
+      // silent — status stays hidden on failure
+    }
+  };
+
+  useEffect(() => {
+    loadAutoRenew();
+  }, []);
+
+  const handleToggleAutoRenew = async (next: boolean) => {
+    setRenewBusy(true);
+    try {
+      const res = await fetch(`/api/paddle/auto-renew/${next ? "enable" : "disable"}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update auto-renew");
+      setAutoRenew(Boolean(data.autoRenew));
+      setRenewEndsAt(
+        data.endsAt
+          ? new Date(data.endsAt).toLocaleDateString(undefined, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : null,
+      );
+      toast.success(next ? "Auto-renew is back on" : "Auto-renew turned off");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update auto-renew");
+    } finally {
+      setRenewBusy(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -146,6 +194,32 @@ function SettingsPage() {
               <ExternalLink className="h-4 w-4" /> {openingPortal ? "Opening..." : "Manage billing"}
             </GradientButton>
           </div>
+
+          {hasSubscription && autoRenew !== null && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 p-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  Auto-renew {autoRenew ? (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">On</span>
+                  ) : (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">Off</span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {autoRenew
+                    ? "Your plan renews automatically at the end of each billing period."
+                    : renewEndsAt
+                      ? `Auto-renew is off. You keep full access until ${renewEndsAt}, then your plan ends and you won't be charged again.`
+                      : "Auto-renew is off. Your plan will end after the current billing period."}
+                </p>
+              </div>
+              <Switch
+                checked={autoRenew}
+                disabled={renewBusy}
+                onCheckedChange={(v) => handleToggleAutoRenew(v)}
+              />
+            </div>
+          )}
         </section>
 
         {/* Right Column */}

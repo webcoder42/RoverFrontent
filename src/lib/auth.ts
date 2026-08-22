@@ -75,7 +75,7 @@ export function clearAuth() {
   localStorage.removeItem("user");
 }
 
-export function getAuthHeaders() {
+export function getAuthHeaders(): Record<string, string> {
   const token = getStoredToken();
 
   return token
