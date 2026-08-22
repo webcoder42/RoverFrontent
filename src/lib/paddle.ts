@@ -96,7 +96,7 @@ export async function initializePaddleClient(): Promise<Paddle> {
     },
     checkout: {
       settings: {
-        showAddDiscounts: false,
+        showAddDiscounts: true,
         showAddTaxId: false,
       },
     },
