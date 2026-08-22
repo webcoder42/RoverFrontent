@@ -66,6 +66,19 @@ export function getPaddlePriceId(planId: string, interval: BillingInterval, plan
   return priceId || null;
 }
 
+export type PaddleCheckoutEvent = {
+  name?: string;
+  error?: { code?: string; detail?: string };
+};
+
+type PaddleCheckoutListener = (event: PaddleCheckoutEvent) => void;
+
+let checkoutEventListener: PaddleCheckoutListener | null = null;
+
+export function setPaddleCheckoutListener(listener: PaddleCheckoutListener | null) {
+  checkoutEventListener = listener;
+}
+
 export async function initializePaddleClient(): Promise<Paddle> {
   getPaddleEnvironment();
   if (!paddleToken || (!paddleToken.startsWith("live_") && paddleEnvironment === "live")) {
@@ -78,6 +91,9 @@ export async function initializePaddleClient(): Promise<Paddle> {
   const paddle = await initializePaddle({
     environment: paddleEnvironment === "live" ? "production" : "sandbox",
     token: paddleToken,
+    eventCallback: (event) => {
+      checkoutEventListener?.(event as PaddleCheckoutEvent);
+    },
     checkout: {
       settings: {
         showAddDiscounts: false,

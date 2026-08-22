@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Sparkles,
   Bot,
@@ -30,6 +30,7 @@ import {
   getPaddlePriceId,
   hasYearlyPaddlePrices,
   initializePaddleClient,
+  setPaddleCheckoutListener,
   type BillingInterval,
 } from "@/lib/paddle";
 import { cn } from "@/lib/utils";
@@ -227,6 +228,32 @@ function PlansPage() {
   const [formattedPrices, setFormattedPrices] = useState<Record<string, string>>({});
   const [paddleError, setPaddleError] = useState<string | null>(null);
 
+  interface PaymentFailureInfo {
+    errorCode: string;
+    message: string;
+    planName: string;
+    amount: string;
+    cardLast4: string;
+    occurredAt: string;
+  }
+  const [paymentFailure, setPaymentFailure] = useState<PaymentFailureInfo | null>(null);
+  const [dismissedFailureKey, setDismissedFailureKey] = useState<string | null>(null);
+
+  const failureKey = paymentFailure ? `${paymentFailure.errorCode}|${paymentFailure.occurredAt}` : "";
+  const showPaymentFailure = Boolean(paymentFailure) && dismissedFailureKey !== failureKey;
+
+  const loadPaymentFailure = useCallback(() => {
+    const token = getStoredToken();
+    fetch("/api/paddle/payment-failure", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setPaymentFailure(data?.failure || null);
+      })
+      .catch(() => {});
+  }, []);
+
   const choosePlan = async (plan: Plan) => {
     if (!isAuthenticated()) {
       navigate({ to: "/" });
@@ -341,6 +368,11 @@ function PlansPage() {
           setPaddleError(error instanceof Error ? error.message : "Paddle failed to load");
       });
 
+    // Exact decline reasons (e.g. insufficient funds) arrive via webhook shortly
+    // after a failed payment attempt, so poll for them while this page is open.
+    loadPaymentFailure();
+    const failurePoll = setInterval(loadPaymentFailure, 15000);
+
     // Country detection improves localized previews but must not block Paddle prices.
     fetch("/api/paddle/config")
       .then(async (response) => {
@@ -353,8 +385,28 @@ function PlansPage() {
 
     return () => {
       cancelled = true;
+      clearInterval(failurePoll);
     };
-  }, []);
+  }, [loadPaymentFailure]);
+
+  useEffect(() => {
+    if (!paddle) return;
+    setPaddleCheckoutListener((event) => {
+      const name = String(event?.name || "");
+      if (name === "checkout.payment.failed" || name === "checkout.payment.error") {
+        setDismissedFailureKey(null);
+        [1500, 4000, 9000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
+      }
+      if (name === "checkout.completed") {
+        [2500, 6000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
+      }
+      if (name === "checkout.closed") {
+        setDismissedFailureKey(null);
+        [1000, 3000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
+      }
+    });
+    return () => setPaddleCheckoutListener(null);
+  }, [paddle, loadPaymentFailure]);
 
   useEffect(() => {
     if (!paddle) return;
@@ -439,6 +491,36 @@ function PlansPage() {
               ),
             )}
           </div>
+          {showPaymentFailure && paymentFailure && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative mx-auto mt-6 max-w-2xl rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-left"
+            >
+              <button
+                type="button"
+                onClick={() => setDismissedFailureKey(failureKey)}
+                aria-label="Dismiss"
+                className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex items-start gap-3">
+                <CircleX className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                <div className="pr-6">
+                  <p className="text-sm font-semibold text-destructive">Payment failed</p>
+                  <p className="mt-1 text-sm text-foreground/90">{paymentFailure.message}</p>
+                  {(paymentFailure.amount || paymentFailure.planName) && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {paymentFailure.amount && <>Attempted charge: <strong>{paymentFailure.amount}</strong>. </>}
+                      {paymentFailure.planName && <>Plan: {paymentFailure.planName}. </>}
+                      {paymentFailure.cardLast4 && <>Card ending in {paymentFailure.cardLast4}.</>}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
           {paddleError && (
             <p className="mx-auto mt-4 max-w-xl text-sm text-destructive">{paddleError}</p>
           )}
