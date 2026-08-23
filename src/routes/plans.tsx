@@ -245,10 +245,10 @@ function PlansPage() {
 
   interface WelcomeCoupon {
     code: string;
-    planKey: "starter" | "pro" | "advanced";
+    planKey: "any" | "starter" | "pro" | "advanced";
     percentOff: number;
     used: boolean;
-    expiresAt: string;
+    expiresAt: string | null;
   }
   const [welcomeCoupon, setWelcomeCoupon] = useState<WelcomeCoupon | null>(null);
 
@@ -264,9 +264,12 @@ function PlansPage() {
   }, []);
 
   const nowMs = Date.now();
-  const couponExpiresMs = welcomeCoupon ? new Date(welcomeCoupon.expiresAt).getTime() : 0;
   const activeCoupon =
-    welcomeCoupon && !welcomeCoupon.used && couponExpiresMs > nowMs ? welcomeCoupon : null;
+    welcomeCoupon &&
+    !welcomeCoupon.used &&
+    (!welcomeCoupon.expiresAt || new Date(welcomeCoupon.expiresAt).getTime() > nowMs)
+      ? welcomeCoupon
+      : null;
 
   const loadPaymentFailure = useCallback(() => {
     const token = getStoredToken();
@@ -295,7 +298,7 @@ function PlansPage() {
 
         let discountId: string | undefined;
         const planTier = getPlanTierForPlan(plan.name);
-        if (activeCoupon && activeCoupon.planKey === planTier) {
+        if (activeCoupon && (activeCoupon.planKey === "any" || activeCoupon.planKey === planTier)) {
           try {
             const token = getStoredToken();
             const vres = await fetch("/api/coupons/validate", {
@@ -309,7 +312,6 @@ function PlansPage() {
             const vdata = await vres.json();
             if (vres.ok && vdata?.ok && vdata.discountId) {
               discountId = String(vdata.discountId);
-              setWelcomeCoupon({ ...activeCoupon, used: true });
             }
           } catch {
             /* checkout continues without discount */
@@ -330,6 +332,7 @@ function PlansPage() {
             planName: plan.name,
             billingInterval,
             ...(typeof userId === "string" && userId ? { userId } : {}),
+            ...(discountId ? { couponCode: activeCoupon?.code } : {}),
           },
         });
       } catch (error) {
@@ -590,14 +593,24 @@ function PlansPage() {
             <span>
               <strong>Welcome offer:</strong>{" "}
               <span className="font-bold text-primary">{activeCoupon.percentOff}% off</span> the{" "}
-              <strong>{activeCoupon.planKey === "advanced" ? "Premium" : activeCoupon.planKey === "pro" ? "Pro" : "Starter"}</strong>{" "}
+              <strong>
+                {activeCoupon.planKey === "advanced"
+                  ? "Premium"
+                  : activeCoupon.planKey === "pro"
+                    ? "Pro"
+                    : activeCoupon.planKey === "starter"
+                      ? "Starter"
+                      : "any"}{" "}
+              </strong>
               plan — auto-applied at checkout.
             </span>
             <span className="ml-auto inline-flex items-center gap-2 text-xs text-muted-foreground">
               <code className="rounded-md border border-border/70 bg-card px-2 py-0.5 font-bold tracking-wider text-foreground">
                 {activeCoupon.code}
               </code>
-              valid till {new Date(activeCoupon.expiresAt).toLocaleDateString()}
+              {activeCoupon.expiresAt
+                ? `valid till ${new Date(activeCoupon.expiresAt).toLocaleDateString()}`
+                : "lifetime coupon"}
             </span>
           </motion.div>
         )}
