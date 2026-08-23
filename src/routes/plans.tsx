@@ -1,5 +1,5 @@
 ﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Bot,
@@ -228,6 +228,7 @@ function PlansPage() {
   const [countryCode, setCountryCode] = useState<string | undefined>();
   const [formattedPrices, setFormattedPrices] = useState<Record<string, string>>({});
   const [paddleError, setPaddleError] = useState<string | null>(null);
+  const paddleCheckoutOpening = useRef(false);
 
   interface PaymentFailureInfo {
     errorCode: string;
@@ -291,6 +292,8 @@ function PlansPage() {
 
     const paddlePriceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
     if (paddlePriceId) {
+      if (paddleCheckoutOpening.current) return;
+      paddleCheckoutOpening.current = true;
       try {
         if (!paddle) throw new Error("Paddle checkout is not ready");
         const email = getStoredUser()?.email;
@@ -343,6 +346,7 @@ function PlansPage() {
           },
         });
       } catch (error) {
+        paddleCheckoutOpening.current = false;
         setPaddleError(error instanceof Error ? error.message : "Unable to open Paddle checkout");
       }
       return;
@@ -459,9 +463,11 @@ function PlansPage() {
         [1500, 4000, 9000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
       }
       if (name === "checkout.completed") {
+        paddleCheckoutOpening.current = false;
         [2500, 6000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
       }
       if (name === "checkout.closed") {
+        paddleCheckoutOpening.current = false;
         setDismissedFailureKey(null);
         [1000, 3000].forEach((delay) => setTimeout(loadPaymentFailure, delay));
       }
