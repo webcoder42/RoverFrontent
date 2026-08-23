@@ -332,7 +332,7 @@ function PlansPage() {
             planName: plan.name,
             billingInterval,
             ...(typeof userId === "string" && userId ? { userId } : {}),
-            ...(discountId ? { couponCode: activeCoupon?.code } : {}),
+            ...(discountCode ? { couponCode: activeCoupon?.code } : {}),
           },
         });
       } catch (error) {
