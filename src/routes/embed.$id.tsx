@@ -448,13 +448,56 @@ function EmbedChatWidget() {
       }
     };
 
+    // Compact product-name chips — tapping one asks the bot for full details
+    let pickItems: any[] = [];
+    const flushPicks = (key: string) => {
+      if (pickItems.length > 0) {
+        elements.push(
+          <div key={`picks-${key}`} className="my-2 flex flex-wrap gap-1.5">
+            {pickItems.map((p: any, idx: number) => (
+              <button
+                key={`pick-${key}-${idx}`}
+                onClick={(e) => { e.preventDefault(); handleSend(String(p.name || "").trim()); }}
+                className="flex max-w-full items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm transition-all hover:brightness-105 hover:shadow active:scale-95"
+                style={{
+                  borderColor: primaryBg,
+                  color: isDarkMode ? "#e2e8f0" : primaryBg,
+                  background: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.02)",
+                }}
+              >
+                <ShoppingCart className="h-3 w-3 shrink-0" style={{ color: primaryBg }} />
+                <span className="truncate">{p.name}</span>
+                {p.price ? (
+                  <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-px text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {p.price}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        );
+        pickItems = [];
+      }
+    };
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmedLine = line.trim();
       const productMatch = trimmedLine.match(/^-\s*PRODUCT:\s*(.*)$/i);
       const optionMatch = trimmedLine.match(/^-\s*OPTION:\s*(.*)$/i);
+      const pickMatch = trimmedLine.match(/^-\s*PICK:\s*(.*)$/i);
       const bulletMatch = trimmedLine.match(/^[\*\-]\s+(.*)$/);
       const numberMatch = trimmedLine.match(/^(\d+)\.\s+(.*)$/);
+
+      if (pickMatch) {
+        flushList(`flush-${i}`);
+        let p: any = null;
+        try { p = JSON.parse(pickMatch[1]); } catch {}
+        if (p && p.name) {
+          pickItems.push(p);
+        }
+        continue;
+      }
 
       if (productMatch) {
         flushList(`flush-${i}`);
@@ -608,6 +651,7 @@ function EmbedChatWidget() {
     }
 
     flushList("final");
+    flushPicks("final");
 
     if (isLatest && hasConfirmPrompt) {
       elements.push(

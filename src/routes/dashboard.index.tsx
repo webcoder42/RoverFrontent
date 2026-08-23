@@ -7,6 +7,7 @@ import { AnimatedCounter } from "@/components/common/AnimatedCounter";
 import { useChatbotsStore } from "@/store/chatbots";
 import { useFaqStore } from "@/store/faq";
 import { LiveBotPreview } from "@/components/create/LiveBotPreview";
+import CouponBanner from "@/components/dashboard/CouponBanner";
 import { formatDate } from "@/lib/format";
 import { getStoredUser } from "@/lib/auth";
 
@@ -54,6 +55,8 @@ function Overview() {
           <Sparkles className="h-4 w-4" /> New Chatbot
         </Link>
       </div>
+
+      <CouponBanner />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((s, i) => (

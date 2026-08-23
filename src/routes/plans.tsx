@@ -28,6 +28,7 @@ import { getStoredUser, isAuthenticated, getStoredToken } from "@/lib/auth";
 import {
   getPaddleSuccessUrl,
   getPaddlePriceId,
+  getPlanTierForPlan,
   hasYearlyPaddlePrices,
   initializePaddleClient,
   setPaddleCheckoutListener,
@@ -242,6 +243,31 @@ function PlansPage() {
   const failureKey = paymentFailure ? `${paymentFailure.errorCode}|${paymentFailure.occurredAt}` : "";
   const showPaymentFailure = Boolean(paymentFailure) && dismissedFailureKey !== failureKey;
 
+  interface WelcomeCoupon {
+    code: string;
+    planKey: "starter" | "pro" | "advanced";
+    percentOff: number;
+    used: boolean;
+    expiresAt: string;
+  }
+  const [welcomeCoupon, setWelcomeCoupon] = useState<WelcomeCoupon | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    const token = getStoredToken();
+    fetch("/api/coupons/mine", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => setWelcomeCoupon(data?.coupon ?? null))
+      .catch(() => {});
+  }, []);
+
+  const nowMs = Date.now();
+  const couponExpiresMs = welcomeCoupon ? new Date(welcomeCoupon.expiresAt).getTime() : 0;
+  const activeCoupon =
+    welcomeCoupon && !welcomeCoupon.used && couponExpiresMs > nowMs ? welcomeCoupon : null;
+
   const loadPaymentFailure = useCallback(() => {
     const token = getStoredToken();
     fetch("/api/paddle/payment-failure", {
@@ -266,8 +292,33 @@ function PlansPage() {
         if (!paddle) throw new Error("Paddle checkout is not ready");
         const email = getStoredUser()?.email;
         const userId = getStoredUser()?.id;
+
+        let discountId: string | undefined;
+        const planTier = getPlanTierForPlan(plan.name);
+        if (activeCoupon && activeCoupon.planKey === planTier) {
+          try {
+            const token = getStoredToken();
+            const vres = await fetch("/api/coupons/validate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ code: activeCoupon.code, planKey: planTier }),
+            });
+            const vdata = await vres.json();
+            if (vres.ok && vdata?.ok && vdata.discountId) {
+              discountId = String(vdata.discountId);
+              setWelcomeCoupon({ ...activeCoupon, used: true });
+            }
+          } catch {
+            /* checkout continues without discount */
+          }
+        }
+
         paddle.Checkout.open({
           items: [{ priceId: paddlePriceId, quantity: 1 }],
+          ...(discountId ? { discountId } : {}),
           ...(typeof email === "string" && email ? { customer: { email } } : {}),
           settings: {
             displayMode: "overlay",
@@ -451,7 +502,7 @@ function PlansPage() {
           <img src={logo} alt="Webotme" className="h-14 w-auto shrink-0 object-contain" />
         </div>
         <button
-          onClick={() => navigate({ to: isAuthenticated() ? "/dashboard" : "/" })}
+          onClick={() => navigate({ to: isAuthenticated() ? "/dashboard" : "/login" })}
           className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
         >
           <LogIn className="h-4 w-4" /> {isAuthenticated() ? "Dashboard" : "Login"}
@@ -529,6 +580,27 @@ function PlansPage() {
 
       {/* Plans grid */}
       <div className="relative z-10 mx-auto max-w-5xl px-4 pb-20">
+        {activeCoupon && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent px-5 py-3.5 text-sm"
+          >
+            <span className="text-lg leading-none">🎉</span>
+            <span>
+              <strong>Welcome offer:</strong>{" "}
+              <span className="font-bold text-primary">{activeCoupon.percentOff}% off</span> the{" "}
+              <strong>{activeCoupon.planKey === "advanced" ? "Premium" : activeCoupon.planKey === "pro" ? "Pro" : "Starter"}</strong>{" "}
+              plan — auto-applied at checkout.
+            </span>
+            <span className="ml-auto inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <code className="rounded-md border border-border/70 bg-card px-2 py-0.5 font-bold tracking-wider text-foreground">
+                {activeCoupon.code}
+              </code>
+              valid till {new Date(activeCoupon.expiresAt).toLocaleDateString()}
+            </span>
+          </motion.div>
+        )}
         {loading ? (
           <div className="flex h-48 items-center justify-center text-muted-foreground">
             Loading plans...

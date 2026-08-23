@@ -79,6 +79,15 @@ export function setPaddleCheckoutListener(listener: PaddleCheckoutListener | nul
   checkoutEventListener = listener;
 }
 
+export function getPlanTierForPlan(planName?: string): "starter" | "pro" | "advanced" {
+  const key = String(planName || "").toLowerCase();
+  if (key.includes("pro")) return "pro";
+  if (key.includes("premium") || key.includes("advanced") || key.includes("prinum")) {
+    return "advanced";
+  }
+  return "starter";
+}
+
 export async function initializePaddleClient(): Promise<Paddle> {
   getPaddleEnvironment();
   if (!paddleToken || (!paddleToken.startsWith("live_") && paddleEnvironment === "live")) {

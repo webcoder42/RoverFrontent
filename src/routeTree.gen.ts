@@ -14,11 +14,14 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as RefundsRouteImport } from './routes/refunds'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlansRouteImport } from './routes/plans'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as ConsoleIndexRouteImport } from './routes/console.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as StoreBotIdRouteImport } from './routes/store.$botId'
 import { Route as EmbedIdRouteImport } from './routes/embed.$id'
 import { Route as DashboardTemplatesRouteImport } from './routes/dashboard.templates'
 import { Route as DashboardTelegramRouteImport } from './routes/dashboard.telegram'
@@ -28,6 +31,7 @@ import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts
 import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
 import { Route as DashboardFaqRouteImport } from './routes/dashboard.faq'
 import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
+import { Route as ConsoleBotIdRouteImport } from './routes/console.$botId'
 import { Route as CheckoutPlanIdRouteImport } from './routes/checkout.$planId'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminStorageRouteImport } from './routes/admin.storage'
@@ -35,6 +39,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPurchasesRouteImport } from './routes/admin.purchases'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
+import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -62,6 +67,11 @@ const PlansRoute = PlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -82,10 +92,20 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
+const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
+  id: '/console/',
+  path: '/console/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const StoreBotIdRoute = StoreBotIdRouteImport.update({
+  id: '/store/$botId',
+  path: '/store/$botId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const EmbedIdRoute = EmbedIdRouteImport.update({
   id: '/embed/$id',
@@ -132,6 +152,11 @@ const DashboardCreateRoute = DashboardCreateRouteImport.update({
   path: '/create',
   getParentRoute: () => DashboardRoute,
 } as any)
+const ConsoleBotIdRoute = ConsoleBotIdRouteImport.update({
+  id: '/console/$botId',
+  path: '/console/$botId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutPlanIdRoute = CheckoutPlanIdRouteImport.update({
   id: '/checkout/$planId',
   path: '/checkout/$planId',
@@ -167,6 +192,11 @@ const AdminPlansRoute = AdminPlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCouponsRoute = AdminCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminChatbotsRoute = AdminChatbotsRouteImport.update({
   id: '/chatbots',
   path: '/chatbots',
@@ -177,12 +207,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
@@ -190,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
+  '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
@@ -199,17 +232,21 @@ export interface FileRoutesByFullPath {
   '/dashboard/telegram': typeof DashboardTelegramRoute
   '/dashboard/templates': typeof DashboardTemplatesRoute
   '/embed/$id': typeof EmbedIdRoute
+  '/store/$botId': typeof StoreBotIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
@@ -217,6 +254,7 @@ export interface FileRoutesByTo {
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
+  '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
@@ -226,7 +264,9 @@ export interface FileRoutesByTo {
   '/dashboard/telegram': typeof DashboardTelegramRoute
   '/dashboard/templates': typeof DashboardTemplatesRoute
   '/embed/$id': typeof EmbedIdRoute
+  '/store/$botId': typeof StoreBotIdRoute
   '/admin': typeof AdminIndexRoute
+  '/console': typeof ConsoleIndexRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -234,12 +274,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
@@ -247,6 +289,7 @@ export interface FileRoutesById {
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
+  '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
@@ -256,7 +299,9 @@ export interface FileRoutesById {
   '/dashboard/telegram': typeof DashboardTelegramRoute
   '/dashboard/templates': typeof DashboardTemplatesRoute
   '/embed/$id': typeof EmbedIdRoute
+  '/store/$botId': typeof StoreBotIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -265,12 +310,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/login'
     | '/plans'
     | '/privacy'
     | '/refunds'
     | '/terms'
     | '/welcome'
     | '/admin/chatbots'
+    | '/admin/coupons'
     | '/admin/plans'
     | '/admin/products'
     | '/admin/purchases'
@@ -278,6 +325,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/checkout/$planId'
+    | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
@@ -287,17 +335,21 @@ export interface FileRouteTypes {
     | '/dashboard/telegram'
     | '/dashboard/templates'
     | '/embed/$id'
+    | '/store/$botId'
     | '/admin/'
+    | '/console/'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/plans'
     | '/privacy'
     | '/refunds'
     | '/terms'
     | '/welcome'
     | '/admin/chatbots'
+    | '/admin/coupons'
     | '/admin/plans'
     | '/admin/products'
     | '/admin/purchases'
@@ -305,6 +357,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/checkout/$planId'
+    | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
@@ -314,19 +367,23 @@ export interface FileRouteTypes {
     | '/dashboard/telegram'
     | '/dashboard/templates'
     | '/embed/$id'
+    | '/store/$botId'
     | '/admin'
+    | '/console'
     | '/dashboard'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/login'
     | '/plans'
     | '/privacy'
     | '/refunds'
     | '/terms'
     | '/welcome'
     | '/admin/chatbots'
+    | '/admin/coupons'
     | '/admin/plans'
     | '/admin/products'
     | '/admin/purchases'
@@ -334,6 +391,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/checkout/$planId'
+    | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
@@ -343,7 +401,9 @@ export interface FileRouteTypes {
     | '/dashboard/telegram'
     | '/dashboard/templates'
     | '/embed/$id'
+    | '/store/$botId'
     | '/admin/'
+    | '/console/'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -351,13 +411,17 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRouteWithChildren
+  LoginRoute: typeof LoginRoute
   PlansRoute: typeof PlansRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundsRoute: typeof RefundsRoute
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
   CheckoutPlanIdRoute: typeof CheckoutPlanIdRoute
+  ConsoleBotIdRoute: typeof ConsoleBotIdRoute
   EmbedIdRoute: typeof EmbedIdRoute
+  StoreBotIdRoute: typeof StoreBotIdRoute
+  ConsoleIndexRoute: typeof ConsoleIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -397,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -425,12 +496,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/console/': {
+      id: '/console/'
+      path: '/console'
+      fullPath: '/console/'
+      preLoaderRoute: typeof ConsoleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/store/$botId': {
+      id: '/store/$botId'
+      path: '/store/$botId'
+      fullPath: '/store/$botId'
+      preLoaderRoute: typeof StoreBotIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/embed/$id': {
       id: '/embed/$id'
@@ -495,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCreateRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/console/$botId': {
+      id: '/console/$botId'
+      path: '/console/$botId'
+      fullPath: '/console/$botId'
+      preLoaderRoute: typeof ConsoleBotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout/$planId': {
       id: '/checkout/$planId'
       path: '/checkout/$planId'
@@ -544,6 +636,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPlansRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/coupons': {
+      id: '/admin/coupons'
+      path: '/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof AdminCouponsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/chatbots': {
       id: '/admin/chatbots'
       path: '/chatbots'
@@ -556,6 +655,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminChatbotsRoute: typeof AdminChatbotsRoute
+  AdminCouponsRoute: typeof AdminCouponsRoute
   AdminPlansRoute: typeof AdminPlansRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminPurchasesRoute: typeof AdminPurchasesRoute
@@ -567,6 +667,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminChatbotsRoute: AdminChatbotsRoute,
+  AdminCouponsRoute: AdminCouponsRoute,
   AdminPlansRoute: AdminPlansRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminPurchasesRoute: AdminPurchasesRoute,
@@ -610,13 +711,17 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRouteWithChildren,
+  LoginRoute: LoginRoute,
   PlansRoute: PlansRoute,
   PrivacyRoute: PrivacyRoute,
   RefundsRoute: RefundsRoute,
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
   CheckoutPlanIdRoute: CheckoutPlanIdRoute,
+  ConsoleBotIdRoute: ConsoleBotIdRoute,
   EmbedIdRoute: EmbedIdRoute,
+  StoreBotIdRoute: StoreBotIdRoute,
+  ConsoleIndexRoute: ConsoleIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

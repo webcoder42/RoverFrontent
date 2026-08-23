@@ -21,6 +21,9 @@ type StorageData = {
   storageLimit: number;
   dailyApiCalls: number;
   apiLimit: number;
+  dailyEmailsSent: number;
+  emailCountDate: string;
+  emailLimit: number;
   totalChatbots: number;
   totalActiveChatbots: number;
   totalSimpleChatbots: number;
@@ -117,18 +120,23 @@ function StoragePage() {
   const totalCollectionBytes = collections.reduce((s, c) => s + c.dataSizeBytes + c.indexSizeBytes, 0);
   const totalUsedBytes = (storage?.storageUsed || 0) + totalCollectionBytes;
   const usedApiCalls = storage?.dailyApiCalls || 0;
-  const apiLimitV = storage?.apiLimit || 0;
+  const apiLimitV = storage?.apiLimit ?? 0;
+  const apiUnlimited = apiLimitV < 0;
   const usedSimple = storage?.totalSimpleChatbots || 0;
   const usedAgency = storage?.totalAgencyChatbots || 0;
   const usedDB = collections.length;
   const totalDB = (plan as any).databaseCollections || 0;
-  const simpleBotLimit = (plan as any).totalChatbots - ((plan as any).bookingAgency || 0) || 1;
+  const simpleBotLimit = Math.max(0, (plan as any).totalChatbots || 0);
   const agencyBotLimit = (plan as any).bookingAgency || 0;
   const dbAccess = (plan as any).databaseAccess === true;
   const storageLimit = storage?.storageLimit || 0;
   const storageFull = storageLimit > 0 && (storage?.storageUsed || 0) >= storageLimit;
   const apiExceeded = apiLimitV > 0 && usedApiCalls >= apiLimitV;
   const emailLimit = (plan as any).emailLimit || 0;
+  const usedEmails = storage?.dailyEmailsSent || 0;
+  const emailUnlimited = emailLimit <= 0;
+  const emailsExceeded = !emailUnlimited && usedEmails >= emailLimit;
+  const emailPercent = emailUnlimited ? 0 : Math.min(100, Math.round((usedEmails / emailLimit) * 100));
   const storagePercent = storageLimit > 0 ? Math.min(100, Math.round((totalUsedBytes / storageLimit) * 100)) : 0;
   const simpleBotPercent = simpleBotLimit > 0 ? Math.min(100, Math.round((usedSimple / simpleBotLimit) * 100)) : 0;
   const agencyBotPercent = agencyBotLimit > 0 ? Math.min(100, Math.round((usedAgency / agencyBotLimit) * 100)) : 0;
@@ -165,8 +173,8 @@ function StoragePage() {
           { label: "Simple Chatbot", used: String(usedSimple), total: String(simpleBotLimit), pct: simpleBotPercent, color: "from-sky-500 to-cyan-500", bar: "bg-sky-500", icon: Bot, warn: false },
           { label: "Agency Chatbot", used: String(usedAgency), total: String(agencyBotLimit), pct: agencyBotPercent, color: "from-amber-500 to-orange-500", bar: "bg-amber-500", icon: Building2, warn: agencyBotLimit <= 0 && usedAgency > 0 },
           { label: "DB Connections", used: String(usedDB), total: String(totalDB), pct: dbPercent, color: "from-emerald-500 to-teal-500", bar: "bg-emerald-500", icon: Database, warn: !dbAccess && usedDB > 0 },
-          { label: "API Calls / Day", used: String(usedApiCalls), total: String(apiLimitV), pct: apiPercent, color: "from-fuchsia-500 to-pink-500", bar: "bg-fuchsia-500", icon: Globe, warn: apiExceeded },
-          { label: "Emails / Day", used: "0", total: emailLimit > 0 ? String(emailLimit) : "0", pct: 0, color: "from-blue-500 to-indigo-500", bar: "bg-blue-500", icon: Mail, warn: emailLimit <= 0 },
+          { label: "API Calls / Day", used: String(usedApiCalls), total: apiUnlimited ? "Unlimited" : String(apiLimitV), pct: apiPercent, color: "from-fuchsia-500 to-pink-500", bar: "bg-fuchsia-500", icon: Globe, warn: apiExceeded },
+          { label: "Emails / Day", used: String(usedEmails), total: emailUnlimited ? "Unlimited" : String(emailLimit), pct: emailPercent, color: "from-blue-500 to-indigo-500", bar: "bg-blue-500", icon: Mail, warn: emailsExceeded },
         ].map((s) => (
           <div key={s.label} className={"group relative overflow-hidden rounded-2xl border bg-card p-4 shadow-soft " + (s.warn ? "border-amber-500/40 bg-amber-500/5" : "border-border/60")}>
             <div className={"absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br " + s.color + " opacity-15 blur-2xl"} />
@@ -184,7 +192,7 @@ function StoragePage() {
             <div className="mt-1 text-right text-[10px] text-muted-foreground">
               {s.warn ? (
                 <span className="font-semibold text-amber-600">
-                  {s.label === "Emails / Day" ? "Not included in plan" : "Needs upgrade"}
+                  {s.label === "Emails / Day" ? "Daily limit reached — resets tomorrow" : "Needs upgrade"}
                 </span>
               ) : s.pct + "% used"}
             </div>
@@ -342,8 +350,8 @@ function StoragePage() {
               ["Simple Chatbots", usedSimple + " / " + simpleBotLimit],
               ["Agency Chatbots", usedAgency + " / " + agencyBotLimit],
               ["Databases", usedDB + " / " + totalDB],
-              ["API Calls / Day", usedApiCalls + " / " + apiLimitV],
-              ["Emails / Day", emailLimit > 0 ? "0 / " + emailLimit : "Not included"],
+              ["API Calls / Day", usedApiCalls + " / " + (apiUnlimited ? "Unlimited" : apiLimitV)],
+              ["Emails / Day", emailUnlimited ? "Unlimited" : usedEmails + " / " + emailLimit + (emailsExceeded ? " (limit reached)" : "")],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{label}</span>

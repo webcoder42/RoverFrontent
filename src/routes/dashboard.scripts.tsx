@@ -38,6 +38,8 @@ import {
   CheckSquare,
   Shield,
   ArrowUpCircle,
+  BarChart3,
+  KeyRound,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -56,6 +58,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/dashboard/scripts")({
   head: () => ({ meta: [{ title: "Generated Scripts — Webotme" }] }),
@@ -151,6 +154,10 @@ type EditDraft = {
   databaseMode: "full" | "collection" | "";
   agencyEmail1: string;
   agencyEmail2: string;
+  ownerEmail: string;
+  customerConfirmation: boolean;
+  senderMode: "platform" | "own";
+  configId: string;
   extractedServices: string[];
   trainingSheetServices: string[];
   trainingFlow: string;
@@ -227,6 +234,10 @@ const emptyDraft: EditDraft = {
   databaseMode: "",
   agencyEmail1: "",
   agencyEmail2: "",
+  ownerEmail: "",
+  customerConfirmation: true,
+  senderMode: "platform",
+  configId: "",
   extractedServices: [],
   trainingSheetServices: [],
   trainingFlow: "",
@@ -368,6 +379,10 @@ const mapChatbot = (cb: any): Chatbot => {
     databaseMode: dbCol.mode ?? cb.databaseMode ?? "",
     agencyEmail1: agency.email1 ?? cb.agencyEmail1 ?? "",
     agencyEmail2: agency.email2 ?? cb.agencyEmail2 ?? "",
+    ownerEmail: cb.emailNotifications?.ownerEmail ?? "",
+    customerConfirmation: cb.emailNotifications?.customerConfirmation ?? true,
+    senderMode: cb.emailNotifications?.senderMode ?? "platform",
+    configId: cb.emailNotifications?.configId ?? "",
     extractedServices: knowledge.extractedServices ?? cb.extractedServices ?? [],
     trainingSheetServices: knowledge.trainingSheetServices ?? cb.trainingSheetServices ?? [],
     trainingFlow: knowledge.trainingFlow ?? cb.trainingFlow ?? "",
@@ -408,6 +423,8 @@ function ScriptsPage() {
   const { chatbots, setChatbots, update, remove } = useChatbotsStore();
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  // consoleKey per chatbot (agency only) — fetched from the owner-only endpoint
+  const [consoleKeys, setConsoleKeys] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
@@ -431,6 +448,7 @@ function ScriptsPage() {
       .filter(Boolean) as string[];
   }, [chatbots, editingBot]);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [connectedEmails, setConnectedEmails] = useState<any[]>([]);
   const [selectedFlowCategory, setSelectedFlowCategory] = useState<string | null>(null);
   const [manualKnowledgeName, setManualKnowledgeName] = useState("");
   const [manualKnowledgeContent, setManualKnowledgeContent] = useState("");
@@ -468,7 +486,7 @@ function ScriptsPage() {
         const agencyAllowed = (plan.bookingAgency || 0) > 0;
         const dbAllowed = plan.databaseAccess === true;
         const storageFull = (storage?.storageLimit || 0) > 0 && (storage?.storageUsed || 0) >= (storage?.storageLimit || 0);
-        const simpleBotLimit = Math.max((plan.totalChatbots || 0) - (plan.bookingAgency || 0), 0) || 1;
+        const simpleBotLimit = Math.max(0, plan.totalChatbots || 0);
         const agencyBotLimit = plan.bookingAgency || 0;
         const orderedBots = [...bots].sort(
           (a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(),
@@ -515,6 +533,20 @@ function ScriptsPage() {
     }
   }, [setChatbots]);
 
+  // Fetch this owner's analytics console keys (agency bots only)
+  useEffect(() => {
+    fetch("/api/store/my/console-keys", { headers: getAuthHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const map: Record<string, string> = {};
+        for (const k of d?.keys || []) {
+          if (k.consoleKey) map[k.chatbotId] = k.consoleKey;
+        }
+        setConsoleKeys(map);
+      })
+      .catch(() => {});
+  }, [loading]);
+
   useEffect(() => {
     if (tourStep === 0 || tourStep >= 6) return;
     const id = setTimeout(() => {
@@ -527,6 +559,23 @@ function ScriptsPage() {
     }, 150);
     return () => clearTimeout(id);
   }, [tourStep]);
+
+  useEffect(() => {
+    if (!editingBot) return;
+    fetch("/api/email-config", { headers: getAuthHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const configs: any[] = Array.isArray(d?.configs)
+          ? d.configs
+          : d?.config
+            ? [d.config]
+            : [];
+        setConnectedEmails(configs);
+      })
+      .catch(() => {
+        setConnectedEmails([]);
+      });
+  }, [editingBot]);
 
   const filtered = useMemo(
     () =>
@@ -788,6 +837,10 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
       databaseMode: bot.databaseMode ?? "",
       agencyEmail1: bot.agencyEmail1 ?? "",
       agencyEmail2: bot.agencyEmail2 ?? "",
+      ownerEmail: bot.ownerEmail ?? "",
+      customerConfirmation: bot.customerConfirmation ?? true,
+      senderMode: bot.senderMode ?? "platform",
+      configId: bot.configId ?? "",
       extractedServices: bot.extractedServices ?? [],
       trainingSheetServices: bot.trainingSheetServices ?? [],
       trainingFlow: bot.trainingFlow ?? "",
@@ -1118,6 +1171,12 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
 
       if (isAgency) {
         payload.agency = { email1: draft.agencyEmail1 || null, email2: draft.agencyEmail2 || null };
+        payload.emailNotifications = {
+          ownerEmail: draft.ownerEmail.trim(),
+          customerConfirmation: draft.customerConfirmation,
+          senderMode: draft.senderMode,
+          configId: draft.senderMode === "own" ? draft.configId : "",
+        };
       }
 
       if (draft.databaseType) {
@@ -1395,6 +1454,32 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                             {b.embedScript ? "Regenerate" : "Generate"}
                           </button>
                         )}
+                        {b.type === "agency" && (
+                          <>
+                            <a
+                              href="/console"
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Open analytics console (paste your console ID)"
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5" /> Analytics
+                            </a>
+                            {consoleKeys[b.id] && (
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(consoleKeys[b.id]);
+                                  toast.success("Console ID copied!");
+                                }}
+                                title="Copy your private console ID"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-mono text-[11px] font-semibold text-blue-400 transition hover:bg-blue-500/20"
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                                {consoleKeys[b.id].slice(0, 11)}…<Copy className="h-3 w-3 opacity-60" />
+                              </button>
+                            )}
+                          </>
+                        )}
                         <button
                           {...(i === 0 ? { "data-tour": "step5" } : {})}
                           onClick={() => { setPreview(b); if (tourStep === 5) setTourStep(6); }}
@@ -1569,6 +1654,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                   { n: 4, label: "Training & Flow" },
                   { n: 5, label: "Bot Details" },
                   { n: 6, label: "Knowledge" },
+                  { n: 7, label: "Email Setup" },
                 ].map((s, i) => {
                   const active = editStep === s.n;
                   const done = editStep > s.n;
@@ -1591,7 +1677,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                         </span>
                         {s.label}
                       </button>
-                      {i < 5 && <div className={cn("h-px w-3", done ? "bg-emerald-500/50" : "bg-border")} />}
+                      {i < 6 && <div className={cn("h-px w-3", done ? "bg-emerald-500/50" : "bg-border")} />}
                     </div>
                   );
                 })}
@@ -3957,6 +4043,186 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                 </div>
               )}
                 </>
+              )}
+              {editStep === 7 && (
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-5">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                        Email Setup
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-foreground">
+                        Order &amp; booking emails
+                      </h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Whenever an order or service request comes through this chatbot, the
+                        notification emails follow this setup — no matter which website the
+                        widget is installed on.
+                      </p>
+                    </div>
+
+                    {/* 1) Owner notification email */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Add your email where you receive ALL order emails
+                      </label>
+                      <input
+                        type="email"
+                        value={draft.ownerEmail}
+                        onChange={(e) => setDraft((p) => ({ ...p, ownerEmail: e.target.value }))}
+                        placeholder="orders@yourbusiness.com"
+                        className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Full details of every new order / booking will be delivered to this inbox.
+                        Your account email always receives a copy too.
+                      </p>
+                    </div>
+
+                    {/* 2) Customer confirmation toggle */}
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3">
+                      <div>
+                        <div className="text-sm font-semibold">
+                          Send confirmation to the customer
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          The customer who placed the order / booking also receives a confirmation
+                          email. Turn off to notify only you.
+                        </div>
+                      </div>
+                      <Switch
+                        checked={draft.customerConfirmation}
+                        onCheckedChange={(v) => setDraft((p) => ({ ...p, customerConfirmation: v }))}
+                      />
+                    </div>
+
+                    {/* 3) Sender mode */}
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold text-foreground/80">
+                        Do you want to add your own email for sending mail, or use this
+                        platform&apos;s email?
+                      </label>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => setDraft((p) => ({ ...p, senderMode: "platform" }))}
+                          className={`rounded-xl border p-4 text-left transition ${
+                            draft.senderMode === "platform"
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                              : "border-border/60 hover:border-primary/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-semibold">
+                            <Shield className="h-4 w-4 text-primary" /> Use platform email
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Emails are sent from the Webotme system — no extra setup needed.
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDraft((p) => ({ ...p, senderMode: "own" }))}
+                          className={`rounded-xl border p-4 text-left transition ${
+                            draft.senderMode === "own"
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                              : "border-border/60 hover:border-primary/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-semibold">
+                            <Mail className="h-4 w-4 text-primary" /> My own business email
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Emails are sent from one of your connected addresses — customers see
+                            your brand.
+                          </p>
+                        </button>
+                      </div>
+
+                      {draft.senderMode === "own" && (
+                        connectedEmails.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-xs font-semibold text-foreground/80">
+                              Select which connected email this chatbot should send from:
+                            </p>
+                            {connectedEmails.map((cfg) => {
+                              const selected = draft.configId
+                                ? draft.configId === cfg.id
+                                : cfg.id === connectedEmails[0]?.id;
+                              return (
+                                <button
+                                  key={cfg.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setDraft((p) => ({ ...p, configId: cfg.id }))
+                                  }
+                                  className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+                                    selected
+                                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                      : "border-border/60 hover:border-primary/40"
+                                  }`}
+                                >
+                                  <div className="min-w-0 space-y-0.5">
+                                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                                      <span className="font-mono text-xs">
+                                        {cfg.smtpUserMasked || cfg.fromEmail}
+                                      </span>
+                                      {cfg.verified ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                                          <Check className="h-3 w-3" /> Verified
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                                          Not verified
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                      {cfg.type === "smtp" ? "Business SMTP" : "Resend API"}
+                                      {cfg.fromName ? ` • ${cfg.fromName}` : ""}
+                                    </div>
+                                  </div>
+                                  {selected && (
+                                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                            {!connectedEmails.some((c) => c.verified) && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                None of these are verified yet — test them in Settings → Email
+                                setup, otherwise the platform fallback is used.
+                              </p>
+                            )}
+                            <a
+                              href="/dashboard/settings?tab=email"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                            >
+                              Manage saved emails <ArrowRight className="h-3 w-3" />
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400 space-y-2">
+                            <p>
+                              First set up your email — you haven&apos;t connected any business
+                              email yet. Connect one, then select it here.
+                            </p>
+                            <a
+                              href="/dashboard/settings?tab=email"
+                              className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 px-3 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500/25 dark:text-amber-400"
+                            >
+                              First set up your email <ArrowRight className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    <p className="rounded-xl border border-border/60 bg-card/70 p-3 text-[11px] text-muted-foreground">
+                      💡 These settings apply only to this chatbot. For your other agency
+                      chatbots, use the same step in each bot&apos;s editor.
+                    </p>
+                  </div>
+                </div>
               )}
               </>
               )}

@@ -61,6 +61,10 @@ export interface Chatbot {
   databaseMode?: "full" | "collection" | "";
   agencyEmail1?: string;
   agencyEmail2?: string;
+  ownerEmail?: string;
+  customerConfirmation?: boolean;
+  senderMode?: "platform" | "own";
+  configId?: string;
   extractedServices?: string[];
   trainingSheetServices?: string[];
   trainingFlow?: string;

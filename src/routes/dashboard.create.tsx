@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Check, ChevronLeft, ChevronRight, Eye, FileText, Upload, Sun, Moon, Sparkles, Trash2, Database, Loader2, MessageSquareText, Building2, EyeIcon, Pencil, Save, ShoppingCart, Plane, Heart, BookOpen, Building, UtensilsCrossed, Scissors, Truck, Landmark, Car, Scale, Film, Settings, Mail } from "lucide-react";
@@ -11,7 +11,7 @@ import { useChatbotsStore, type Template } from "@/store/chatbots";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/create")({
-  head: () => ({ meta: [{ title: "Create Chatbot — Webotme" }] }),
+  head: () => ({ meta: [{ title: "Create Chatbot � Webotme" }] }),
   component: CreateBot,
 });
 
@@ -152,7 +152,7 @@ function CreateBot() {
     .filter(Boolean) as string[];
 
   const plan = usage?.planId || {};
-  const simpleBotLimit = Math.max((plan.totalChatbots || 0) - (plan.bookingAgency || 0), 0) || 1;
+  const simpleBotLimit = Math.max(0, plan.totalChatbots || 0);
   const agencyBotLimit = plan.bookingAgency || 0;
   const storeSimpleBots = chatbots.filter((b: any) => b.type === "simple").length;
   const storeAgencyBots = chatbots.filter((b: any) => b.type === "agency").length;
@@ -345,7 +345,7 @@ function CreateBot() {
         newFiles.push({ name: file.name, content, url });
 
         const details = pages ? `${pages} pages` : lines ? `${lines} lines` : `${content.length} chars`;
-        setUploadStatus(`${file.name}: ${details} extracted ✓`);
+        setUploadStatus(`${file.name}: ${details} extracted ?`);
 
         setUploadProgress(Math.round(((i * 100 + 100) / totalFiles)));
       } catch (error: any) {
@@ -434,7 +434,7 @@ function CreateBot() {
 
     if (result.length === 0) {
       for (const line of lines) {
-        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|—).*)?$/);
+        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|�).*)?$/);
         if (m) {
           const name = m[1].trim();
           if (name.length < 80 && !result.includes(name)) result.push(name);
@@ -581,7 +581,7 @@ function CreateBot() {
         },
         ai: {
           provider: 'groq',
-          model: 'llama-3.1-8b-instant',
+          model: 'openai/gpt-oss-120b',
         },
         knowledge: {
           files: draft.knowledgeFiles,
@@ -778,7 +778,7 @@ function CreateBot() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-bold">Simple Chatbot</h3>
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${simpleReached ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-600"}`}>
-                      {!usageLoaded ? "…" : `${usedSimpleBots} / ${simpleBotLimit}`}
+                      {!usageLoaded ? "�" : `${usedSimpleBots} / ${simpleBotLimit}`}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">A basic Q&A assistant. Name it, add training, and embed.</p>
@@ -808,7 +808,7 @@ function CreateBot() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-bold">Agency Chatbot</h3>
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${agencyAvailable ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>
-                      {!usageLoaded ? "…" : agencyBotLimit > 0 ? `${usedAgencyBots} / ${agencyBotLimit}` : "Upgrade"}
+                      {!usageLoaded ? "�" : agencyBotLimit > 0 ? `${usedAgencyBots} / ${agencyBotLimit}` : "Upgrade"}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">Full-featured booking assistant with agency integration and MySQL.</p>
@@ -1051,7 +1051,7 @@ function CreateBot() {
                     {fonts.map((f) => <option key={f}>{f}</option>)}
                   </select>
                 </Field>
-                <Field label={`Border radius — ${draft.radius}px`}>
+                <Field label={`Border radius � ${draft.radius}px`}>
                   <input type="range" min={0} max={32} value={draft.radius} onChange={(e) => draft.set({ radius: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                 </Field>
               </div>
@@ -1225,10 +1225,10 @@ function CreateBot() {
                   </label>
                   {draft.widgetOpenMode === "overlay" && (
                     <div className="grid gap-4 md:grid-cols-2">
-                      <Field label={`Panel width — ${draft.widgetWidth}px`}>
+                      <Field label={`Panel width � ${draft.widgetWidth}px`}>
                         <input type="range" min={280} max={700} value={draft.widgetWidth} onChange={(e) => draft.set({ widgetWidth: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                       </Field>
-                      <Field label={`Panel height — ${draft.widgetHeight}px`}>
+                      <Field label={`Panel height � ${draft.widgetHeight}px`}>
                         <input type="range" min={360} max={900} value={draft.widgetHeight} onChange={(e) => draft.set({ widgetHeight: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                       </Field>
                     </div>
@@ -1237,7 +1237,7 @@ function CreateBot() {
                     <textarea value={draft.widgetCustomCss} onChange={(e) => draft.set({ widgetCustomCss: e.target.value })}
                       className="input min-h-20 font-mono text-xs"
                       placeholder="/* e.g. move or resize the widget from your site */&#10;#rover-chatbot-frame { width: 480px; height: 640px; }&#10;#rover-chatbot-bubble { bottom: 80px; right: 40px; }" />
-                    <p className="mt-1 text-[10px] text-muted-foreground">These styles are injected with the widget script — no extra CSS needed on your site.</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">These styles are injected with the widget script � no extra CSS needed on your site.</p>
                   </Field>
                 </div>
               </details>
@@ -1342,7 +1342,7 @@ function CreateBot() {
                 Upload different types of training files for your agency chatbot.
               </p>
 
-              {/* ── Knowledge Base ──────────────────────────────── */}
+              {/* -- Knowledge Base -------------------------------- */}
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-primary" />
@@ -1374,7 +1374,7 @@ function CreateBot() {
                 )}
               </div>
 
-              {/* ── Training Knowledge ──────────────────────────── */}
+              {/* -- Training Knowledge ---------------------------- */}
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-primary" />
@@ -1406,7 +1406,7 @@ function CreateBot() {
                 )}
               </div>
 
-              {/* ── Training Sheet ──────────────────────────────── */}
+              {/* -- Training Sheet -------------------------------- */}
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-primary" />
@@ -1467,7 +1467,7 @@ function CreateBot() {
                 )}
               </div>
 
-              {/* ── Upload Progress ─────────────────────────────── */}
+              {/* -- Upload Progress ------------------------------- */}
               {uploading && (
                 <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
                   <div className="flex items-center justify-between text-xs">
@@ -1509,8 +1509,8 @@ function CreateBot() {
                   <span className="ml-auto text-[10px] rounded-full px-2.5 py-1 bg-emerald-500/10 text-emerald-500 font-semibold">Ready</span>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px]">
-                  <span className="rounded-lg border border-border/60 px-2.5 py-1 font-mono" style={{ color: draft.primary }}>● {draft.primary}</span>
-                  <span className="rounded-lg border border-border/60 px-2.5 py-1 font-mono" style={{ color: draft.secondary }}>● {draft.secondary}</span>
+                  <span className="rounded-lg border border-border/60 px-2.5 py-1 font-mono" style={{ color: draft.primary }}>? {draft.primary}</span>
+                  <span className="rounded-lg border border-border/60 px-2.5 py-1 font-mono" style={{ color: draft.secondary }}>? {draft.secondary}</span>
                   <span className="rounded-lg border border-border/60 px-2.5 py-1">{draft.font}</span>
                   <span className="rounded-lg border border-border/60 px-2.5 py-1">radius {draft.radius}px</span>
                   <span className="rounded-lg border border-border/60 px-2.5 py-1">{draft.bubble} bubble</span>
@@ -1636,7 +1636,7 @@ function CreateBot() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Order emails will be received on these emails in any order. You can add any other email
-                    of your choice — except the email used to create this account, which already receives orders.
+                    of your choice � except the email used to create this account, which already receives orders.
                   </p>
                 </div>
               )}
@@ -1647,9 +1647,9 @@ function CreateBot() {
                   <label className="block text-sm font-medium">Select database type to connect product collection</label>
                   <div className="grid gap-3 md:grid-cols-3">
                     {[
-                      { id: "mysql" as const, label: "MySQL", icon: "🐬", desc: "Relational database" },
-                      { id: "mongodb" as const, label: "MongoDB", icon: "🍃", desc: "NoSQL document store" },
-                      { id: "postgresql" as const, label: "PostgreSQL", icon: "🐘", desc: "Advanced relational" },
+                      { id: "mysql" as const, label: "MySQL", icon: "??", desc: "Relational database" },
+                      { id: "mongodb" as const, label: "MongoDB", icon: "??", desc: "NoSQL document store" },
+                      { id: "postgresql" as const, label: "PostgreSQL", icon: "??", desc: "Advanced relational" },
                     ].map((db) => (
                       <button
                         key={db.id}
@@ -1705,7 +1705,7 @@ function CreateBot() {
                               <input value={draft.productUsername} onChange={(e) => draft.set({ productUsername: e.target.value })} className="input" />
                             </CollectionField>
                             <CollectionField label="Password">
-                              <input type="password" value={draft.productPassword} onChange={(e) => draft.set({ productPassword: e.target.value })} className="input" placeholder="••••••••" />
+                              <input type="password" value={draft.productPassword} onChange={(e) => draft.set({ productPassword: e.target.value })} className="input" placeholder="��������" />
                             </CollectionField>
                           </div>
                           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -1839,9 +1839,9 @@ function CreateBot() {
                 <label className="mb-3 block text-sm font-medium">Select database type</label>
                 <div className="grid gap-3 md:grid-cols-3">
                   {[
-                    { id: "mysql" as const, label: "MySQL", icon: "🐬", desc: "Relational database" },
-                    { id: "mongodb" as const, label: "MongoDB", icon: "🍃", desc: "NoSQL document store" },
-                    { id: "postgresql" as const, label: "PostgreSQL", icon: "🐘", desc: "Advanced relational" },
+                    { id: "mysql" as const, label: "MySQL", icon: "??", desc: "Relational database" },
+                    { id: "mongodb" as const, label: "MongoDB", icon: "??", desc: "NoSQL document store" },
+                    { id: "postgresql" as const, label: "PostgreSQL", icon: "??", desc: "Advanced relational" },
                   ].map((db) => (
                     <button
                       key={db.id}
@@ -1864,7 +1864,7 @@ function CreateBot() {
                 </div>
               </div>
 
-              {/* Database Mode — collection only */}
+              {/* Database Mode � collection only */}
               {draft.databaseType && (
                 <div>
                   <label className="mb-3 block text-sm font-medium">Database mode</label>
@@ -1890,7 +1890,7 @@ function CreateBot() {
                     {draft.databaseType === "mysql" ? "MySQL" : draft.databaseType === "mongodb" ? "MongoDB" : "PostgreSQL"} Collection
                   </summary>
                   <div className="mt-4 space-y-4">
-                    {/* MongoDB — connection string URI */}
+                    {/* MongoDB � connection string URI */}
                     {draft.databaseType === "mongodb" ? (
                       <div className="space-y-4">
                         <CollectionField label="Connection String URI">
@@ -1904,7 +1904,7 @@ function CreateBot() {
                         </CollectionField>
                       </div>
                     ) : (
-                      /* MySQL / PostgreSQL — host/port/user/pass fields */
+                      /* MySQL / PostgreSQL � host/port/user/pass fields */
                       <div className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                           <CollectionField label="Host">
@@ -1923,7 +1923,7 @@ function CreateBot() {
                             <input value={draft.collectionUsername} onChange={(e) => draft.set({ collectionUsername: e.target.value })} className="input" />
                           </CollectionField>
                           <CollectionField label="Password">
-                            <input type="password" value={draft.collectionPassword} onChange={(e) => draft.set({ collectionPassword: e.target.value })} className="input" placeholder="••••••••" />
+                            <input type="password" value={draft.collectionPassword} onChange={(e) => draft.set({ collectionPassword: e.target.value })} className="input" placeholder="��������" />
                           </CollectionField>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -2102,7 +2102,7 @@ function CreateBot() {
                 </details>
               )}
 
-              {/* ── Knowledge behaviour settings ── */}
+              {/* -- Knowledge behaviour settings -- */}
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary">i</div>
@@ -2144,7 +2144,7 @@ function CreateBot() {
               <GradientButton onClick={next}>Next <ChevronRight className="h-4 w-4" /></GradientButton>
             ) : (
               <GradientButton onClick={finish} disabled={saving}>
-                {saving ? "Saving…" : <><Check className="h-4 w-4" /> Finish & Save</>}
+                {saving ? "Saving�" : <><Check className="h-4 w-4" /> Finish & Save</>}
               </GradientButton>
             )}
           </div>
@@ -2157,7 +2157,7 @@ function CreateBot() {
                 <span>Live preview</span>
                 <button onClick={() => setPreviewOpen(false)}
                   className="grid h-6 w-6 place-items-center rounded-lg border border-border/60 bg-card text-xs hover:bg-accent transition">
-                  ✕
+                  ?
                 </button>
               </div>
               <LiveBotPreview
@@ -2193,7 +2193,7 @@ function CreateBot() {
         )}
       </div>
 
-      {/* ── Custom Design Visual Drag-Drop Modal ── */}
+      {/* -- Custom Design Visual Drag-Drop Modal -- */}
       <Dialog open={customDesignerOpen} onOpenChange={setCustomDesignerOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -2264,7 +2264,7 @@ function CreateBot() {
                             } catch {}
                           }}>
                           <span className={`absolute -top-2 left-2 text-[9px] font-bold transition bg-background px-1.5 py-0.5 rounded ${active ? "text-primary" : "text-primary opacity-0 group-hover:opacity-100"}`}>
-                            ✎ {label}
+                            ? {label}
                           </span>
                         </div>
                       );
@@ -2274,14 +2274,14 @@ function CreateBot() {
               </div>
               {/* Drag hint */}
               <div className="mt-3 flex items-center gap-3 text-[10px] text-muted-foreground bg-muted/30 rounded-xl px-3 py-2">
-                <span>✥ Drag any style block onto the preview</span>
+                <span>? Drag any style block onto the preview</span>
               </div>
             </div>
 
             {/* Right: Compact draggable palette panels */}
             <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
               <div id="header-section" className="rounded-xl border border-border/60 bg-card p-3 shadow-soft scroll-mt-4">
-                <div className="flex items-center gap-2 text-xs font-semibold mb-2">⊞ Header Style</div>
+                <div className="flex items-center gap-2 text-xs font-semibold mb-2">? Header Style</div>
                 <div className="flex gap-1 mb-2">
                   {(["gradient", "solid", "glass"] as const).map((s) => (
                     <DraggableChip key={s} prop="headerStyle" value={s} onClick={() => draft.set({ headerStyle: s })}
@@ -2291,7 +2291,7 @@ function CreateBot() {
                 <input value={draft.headerSubtitle} onChange={(e) => draft.set({ headerSubtitle: e.target.value })} className="input text-xs h-8" placeholder="Subtitle" />
               </div>
               <div className="rounded-xl border border-border/60 bg-card p-3 shadow-soft">
-                <div className="flex items-center gap-2 text-xs font-semibold mb-2">🎨 Colors</div>
+                <div className="flex items-center gap-2 text-xs font-semibold mb-2">?? Colors</div>
                 <div className="grid grid-cols-2 gap-2">
                   {([["primary","Primary"],["secondary","Secondary"],["botBubbleColor","Bot Bubble"],["botTextColor","Bot Text"]] as const).map(([prop, label]) => (
                     <div key={prop}>
@@ -2303,7 +2303,7 @@ function CreateBot() {
                 </div>
               </div>
               <div id="messages-section" className="rounded-xl border border-border/60 bg-card p-3 shadow-soft scroll-mt-4">
-                <div className="flex items-center gap-2 text-xs font-semibold mb-2">💬 Messages</div>
+                <div className="flex items-center gap-2 text-xs font-semibold mb-2">?? Messages</div>
                 <div className="space-y-2">
                   <div><span className="text-[10px] text-muted-foreground">Bubbles</span>
                     <div className="flex gap-1 mt-0.5">
@@ -2328,7 +2328,7 @@ function CreateBot() {
                 </div>
               </div>
               <div id="input-section" className="rounded-xl border border-border/60 bg-card p-3 shadow-soft scroll-mt-4">
-                <div className="flex items-center gap-2 text-xs font-semibold mb-2">⌨ Input</div>
+                <div className="flex items-center gap-2 text-xs font-semibold mb-2">? Input</div>
                 <div className="flex gap-1">
                   {([{ v: "rounded", l: "Round" }, { v: "pill", l: "Pill" }, { v: "minimal", l: "Line" }] as const).map((s) => (
                     <DraggableChip key={s.v} prop="inputStyle" value={s.v} onClick={() => draft.set({ inputStyle: s.v })}
@@ -2346,7 +2346,7 @@ function CreateBot() {
                 </div>
               </div>
               <div className="rounded-xl border border-border/60 bg-card p-3 shadow-soft">
-                <div className="flex items-center gap-2 text-xs font-semibold mb-2">⚙ Radius</div>
+                <div className="flex items-center gap-2 text-xs font-semibold mb-2">? Radius</div>
                 <input type="range" min={0} max={32} value={draft.radius} onChange={(e) => draft.set({ radius: +e.target.value })}
                   className="w-full accent-[oklch(0.55_0.2_35)]" />
                 <div className="text-[10px] text-muted-foreground text-right">{draft.radius}px</div>
@@ -2364,7 +2364,7 @@ function CreateBot() {
         </DialogContent>
       </Dialog>
 
-      {/* ── View File Content Dialog ── */}
+      {/* -- View File Content Dialog -- */}
       <Dialog open={!!selectedFileForView} onOpenChange={(open) => !open && setSelectedFileForView(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -2373,7 +2373,7 @@ function CreateBot() {
           {selectedFileForView?.content ? (
             <pre className="whitespace-pre-wrap text-sm leading-relaxed">{selectedFileForView.content}</pre>
           ) : (
-            <p className="text-sm text-muted-foreground">No content available — file was uploaded without extracted text.</p>
+            <p className="text-sm text-muted-foreground">No content available � file was uploaded without extracted text.</p>
           )}
         </DialogContent>
       </Dialog>
