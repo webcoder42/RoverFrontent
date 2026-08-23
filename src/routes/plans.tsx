@@ -296,7 +296,7 @@ function PlansPage() {
         const email = getStoredUser()?.email;
         const userId = getStoredUser()?.id;
 
-        let discountId: string | undefined;
+        let discountCode: string | undefined;
         const planTier = getPlanTierForPlan(plan.name);
         if (activeCoupon && (activeCoupon.planKey === "any" || activeCoupon.planKey === planTier)) {
           try {
@@ -310,8 +310,8 @@ function PlansPage() {
               body: JSON.stringify({ code: activeCoupon.code, planKey: planTier }),
             });
             const vdata = await vres.json();
-            if (vres.ok && vdata?.ok && vdata.discountId) {
-              discountId = String(vdata.discountId);
+            if (vres.ok && vdata?.ok && vdata.discountCode) {
+              discountCode = String(vdata.discountCode);
             }
           } catch {
             /* checkout continues without discount */
@@ -320,7 +320,7 @@ function PlansPage() {
 
         paddle.Checkout.open({
           items: [{ priceId: paddlePriceId, quantity: 1 }],
-          ...(discountId ? { discountId } : {}),
+          ...(discountCode ? { discountCode } : {}),
           ...(typeof email === "string" && email ? { customer: { email } } : {}),
           settings: {
             displayMode: "overlay",
