@@ -296,7 +296,7 @@ function PlansPage() {
         const email = getStoredUser()?.email;
         const userId = getStoredUser()?.id;
 
-        let discountCode: string | undefined;
+        let discountId: string | undefined;
         const planTier = getPlanTierForPlan(plan.name);
         if (activeCoupon && (activeCoupon.planKey === "any" || activeCoupon.planKey === planTier)) {
           try {
@@ -310,17 +310,24 @@ function PlansPage() {
               body: JSON.stringify({ code: activeCoupon.code, planKey: planTier }),
             });
             const vdata = await vres.json();
-            if (vres.ok && vdata?.ok && vdata.discountCode) {
-              discountCode = String(vdata.discountCode);
+            if (vres.ok && vdata?.ok && vdata.discountId) {
+              const discountedCents = Math.round(plan.price * (1 - activeCoupon.percentOff / 100) * 100);
+              if (discountedCents < 70) {
+                throw new Error(
+                  "This discount makes the payment lower than Paddle's minimum charge of $0.70. Please contact support for a smaller discount.",
+                );
+              }
+              discountId = String(vdata.discountId);
             }
-          } catch {
-            /* checkout continues without discount */
+          } catch (error) {
+            setPaddleError(error instanceof Error ? error.message : "Unable to validate coupon");
+            return;
           }
         }
 
         paddle.Checkout.open({
           items: [{ priceId: paddlePriceId, quantity: 1 }],
-          ...(discountCode ? { discountCode } : {}),
+          ...(discountId ? { discountId } : {}),
           ...(typeof email === "string" && email ? { customer: { email } } : {}),
           settings: {
             displayMode: "overlay",
@@ -332,7 +339,7 @@ function PlansPage() {
             planName: plan.name,
             billingInterval,
             ...(typeof userId === "string" && userId ? { userId } : {}),
-            ...(discountCode ? { couponCode: activeCoupon?.code } : {}),
+            ...(discountId ? { couponCode: activeCoupon?.code } : {}),
           },
         });
       } catch (error) {
