@@ -60,6 +60,11 @@ export function SiteFooter() {
                 Refund Policy
               </Link>
             </li>
+            <li>
+              <Link to="/data-deletion" className="transition-colors hover:text-primary">
+                Delete Your Data
+              </Link>
+            </li>
           </ul>
         </div>
       </div>
