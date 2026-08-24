@@ -28,6 +28,7 @@ import { Route as DashboardTelegramRouteImport } from './routes/dashboard.telegr
 import { Route as DashboardStorageRouteImport } from './routes/dashboard.storage'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
 import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts'
+import { Route as DashboardInstagramRouteImport } from './routes/dashboard.instagram'
 import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
 import { Route as DashboardFaqRouteImport } from './routes/dashboard.faq'
 import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
@@ -137,6 +138,11 @@ const DashboardScriptsRoute = DashboardScriptsRouteImport.update({
   path: '/scripts',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardInstagramRoute = DashboardInstagramRouteImport.update({
+  id: '/instagram',
+  path: '/instagram',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardInboxRoute = DashboardInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/storage': typeof DashboardStorageRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/storage': typeof DashboardStorageRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/storage': typeof DashboardStorageRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
+    | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
     | '/dashboard/storage'
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
+    | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
     | '/dashboard/storage'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/faq'
     | '/dashboard/inbox'
+    | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
     | '/dashboard/storage'
@@ -559,6 +571,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardScriptsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/instagram': {
+      id: '/dashboard/instagram'
+      path: '/instagram'
+      fullPath: '/dashboard/instagram'
+      preLoaderRoute: typeof DashboardInstagramRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/inbox': {
       id: '/dashboard/inbox'
       path: '/inbox'
@@ -683,6 +702,7 @@ interface DashboardRouteChildren {
   DashboardCreateRoute: typeof DashboardCreateRoute
   DashboardFaqRoute: typeof DashboardFaqRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
+  DashboardInstagramRoute: typeof DashboardInstagramRoute
   DashboardScriptsRoute: typeof DashboardScriptsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardStorageRoute: typeof DashboardStorageRoute
@@ -695,6 +715,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardCreateRoute: DashboardCreateRoute,
   DashboardFaqRoute: DashboardFaqRoute,
   DashboardInboxRoute: DashboardInboxRoute,
+  DashboardInstagramRoute: DashboardInstagramRoute,
   DashboardScriptsRoute: DashboardScriptsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardStorageRoute: DashboardStorageRoute,

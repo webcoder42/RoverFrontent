@@ -12,6 +12,7 @@ import {
   DollarSign,
   HardDrive,
   Send,
+  Instagram,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/asset/logo.png";
@@ -25,6 +26,7 @@ export const navItems: NavItem[] = [
   { to: "/dashboard/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/dashboard/storage", label: "Storage", icon: HardDrive },
   { to: "/dashboard/telegram", label: "Telegram Bot", icon: Send },
+  { to: "/dashboard/instagram", label: "Instagram Bot", icon: Instagram },
   { to: "/dashboard/scripts", label: "Generated Scripts", icon: Code2 },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
