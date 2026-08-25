@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Instagram, MessageCircle, Bot, Workflow } from "lucide-react";
+import { Instagram, MessageCircle, Bot, Workflow, Sparkles } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import {
   ConnectInstagramCard,
