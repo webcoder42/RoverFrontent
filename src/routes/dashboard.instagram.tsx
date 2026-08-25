@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Instagram, MessageCircle, Bot, Sparkles } from "lucide-react";
+import { Instagram, MessageCircle, Bot, Workflow } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import {
   ConnectInstagramCard,
@@ -86,7 +86,7 @@ function InstagramBotPage() {
         </div>
         <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <Bot className="h-4 w-4 text-primary" /> Keyword rules
+            <Workflow className="h-4 w-4 text-primary" /> Service Flows
           </div>
           <div className="mt-2 text-sm font-semibold text-emerald-600">
             {active ? "Bot ready to configure" : "Connect Instagram first"}
