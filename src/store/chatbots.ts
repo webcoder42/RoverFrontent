@@ -70,6 +70,8 @@ export interface Chatbot {
   extractedServices?: string[];
   trainingSheetServices?: string[];
   trainingFlow?: string;
+  flowMode?: "custom" | "auto";
+  allowedPages?: string[];
   orderSystemEnabled?: boolean;
   productType?: string;
   productCollection?: {

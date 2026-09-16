@@ -275,6 +275,8 @@ type EditDraft = {
   extractedServices: string[];
   trainingSheetServices: string[];
   trainingFlow: string;
+  flowMode: "custom" | "auto";
+  allowedPages: string[];
 };
 
 const emptyDraft: EditDraft = {
@@ -364,6 +366,8 @@ const emptyDraft: EditDraft = {
   extractedServices: [],
   trainingSheetServices: [],
   trainingFlow: "",
+  flowMode: "custom",
+  allowedPages: [] as string[],
 };
 
 const fonts = ["Inter", "Manrope", "Space Grotesk", "DM Sans"];
@@ -1248,6 +1252,8 @@ ${
       extractedServices: bot.extractedServices ?? [],
       trainingSheetServices: bot.trainingSheetServices ?? [],
       trainingFlow: bot.trainingFlow ?? "",
+      flowMode: bot.flowMode ?? "custom",
+      allowedPages: bot.allowedPages ?? [],
     });
 
     setSelectedFlowSlug(null);
@@ -1898,6 +1904,8 @@ ${
         draft.type === "agency" ||
         !!(draft.agencyEmail1 || draft.agencyEmail2 || draft.collectionDb || draft.databaseType);
       const payload: Record<string, any> = {
+        flowMode: draft.flowMode,
+        allowedPages: draft.allowedPages,
         type: draft.type,
         category: draft.category,
         useOwnDb: draft.useOwnDb,
@@ -3593,6 +3601,87 @@ ${
                               Sampled {dbSchemaMeta.sampleCount} live records
                             </span>
                           )}
+                        </div>
+                      )}
+
+                      {/* ── Flow Mode Toggle (Custom vs Auto) ── */}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((p) => ({ ...p, flowMode: "custom" }))
+                          }
+                          className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+                            draft.flowMode === "custom"
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border/60 bg-card hover:bg-accent"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-semibold">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                              <Layers className="h-4 w-4" />
+                            </span>
+                            Custom Flow
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Pick a built-in journey — E-Commerce, Service Booking, Book a Table, etc.
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((p) => ({
+                              ...p,
+                              flowMode: "auto",
+                              trainingFlow: "",
+                            }))
+                          }
+                          className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+                            draft.flowMode === "auto"
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border/60 bg-card hover:bg-accent"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-semibold">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                              <Zap className="h-4 w-4" />
+                            </span>
+                            Auto Flow
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            AI analyzes your website live — reads slots, alerts, buttons and fills forms itself.
+                          </span>
+                        </button>
+                      </div>
+
+                      {draft.flowMode === "auto" && (
+                        <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                          <div className="mb-2 flex items-center gap-2">
+                            <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                              <Zap className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold">Show on pages</h3>
+                              <p className="text-[11px] text-muted-foreground">
+                                Comma-separated path prefixes. Leave empty to show everywhere.
+                              </p>
+                            </div>
+                          </div>
+                          <input
+                            value={draft.allowedPages.join(",")}
+                            onChange={(e) =>
+                              setDraft((p) => ({
+                                ...p,
+                                allowedPages: e.target.value
+                                  .split(",")
+                                  .map((x) => x.trim())
+                                  .filter(Boolean),
+                              }))
+                            }
+                            placeholder="/booking,/contact (blank = all pages)"
+                            className="w-full rounded-xl border border-border/70 bg-card px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+                          />
                         </div>
                       )}
 
