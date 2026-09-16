@@ -54,6 +54,8 @@ interface Draft {
   trainingFlow: string;
   category: string;
   useOwnDb: boolean;
+  bookingEnabled: boolean;
+  bookingMethod: "none" | "chatbot" | "web" | "both";
   orderSystemEnabled: boolean;
   productType: string;
   productDbType: "mysql" | "mongodb" | "postgresql" | "";
@@ -66,12 +68,19 @@ interface Draft {
   productPassword: string;
   productSsl: boolean;
   productConnected: boolean;
+  catalogFields: string[];
   productMapping: {
     titleField: string;
     priceField: string;
     categoryField: string;
     imageField: string;
     descriptionField: string;
+    titleLabel?: string;
+    priceLabel?: string;
+    categoryLabel?: string;
+    imageLabel?: string;
+    descriptionLabel?: string;
+    customFields: Array<{ label: string; field: string }>;
   };
   onlyKnowledge: boolean;
   answerAnyQuestion: boolean;
@@ -129,6 +138,8 @@ const initial = {
   agencyEmail2: "",
   category: "",
   useOwnDb: false,
+  bookingEnabled: false,
+  bookingMethod: "none" as "none" | "chatbot" | "web" | "both",
   orderSystemEnabled: false,
   productType: "",
   currency: "United States Dollar (USD $)",
@@ -143,12 +154,19 @@ const initial = {
   productPassword: "",
   productSsl: false,
   productConnected: false,
+  catalogFields: [] as string[],
   productMapping: {
     titleField: "name",
     priceField: "price",
     categoryField: "category",
     imageField: "image",
     descriptionField: "description",
+    titleLabel: "Name / Title",
+    priceLabel: "Price",
+    categoryLabel: "Category",
+    imageLabel: "Image URL",
+    descriptionLabel: "Description / Details",
+    customFields: [] as Array<{ label: string; field: string }>,
   },
   onlyKnowledge: false,
   answerAnyQuestion: false,

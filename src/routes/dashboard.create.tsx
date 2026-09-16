@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, ChevronLeft, ChevronRight, Eye, FileText, Upload, Sun, Moon, Sparkles, Trash2, Database, Loader2, MessageSquareText, Building2, EyeIcon, Pencil, Save, ShoppingCart, Plane, Heart, BookOpen, Building, UtensilsCrossed, Scissors, Truck, Landmark, Car, Scale, Film, Settings, Mail } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Eye, FileText, Upload, Sun, Moon, Sparkles, Trash2, Database, Loader2, MessageSquareText, Building2, EyeIcon, Pencil, Save, ShoppingCart, Plane, Heart, BookOpen, Building, UtensilsCrossed, Scissors, Truck, Landmark, Car, Scale, Film, Settings, Mail, Layers, Wand2, Zap } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
 import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import { GradientButton } from "@/components/common/GradientButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -11,11 +12,24 @@ import { useChatbotsStore, type Template } from "@/store/chatbots";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/create")({
-  head: () => ({ meta: [{ title: "Create Chatbot — Webotme" }] }),
+  head: () => ({ meta: [{ title: "Create Chatbot ï¿½ Webotme" }] }),
   component: CreateBot,
 });
 
 type BotType = "simple" | "agency";
+
+interface DefaultFlowOption {
+  slug: string;
+  name: string;
+  tagline: string;
+  description?: string;
+  tone?: string;
+  colorPrimary?: string;
+  stepsCount?: number;
+  flowKind?: "single" | "multi-category";
+  trainingFlow?: string;
+  welcome?: string;
+}
 
 const templates: { name: Template; tag: string; desc: string; tone: string }[] = [
   { name: "Modern Glass UI", tag: "glassmorphism", desc: "Frosted glass with soft gradients.", tone: "from-violet-400 to-indigo-400" },
@@ -93,6 +107,11 @@ function CreateBot() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [usage, setUsage] = useState<any>(null);
   const [usageLoaded, setUsageLoaded] = useState(false);
+  const [defaultFlows, setDefaultFlows] = useState<DefaultFlowOption[]>([]);
+  const [flowsLoading, setFlowsLoading] = useState(true);
+  const [customFlows, setCustomFlows] = useState<Array<{ id: string; botName: string; trainingFlow: string }>>([]);
+  const [flowMode, setFlowMode] = useState<"custom" | "auto">("custom");
+  const [selectedFlowSlug, setSelectedFlowSlug] = useState<string | null>(null);
   const draft = useDraftBotStore();
   const add = useChatbotsStore((s) => s.add);
   const chatbots = useChatbotsStore((s) => s.chatbots);
@@ -147,6 +166,79 @@ function CreateBot() {
     }
   }, [chatbots.length, setChatbots]);
 
+  // Load the built-in default flow templates + this user's own custom flows
+  // (saved on their existing bots, e.g. BookMe) for the "Flow" step.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const rawUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token") || "";
+        const parsedUser = rawUser ? JSON.parse(rawUser) : null;
+
+        const [flowsRes, botsRes] = await Promise.all([
+          fetch("/api/flow/defaults"),
+          parsedUser?.id
+            ? fetch(`/api/chatbot/user/${parsedUser.id}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              })
+            : Promise.resolve(null),
+        ]);
+
+        const data = await flowsRes.json();
+        if (!alive) return;
+
+        const custom: Array<{ id: string; botName: string; trainingFlow: string }> = [];
+
+        if (data?.success && Array.isArray(data.flows) && data.flows.length > 0) {
+          setDefaultFlows(data.flows);
+        }
+
+        if (botsRes?.ok) {
+          const botsData = await botsRes.json();
+          if (alive && Array.isArray(botsData.chatbots)) {
+            const seen = new Set<string>();
+            for (const b of botsData.chatbots) {
+              const tf = b?.knowledge?.trainingFlow ?? b?.trainingFlow;
+              if (tf && typeof tf === "string" && tf.trim()) {
+                if (!seen.has(tf)) {
+                  seen.add(tf);
+                  custom.push({
+                    id: (b._id || b.id)?.toString() || `custom-${custom.length}`,
+                    botName: b.name || "Custom Flow",
+                    trainingFlow: tf,
+                  });
+                }
+              }
+            }
+            if (alive && custom.length > 0) setCustomFlows(custom);
+          }
+        }
+
+        if (!draft.trainingFlow) {
+          const def =
+            data?.flows?.find((f: DefaultFlowOption) => f.slug === "ecommerce") ??
+            data?.flows?.[0];
+          if (def) {
+            setSelectedFlowSlug(def.slug);
+            draft.set({ trainingFlow: def.trainingFlow || "" });
+          } else if (custom.length > 0) {
+            setSelectedFlowSlug(custom[0].id);
+            draft.set({ trainingFlow: custom[0].trainingFlow });
+          }
+        }
+      } catch {
+        // keep empty list; the flow grid simply stays empty
+      } finally {
+        if (alive) setFlowsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const usedStorageTargets = chatbots
     .map((b) => b.collectionStoreType)
     .filter(Boolean) as string[];
@@ -168,9 +260,9 @@ function CreateBot() {
     if (step === 0) return ["Bot type"];
     if (botType === "agency") {
       if (step === 1) return ["Bot type", "Category"];
-      return ["Bot type", "Category", "Bot details", "Theme", "Template", "Training", "Review & Launch", "Product Catalog DB", "Orders Storage DB"];
+      return ["Bot type", "Category", "Bot details", "Theme", "Template", "Flow", "Training", "Review & Launch", "Product Catalog DB", "Orders Storage DB"];
     }
-    return ["Bot type", "Name & Description", "Theme", "Template", "Training"];
+    return ["Bot type", "Name & Description", "Theme", "Template", "Flow", "Training"];
   };
 
   const steps = getSteps();
@@ -434,7 +526,7 @@ function CreateBot() {
 
     if (result.length === 0) {
       for (const line of lines) {
-        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|—).*)?$/);
+        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|ï¿½).*)?$/);
         if (m) {
           const name = m[1].trim();
           if (name.length < 80 && !result.includes(name)) result.push(name);
@@ -514,7 +606,303 @@ function CreateBot() {
     draft.set({ [type]: next });
   };
 
+  const selectFlowForBot = (f: DefaultFlowOption | null) => {
+    setSelectedFlowSlug(f?.slug ?? null);
+    draft.set({ trainingFlow: f?.trainingFlow ?? "" });
+    if (f) toast.success(`${f.name} flow selected`);
+  };
+
+  const selectCustomFlow = (f: { id: string; botName: string; trainingFlow: string }) => {
+    setSelectedFlowSlug(f.id);
+    draft.set({ trainingFlow: f.trainingFlow });
+    toast.success(`Custom flow from "${f.botName}" selected`);
+  };
+
+  const activeFlowSlug = (() => {
+    if (selectedFlowSlug) return selectedFlowSlug;
+    if (draft.trainingFlow) {
+      const def = defaultFlows.find((f) => f.trainingFlow === draft.trainingFlow);
+      if (def) return def.slug;
+      const cust = customFlows.find((f) => f.trainingFlow === draft.trainingFlow);
+      if (cust) return cust.id;
+      return null;
+    }
+    return null;
+  })();
+
+  const selectedFlow =
+    defaultFlows.find((f) => f.slug === activeFlowSlug) ?? null;
+
+  const selectedCustomFlow =
+    customFlows.find((f) => f.id === activeFlowSlug && activeFlowSlug !== null) ?? null;
+
+  const describeFlowTraining = (
+    tf: string | undefined | null
+  ): { categories: string[]; steps: string[]; stepCount: number } | null => {
+    if (!tf) return null;
+    try {
+      const obj = JSON.parse(tf);
+      const cats: string[] = Array.isArray(obj.categories)
+        ? obj.categories
+        : Object.keys(obj).filter((k) => Array.isArray(obj[k]?.steps));
+      const firstCat = cats.length > 0 ? obj[cats[0]] : null;
+      const rawSteps: unknown[] = Array.isArray(firstCat?.steps)
+        ? firstCat.steps
+        : Array.isArray(obj.steps)
+          ? obj.steps
+          : [];
+      const steps: string[] = rawSteps.map((s) => {
+        const raw =
+          typeof s === "string"
+            ? s
+            : (s as any)?.instruction || (s as any)?.question || (s as any)?.title || (s as any)?.type || JSON.stringify(s);
+        return raw as string;
+      });
+      return {
+        categories: cats,
+        steps,
+        stepCount: steps.length,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const renderFlowPanel = () => (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold">Conversation Flow</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how your chatbot runs the conversation â€” a built-in flow template or an AI Auto Flow.
+        </p>
+      </div>
+
+      {/* Custom vs Auto mode toggle */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setFlowMode("custom")}
+          className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+            flowMode === "custom"
+              ? "border-primary bg-primary/10 ring-1 ring-primary"
+              : "border-border/60 bg-card hover:bg-accent"
+          }`}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Wand2 className="h-4 w-4" />
+            </span>
+            Custom Flow
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Pick a built-in journey â€” E-Commerce, Service Booking, Book a Table, Ride, Ticket, Room or Session.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setFlowMode("auto");
+            setSelectedFlowSlug(null);
+            draft.set({ trainingFlow: "" });
+          }}
+          className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+            flowMode === "auto"
+              ? "border-primary bg-primary/10 ring-1 ring-primary"
+              : "border-border/60 bg-card hover:bg-accent"
+          }`}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Zap className="h-4 w-4" />
+            </span>
+            Auto Flow
+          </span>
+          <span className="text-xs text-muted-foreground">
+            AI analyzes your website and builds the flow automatically â€” skips flow setup and goes straight to Review.
+          </span>
+        </button>
+      </div>
+
+      {flowMode === "custom" && (
+        <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Layers className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Default Flow Library</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Pick a built-in journey â€” it is saved as your bot's training flow.
+              </p>
+            </div>
+          </div>
+
+          {flowsLoading ? (
+            <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading default flowsâ€¦
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => selectFlowForBot(null)}
+                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                  !activeFlowSlug
+                    ? "border-primary bg-primary/10 ring-1 ring-primary"
+                    : "border-border/70 bg-card hover:bg-accent"
+                }`}
+              >
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-muted text-muted-foreground">
+                    <Layers className="h-3.5 w-3.5" />
+                  </span>
+                  No Flow
+                </span>
+                <span className="text-[11px] text-muted-foreground">Knowledge-only answers</span>
+              </button>
+
+              {defaultFlows.map((f) => {
+                const active = activeFlowSlug === f.slug;
+                return (
+                  <button
+                    key={f.slug}
+                    type="button"
+                    onClick={() => selectFlowForBot(f)}
+                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                      active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold flex items-center gap-2">
+                      <span
+                        className={`grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br ${
+                          f.tone || "from-violet-500 to-indigo-500"
+                        } text-xs font-bold text-white`}
+                      >
+                        {f.name.charAt(0)}
+                      </span>
+                      {f.name}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">{f.tagline}</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {f.stepsCount ?? "?"} steps
+                      {f.flowKind === "multi-category" ? " Â· multi-category" : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {customFlows.length > 0 && (
+            <div className="mt-5">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-soft text-primary">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Your Custom Flows</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Conversation flows you built on your other chatbots â€” pick one to reuse it here.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {customFlows.map((cf) => {
+                  const active = activeFlowSlug === cf.id;
+                  const detail = describeFlowTraining(cf.trainingFlow);
+                  return (
+                    <button
+                      key={cf.id}
+                      type="button"
+                      onClick={() => selectCustomFlow(cf)}
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                        active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold flex items-center gap-2">
+                        <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 text-xs font-bold text-white">
+                          {cf.botName.charAt(0)}
+                        </span>
+                        {cf.botName}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {detail?.categories?.length ? detail.categories.join(" Â· ") : "Custom conversation flow"}
+                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {detail?.stepCount ?? "?"} steps
+                        {detail && detail.categories.length > 1 ? " Â· multi-category" : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Visual Flow Builder â€” edit the selected flow like the flow library */}
+          <div className="mt-4 space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> Visual Flow Builder
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {selectedFlow
+                    ? `Editing "${selectedFlow.name}" â€” every change is saved instantly to your bot's flow.`
+                    : selectedCustomFlow
+                      ? `Editing the custom flow from "${selectedCustomFlow.botName}" â€” every change is saved instantly to your bot's flow.`
+                      : "Click a box to edit Â· drag handles to re-order Â· drag boxes to move"}
+                </p>
+              </div>
+            </div>
+
+            {draft.trainingFlow ? (
+              <FlowBuilder
+                trainingFlow={draft.trainingFlow}
+                onChange={(json) => draft.set({ trainingFlow: json })}
+                onServiceOptionsChange={(opts) =>
+                  draft.set({ trainingSheetServices: opts, extractedServices: opts })
+                }
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-card/60 p-6 text-center">
+                <Layers className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                <p className="mt-2 text-sm font-medium">No flow yet</p>
+                <p className="mt-1 max-w-md mx-auto text-xs text-muted-foreground">
+                  Pick a built-in flow above or reuse one from "Your Custom Flows" â€” then edit it
+                  here like a flowchart (add boxes, link them, re-order).
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {flowMode === "auto" && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+            <Zap className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">Auto Flow enabled</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Flow setup, training &amp; database steps are skipped. Click <strong>Next</strong> and the
+              bot will be created â€” the AI generates the conversation flow from your website automatically.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+;
+
   const next = () => {
+    if (step === 5 && flowMode === "auto") {
+      // Auto Flow: skip straight to Review (agency) or the final step (simple).
+      setStep(botType === "agency" ? 7 : maxStep);
+      return;
+    }
     if (step === 0 && !botType) return;
     if (step === 0 && botType === "agency" && !agencyAvailable) return;
     if (step === 0 && botType === "simple" && !simpleAvailable) return;
@@ -543,6 +931,7 @@ function CreateBot() {
     try {
       const body: Record<string, any> = {
         type: botType,
+        flowMode,
         category: draft.category,
         useOwnDb: draft.useOwnDb,
         orderSystemEnabled: draft.orderSystemEnabled,
@@ -710,7 +1099,7 @@ function CreateBot() {
     }
   };
 
-  const maxStep = botType === "agency" ? 8 : 5;
+  const maxStep = botType === "agency" ? 9 : 6;
   const displayStep = botType === "agency" ? step : step === 0 ? 0 : step - 1;
 
   return (
@@ -778,7 +1167,7 @@ function CreateBot() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-bold">Simple Chatbot</h3>
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${simpleReached ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-600"}`}>
-                      {!usageLoaded ? "…" : `${usedSimpleBots} / ${simpleBotLimit}`}
+                      {!usageLoaded ? "ï¿½" : `${usedSimpleBots} / ${simpleBotLimit}`}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">A basic Q&A assistant. Name it, add training, and embed.</p>
@@ -808,7 +1197,7 @@ function CreateBot() {
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-bold">Agency Chatbot</h3>
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${agencyAvailable ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>
-                      {!usageLoaded ? "…" : agencyBotLimit > 0 ? `${usedAgencyBots} / ${agencyBotLimit}` : "Upgrade"}
+                      {!usageLoaded ? "ï¿½" : agencyBotLimit > 0 ? `${usedAgencyBots} / ${agencyBotLimit}` : "Upgrade"}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">Full-featured booking assistant with agency integration and MySQL.</p>
@@ -1051,7 +1440,7 @@ function CreateBot() {
                     {fonts.map((f) => <option key={f}>{f}</option>)}
                   </select>
                 </Field>
-                <Field label={`Border radius — ${draft.radius}px`}>
+                <Field label={`Border radius ï¿½ ${draft.radius}px`}>
                   <input type="range" min={0} max={32} value={draft.radius} onChange={(e) => draft.set({ radius: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                 </Field>
               </div>
@@ -1225,10 +1614,10 @@ function CreateBot() {
                   </label>
                   {draft.widgetOpenMode === "overlay" && (
                     <div className="grid gap-4 md:grid-cols-2">
-                      <Field label={`Panel width — ${draft.widgetWidth}px`}>
+                      <Field label={`Panel width ï¿½ ${draft.widgetWidth}px`}>
                         <input type="range" min={280} max={700} value={draft.widgetWidth} onChange={(e) => draft.set({ widgetWidth: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                       </Field>
-                      <Field label={`Panel height — ${draft.widgetHeight}px`}>
+                      <Field label={`Panel height ï¿½ ${draft.widgetHeight}px`}>
                         <input type="range" min={360} max={900} value={draft.widgetHeight} onChange={(e) => draft.set({ widgetHeight: +e.target.value })} className="w-full accent-[oklch(0.55_0.2_35)]" />
                       </Field>
                     </div>
@@ -1237,7 +1626,7 @@ function CreateBot() {
                     <textarea value={draft.widgetCustomCss} onChange={(e) => draft.set({ widgetCustomCss: e.target.value })}
                       className="input min-h-20 font-mono text-xs"
                       placeholder="/* e.g. move or resize the widget from your site */&#10;#rover-chatbot-frame { width: 480px; height: 640px; }&#10;#rover-chatbot-bubble { bottom: 80px; right: 40px; }" />
-                    <p className="mt-1 text-[10px] text-muted-foreground">These styles are injected with the widget script — no extra CSS needed on your site.</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">These styles are injected with the widget script ï¿½ no extra CSS needed on your site.</p>
                   </Field>
                 </div>
               </details>
@@ -1335,7 +1724,9 @@ function CreateBot() {
             </div>
           )}
 
-          {step === 5 && botType === "agency" && (
+          {step === 5 && botType === "agency" && renderFlowPanel()}
+
+          {step === 6 && botType === "agency" && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Training Files</h2>
               <p className="text-sm text-muted-foreground">
@@ -1487,7 +1878,7 @@ function CreateBot() {
             </div>
           )}
 
-          {step === 6 && botType === "agency" && (
+          {step === 7 && botType === "agency" && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Review & Launch</h2>
               <p className="text-sm text-muted-foreground">
@@ -1519,7 +1910,7 @@ function CreateBot() {
             </div>
           )}
 
-          {step === 7 && botType === "agency" && (
+          {step === 8 && botType === "agency" && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Product Catalog Database</h2>
               <p className="text-sm text-muted-foreground">Connect an external database containing your products or services to sell directly via chatbot.</p>
@@ -1636,7 +2027,7 @@ function CreateBot() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Order emails will be received on these emails in any order. You can add any other email
-                    of your choice — except the email used to create this account, which already receives orders.
+                    of your choice ï¿½ except the email used to create this account, which already receives orders.
                   </p>
                 </div>
               )}
@@ -1705,7 +2096,7 @@ function CreateBot() {
                               <input value={draft.productUsername} onChange={(e) => draft.set({ productUsername: e.target.value })} className="input" />
                             </CollectionField>
                             <CollectionField label="Password">
-                              <input type="password" value={draft.productPassword} onChange={(e) => draft.set({ productPassword: e.target.value })} className="input" placeholder="••••••••" />
+                              <input type="password" value={draft.productPassword} onChange={(e) => draft.set({ productPassword: e.target.value })} className="input" placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" />
                             </CollectionField>
                           </div>
                           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -1829,7 +2220,7 @@ function CreateBot() {
             </div>
           )}
 
-          {step === 8 && botType === "agency" && (
+          {step === 9 && botType === "agency" && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold">Orders & Chat Storage Database</h2>
               <p className="text-sm text-muted-foreground">Connect an external database to store chat logs, orders, and agent details.</p>
@@ -1864,7 +2255,7 @@ function CreateBot() {
                 </div>
               </div>
 
-              {/* Database Mode — collection only */}
+              {/* Database Mode ï¿½ collection only */}
               {draft.databaseType && (
                 <div>
                   <label className="mb-3 block text-sm font-medium">Database mode</label>
@@ -1890,7 +2281,7 @@ function CreateBot() {
                     {draft.databaseType === "mysql" ? "MySQL" : draft.databaseType === "mongodb" ? "MongoDB" : "PostgreSQL"} Collection
                   </summary>
                   <div className="mt-4 space-y-4">
-                    {/* MongoDB — connection string URI */}
+                    {/* MongoDB ï¿½ connection string URI */}
                     {draft.databaseType === "mongodb" ? (
                       <div className="space-y-4">
                         <CollectionField label="Connection String URI">
@@ -1904,7 +2295,7 @@ function CreateBot() {
                         </CollectionField>
                       </div>
                     ) : (
-                      /* MySQL / PostgreSQL — host/port/user/pass fields */
+                      /* MySQL / PostgreSQL ï¿½ host/port/user/pass fields */
                       <div className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                           <CollectionField label="Host">
@@ -1923,7 +2314,7 @@ function CreateBot() {
                             <input value={draft.collectionUsername} onChange={(e) => draft.set({ collectionUsername: e.target.value })} className="input" />
                           </CollectionField>
                           <CollectionField label="Password">
-                            <input type="password" value={draft.collectionPassword} onChange={(e) => draft.set({ collectionPassword: e.target.value })} className="input" placeholder="••••••••" />
+                            <input type="password" value={draft.collectionPassword} onChange={(e) => draft.set({ collectionPassword: e.target.value })} className="input" placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" />
                           </CollectionField>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -2040,7 +2431,9 @@ function CreateBot() {
             </div>
           )}
 
-          {step === 5 && botType === "simple" && (
+          {step === 5 && botType === "simple" && renderFlowPanel()}
+
+          {step === 6 && botType === "simple" && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Training Documents</h2>
               <p className="text-sm text-muted-foreground">Upload files or paste content to train your chatbot.</p>
@@ -2144,7 +2537,7 @@ function CreateBot() {
               <GradientButton onClick={next}>Next <ChevronRight className="h-4 w-4" /></GradientButton>
             ) : (
               <GradientButton onClick={finish} disabled={saving}>
-                {saving ? "Saving…" : <><Check className="h-4 w-4" /> Finish & Save</>}
+                {saving ? "Savingï¿½" : <><Check className="h-4 w-4" /> Finish & Save</>}
               </GradientButton>
             )}
           </div>
@@ -2373,7 +2766,7 @@ function CreateBot() {
           {selectedFileForView?.content ? (
             <pre className="whitespace-pre-wrap text-sm leading-relaxed">{selectedFileForView.content}</pre>
           ) : (
-            <p className="text-sm text-muted-foreground">No content available — file was uploaded without extracted text.</p>
+            <p className="text-sm text-muted-foreground">No content available ï¿½ file was uploaded without extracted text.</p>
           )}
         </DialogContent>
       </Dialog>

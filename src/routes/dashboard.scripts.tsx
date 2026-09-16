@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -26,20 +26,23 @@ import {
   Phone,
   MapPin,
   CreditCard,
-  ListChecks,
   ArrowRight,
   EyeOff,
   Braces,
-  Plus,
-  GripVertical,
   ChevronUp,
   ChevronDown,
   X,
-  CheckSquare,
   Shield,
+  MessageSquareText,
+  Globe,
+  Layers,
   ArrowUpCircle,
   BarChart3,
   KeyRound,
+  Clock,
+  ShoppingBag,
+  Zap,
+  Tag,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -59,6 +62,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { DetectedCatalogColumns } from "@/components/common/DetectedCatalogColumns";
+import { guessMapping } from "@/lib/productMapping";
+import { demoDataForFlow } from "@/lib/flowDemoData";
+import {
+  FlowDiagram,
+  flowIconForSlug,
+  stepIconFor,
+  type FlowDef,
+  type FlowLink,
+} from "@/components/flow/FlowDiagram";
+import { FlowBuilder } from "@/components/flow/FlowBuilder";
 
 export const Route = createFileRoute("/dashboard/scripts")({
   head: () => ({ meta: [{ title: "Generated Scripts — Webotme" }] }),
@@ -81,12 +95,105 @@ interface TemplateInfo {
   };
 }
 
-;
+interface DefaultFlowOption {
+  slug: string;
+  name: string;
+  tagline?: string;
+  icon?: string;
+  tone?: string;
+  flowKind?: string;
+  stepsCount?: number;
+  trainingFlow?: string;
+  welcome?: string;
+}
+
+interface FlowStepMeta {
+  id?: string;
+  title?: string;
+  type?: string;
+  fields?: Array<{
+    name?: string;
+    label?: string;
+    type?: string;
+    options?: string[];
+    required?: boolean;
+    fetchProducts?: boolean;
+    allowSkip?: boolean;
+  }>;
+}
+
+const FALLBACK_FLOWS: DefaultFlowOption[] = [
+  {
+    slug: "ecommerce",
+    name: "E-Commerce",
+    tagline: "Shop, cart, checkout & payment",
+    icon: "shopping-bag",
+    tone: "from-rose-500 to-purple-600",
+    flowKind: "multi-category",
+    stepsCount: 8,
+  },
+  {
+    slug: "service",
+    name: "Service Booking",
+    tagline: "Book a service, pick a slot",
+    icon: "wrench",
+    tone: "from-sky-500 to-cyan-500",
+    flowKind: "single",
+    stepsCount: 7,
+  },
+  {
+    slug: "table",
+    name: "Book a Table",
+    tagline: "Restaurant reservation",
+    icon: "utensils",
+    tone: "from-orange-500 to-amber-500",
+    flowKind: "single",
+    stepsCount: 7,
+  },
+  {
+    slug: "ride",
+    name: "Book a Ride",
+    tagline: "Ride-hailing like Careem / Uber",
+    icon: "car",
+    tone: "from-emerald-500 to-teal-500",
+    flowKind: "single",
+    stepsCount: 6,
+  },
+  {
+    slug: "ticket",
+    name: "Book a Ticket",
+    tagline: "Movie, flight & bus tickets",
+    icon: "ticket",
+    tone: "from-fuchsia-500 to-pink-500",
+    flowKind: "single",
+    stepsCount: 5,
+  },
+  {
+    slug: "hotel",
+    name: "Book a Room",
+    tagline: "Hotel rooms & stays",
+    icon: "bed",
+    tone: "from-indigo-500 to-violet-500",
+    flowKind: "single",
+    stepsCount: 6,
+  },
+  {
+    slug: "session",
+    name: "Book a Session",
+    tagline: "Consultations & classes",
+    icon: "graduation-cap",
+    tone: "from-teal-500 to-emerald-500",
+    flowKind: "single",
+    stepsCount: 6,
+  },
+];
 
 type EditDraft = {
   type: Chatbot["type"];
   category: string;
   useOwnDb: boolean;
+  bookingEnabled: boolean;
+  bookingMethod: "none" | "chatbot" | "web" | "both";
   orderSystemEnabled: boolean;
   productType: string;
   currency: string;
@@ -101,12 +208,19 @@ type EditDraft = {
   productPassword: string;
   productSsl: boolean;
   productConnected: boolean;
+  catalogFields: string[];
   productMapping: {
     titleField: string;
     priceField: string;
     categoryField: string;
     imageField: string;
     descriptionField: string;
+    titleLabel?: string;
+    priceLabel?: string;
+    categoryLabel?: string;
+    imageLabel?: string;
+    descriptionLabel?: string;
+    customFields: Array<{ label: string; field: string }>;
   };
   name: string;
   welcome: string;
@@ -167,6 +281,8 @@ const emptyDraft: EditDraft = {
   type: "simple",
   category: "",
   useOwnDb: false,
+  bookingEnabled: false,
+  bookingMethod: "none",
   orderSystemEnabled: false,
   productType: "",
   currency: "United States Dollar (USD $)",
@@ -181,12 +297,19 @@ const emptyDraft: EditDraft = {
   productPassword: "",
   productSsl: false,
   productConnected: false,
+  catalogFields: [] as string[],
   productMapping: {
     titleField: "name",
     priceField: "price",
     categoryField: "category",
     imageField: "image",
     descriptionField: "description",
+    titleLabel: "Name / Title",
+    priceLabel: "Price",
+    categoryLabel: "Category",
+    imageLabel: "Image URL",
+    descriptionLabel: "Description / Details",
+    customFields: [] as Array<{ label: string; field: string }>,
   },
   name: "",
   welcome: "Hi 👋 How can I help you today?",
@@ -300,6 +423,33 @@ const getAuthHeaders = () => {
   };
 };
 
+/**
+ * Detects whether the given trainingFlow JSON is a Service Booking flow
+ * (first step is a non-product "choose service/category" selection). Used so
+ * "+ Add Category" generates a service-specific flow instead of an
+ * e-commerce one. The e-commerce flow (fetchProducts category step) is NOT
+ * treated as a service flow.
+ */
+const isServiceBookingFlowJson = (raw: string | undefined | null): boolean => {
+  if (!raw) return false;
+  let obj: any = null;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (!obj || typeof obj !== "object") return false;
+  const root = Array.isArray(obj.steps)
+    ? obj
+    : Object.values(obj).find((v: any) => v && typeof v === "object" && Array.isArray(v.steps));
+  const first = root?.steps?.[0];
+  if (!first || first.type !== "selection") return false;
+  const field = (first.fields || []).find((f: any) =>
+    ["service", "category", "serviceType", "service_type"].includes(f?.name),
+  );
+  return !!field && field.fetchProducts !== true && !/payment|pay/i.test(first.title || "");
+};
+
 const mapChatbot = (cb: any): Chatbot => {
   const theme = cb.theme || {};
   const knowledge = cb.knowledge || {};
@@ -312,21 +462,25 @@ const mapChatbot = (cb: any): Chatbot => {
     type: cb.type || "simple",
     category: cb.category || "",
     useOwnDb: cb.useOwnDb ?? false,
+    bookingEnabled: (cb.bookingMethod || "none") !== "none",
+    bookingMethod: cb.bookingMethod || "none",
     orderSystemEnabled: cb.orderSystemEnabled ?? false,
     productType: cb.productType ?? "",
-    productCollection: prodCol ? {
-      dbType: prodCol.dbType ?? "",
-      uri: prodCol.uri ?? "",
-      db: prodCol.db ?? "",
-      table: prodCol.table ?? "",
-      host: prodCol.host ?? "",
-      port: prodCol.port ?? 3306,
-      username: prodCol.username ?? "",
-      password: prodCol.password ?? "",
-      ssl: prodCol.ssl ?? false,
-      connected: prodCol.connected ?? false,
-      mapping: prodCol.mapping || undefined,
-    } : undefined,
+    productCollection: prodCol
+      ? {
+          dbType: prodCol.dbType ?? "",
+          uri: prodCol.uri ?? "",
+          db: prodCol.db ?? "",
+          table: prodCol.table ?? "",
+          host: prodCol.host ?? "",
+          port: prodCol.port ?? 3306,
+          username: prodCol.username ?? "",
+          password: prodCol.password ?? "",
+          ssl: prodCol.ssl ?? false,
+          connected: prodCol.connected ?? false,
+          mapping: prodCol.mapping || undefined,
+        }
+      : undefined,
     name: cb.name,
     currency: cb.currency || "United States Dollar (USD $)",
     currencySymbol: cb.currencySymbol || "$",
@@ -392,11 +546,122 @@ const mapChatbot = (cb: any): Chatbot => {
 const TEMPLATE_NAMES = new Set(["HealthBuddy", "FitGuide", "PetPedia", "BabyCare"]);
 
 const TEMPLATE_KNOWLEDGE_FILES = new Set([
-  "common-diseases.txt", "first-aid.txt", "nutrition.txt",
-  "diet-plans.txt", "weight-management.txt", "workouts.txt",
-  "breeds.txt", "pet-care.txt", "pet-health.txt",
-  "feeding.txt", "milestones.txt", "newborn-care.txt",
+  "common-diseases.txt",
+  "first-aid.txt",
+  "nutrition.txt",
+  "diet-plans.txt",
+  "weight-management.txt",
+  "workouts.txt",
+  "breeds.txt",
+  "pet-care.txt",
+  "pet-health.txt",
+  "feeding.txt",
+  "milestones.txt",
+  "newborn-care.txt",
 ]);
+
+function syncCategoriesWithFlow(updatedCategories: string[], flowStr?: string): string {
+  if (!flowStr) return flowStr || "";
+  try {
+    const flowObj = JSON.parse(flowStr);
+    if (!flowObj || typeof flowObj !== "object") return flowStr;
+
+    if (!Array.isArray(flowObj.steps)) {
+      const updatedObj: Record<string, any> = {};
+      for (const cat of updatedCategories) {
+        if (flowObj[cat]) {
+          updatedObj[cat] = flowObj[cat];
+        } else {
+          const isApp = /app|mobile|ios|android/i.test(cat);
+          const isWeb = /web|site|design|landing/i.test(cat);
+          const isBot = /bot|chat|ai|automation/i.test(cat);
+
+          let specificStep: any;
+          if (isApp) {
+            specificStep = {
+              id: "platform",
+              title: `Target Platform for ${cat}`,
+              type: "selection",
+              fields: [{ name: "platform", label: "Target Platform", type: "text", options: ["iOS (iPhone/iPad)", "Android", "Cross-Platform (Both)"], required: true }]
+            };
+          } else if (isWeb) {
+            specificStep = {
+              id: "type",
+              title: `Website Type for ${cat}`,
+              type: "selection",
+              fields: [{ name: "websiteType", label: "Website Type", type: "text", options: ["E-Commerce Store", "Business Landing Page", "Custom Web App", "Portfolio"], required: true }]
+            };
+          } else if (isBot) {
+            specificStep = {
+              id: "channel",
+              title: `Integration Channel for ${cat}`,
+              type: "selection",
+              fields: [{ name: "channel", label: "Integration Channel", type: "text", options: ["Website Widget", "WhatsApp Business", "Instagram / Facebook", "Custom API"], required: true }]
+            };
+          } else {
+            specificStep = {
+              id: "package",
+              title: `Select Package for ${cat}`,
+              type: "selection",
+              fields: [{ name: "package", label: "Service Package", type: "text", options: ["Basic Package", "Standard Package", "Premium Custom"], required: true }]
+            };
+          }
+
+          updatedObj[cat] = {
+            steps: [
+              specificStep,
+              {
+                id: "budget",
+                title: `Budget & Scope for ${cat}`,
+                type: "selection",
+                fields: [{ name: "budget", label: "Estimated Budget", type: "text", options: ["$500 - $1,500", "$1,500 - $3,500", "$3,500 - $7,500", "$7,500+"], required: true }]
+              },
+              {
+                id: "contact",
+                title: "Your Contact Details",
+                type: "form",
+                fields: [
+                  { name: "fullName", label: "Full Name", type: "text", required: true },
+                  { name: "phone", label: "Phone Number", type: "tel", required: true },
+                  { name: "email", label: "Email Address", type: "email", required: false }
+                ]
+              },
+              {
+                id: "payment",
+                title: "Payment Preference",
+                type: "selection",
+                fields: [{ name: "paymentMethod", label: "Payment Method", type: "text", options: ["Cash / Direct Bank Transfer", "Pay Online"], required: true, allowSkip: true }]
+              },
+              { id: "confirm", title: `Confirm ${cat} Request`, type: "confirmation", fields: [] }
+            ]
+          };
+        }
+      }
+      return JSON.stringify(updatedObj, null, 2);
+    } else if (flowObj.steps.length > 0) {
+      const serviceStep = flowObj.steps.find(
+        (s: any) =>
+          s.type === "selection" &&
+          s.fields?.some(
+            (f: any) =>
+              f.name === "service" ||
+              f.name === "category" ||
+              f.name === "serviceType" ||
+              f.label?.toLowerCase().includes("service") ||
+              f.label?.toLowerCase().includes("category")
+          )
+      ) || flowObj.steps[0];
+
+      if (serviceStep && serviceStep.type === "selection" && serviceStep.fields?.length > 0) {
+        serviceStep.fields[0].options = updatedCategories.length > 0 ? updatedCategories : ["Service 1"];
+        return JSON.stringify(flowObj, null, 2);
+      }
+    }
+  } catch {}
+  return flowStr;
+}
+
+
 
 const isTemplateBotCheck = (bot: Chatbot): boolean => {
   if (bot.fromTemplate) return true;
@@ -448,8 +713,13 @@ function ScriptsPage() {
       .filter(Boolean) as string[];
   }, [chatbots, editingBot]);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [syncingDB, setSyncingDB] = useState(false);
+  const [dbSchemaMeta, setDbSchemaMeta] = useState<any>(null);
   const [connectedEmails, setConnectedEmails] = useState<any[]>([]);
   const [selectedFlowCategory, setSelectedFlowCategory] = useState<string | null>(null);
+  const [defaultFlows, setDefaultFlows] = useState<DefaultFlowOption[]>([]);
+  const [flowsLoading, setFlowsLoading] = useState(true);
+  const [selectedFlowSlug, setSelectedFlowSlug] = useState<string | null>(null);
   const [manualKnowledgeName, setManualKnowledgeName] = useState("");
   const [manualKnowledgeContent, setManualKnowledgeContent] = useState("");
   const [manualKBName, setManualKBName] = useState("");
@@ -477,7 +747,9 @@ function ScriptsPage() {
     Promise.all([
       fetch(`/api/chatbot/user/${user.id}`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch("/api/templates", { headers: getAuthHeaders() }).then((r) => r.json()),
-      fetch("/api/storage/usage", { headers: getAuthHeaders() }).then((r) => r.json()).catch(() => null),
+      fetch("/api/storage/usage", { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .catch(() => null),
     ])
       .then(([botsData, tmplData, storageData]) => {
         const bots: any[] = Array.isArray(botsData.chatbots) ? botsData.chatbots : [];
@@ -485,11 +757,14 @@ function ScriptsPage() {
         const plan = storage?.planId || {};
         const agencyAllowed = (plan.bookingAgency || 0) > 0;
         const dbAllowed = plan.databaseAccess === true;
-        const storageFull = (storage?.storageLimit || 0) > 0 && (storage?.storageUsed || 0) >= (storage?.storageLimit || 0);
+        const storageFull =
+          (storage?.storageLimit || 0) > 0 &&
+          (storage?.storageUsed || 0) >= (storage?.storageLimit || 0);
         const simpleBotLimit = Math.max(0, plan.totalChatbots || 0);
         const agencyBotLimit = plan.bookingAgency || 0;
         const orderedBots = [...bots].sort(
-          (a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(),
+          (a: any, b: any) =>
+            new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(),
         );
         let simpleCount = 0;
         let agencyCount = 0;
@@ -499,7 +774,8 @@ function ScriptsPage() {
             agencyCount += 1;
             if (!agencyAllowed) {
               bot.planRestricted = true;
-              bot.planRestrictionReason = "Agency chatbots are not included in your current plan. Upgrade your plan to enable this chatbot.";
+              bot.planRestrictionReason =
+                "Agency chatbots are not included in your current plan. Upgrade your plan to enable this chatbot.";
             } else if (agencyCount > agencyBotLimit) {
               bot.planRestricted = true;
               bot.planRestrictionReason = `Agency chatbot limit reached (${agencyBotLimit}/${agencyBotLimit}). Upgrade your plan to create more.`;
@@ -511,12 +787,18 @@ function ScriptsPage() {
               bot.planRestrictionReason = `Simple chatbot limit reached (${simpleBotLimit}/${simpleBotLimit}). Upgrade your plan to create more.`;
             }
           }
-          if (!bot.planRestricted && (bot.collectionConnected || bot.productCollection?.connected) && !dbAllowed) {
+          if (
+            !bot.planRestricted &&
+            (bot.collectionConnected || bot.productCollection?.connected) &&
+            !dbAllowed
+          ) {
             bot.planRestricted = true;
-            bot.planRestrictionReason = "Database collections are not included in your current plan. Upgrade your plan to enable database features.";
+            bot.planRestrictionReason =
+              "Database collections are not included in your current plan. Upgrade your plan to enable database features.";
           } else if (!bot.planRestricted && storageFull) {
             bot.planRestricted = true;
-            bot.planRestrictionReason = "Your storage is full. Upgrade your plan to increase your storage limit.";
+            bot.planRestrictionReason =
+              "Your storage is full. Upgrade your plan to increase your storage limit.";
           }
           return bot;
         });
@@ -565,11 +847,7 @@ function ScriptsPage() {
     fetch("/api/email-config", { headers: getAuthHeaders() })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const configs: any[] = Array.isArray(d?.configs)
-          ? d.configs
-          : d?.config
-            ? [d.config]
-            : [];
+        const configs: any[] = Array.isArray(d?.configs) ? d.configs : d?.config ? [d.config] : [];
         setConnectedEmails(configs);
       })
       .catch(() => {
@@ -589,7 +867,24 @@ function ScriptsPage() {
 
   const templateOptions = ["all", ...Array.from(new Set(chatbots.map((b) => b.template)))];
 
-  const buildEmbedScript = (botId: string, botName: string, opts?: Partial<Pick<Chatbot, "widgetLauncher" | "widgetLauncherText" | "widgetLauncherStyle" | "widgetPosition" | "widgetOpenMode" | "widgetWidth" | "widgetHeight" | "widgetSmartPosition" | "widgetCustomCss">>) => {
+  const buildEmbedScript = (
+    botId: string,
+    botName: string,
+    opts?: Partial<
+      Pick<
+        Chatbot,
+        | "widgetLauncher"
+        | "widgetLauncherText"
+        | "widgetLauncherStyle"
+        | "widgetPosition"
+        | "widgetOpenMode"
+        | "widgetWidth"
+        | "widgetHeight"
+        | "widgetSmartPosition"
+        | "widgetCustomCss"
+      >
+    >,
+  ) => {
     const launcher = opts?.widgetLauncher || "icon";
     const launcherText = opts?.widgetLauncherText || "Chat with us";
     const launcherStyle = opts?.widgetLauncherStyle || "rounded";
@@ -622,7 +917,14 @@ function ScriptsPage() {
   /* Apni CSS yahan lagayen — e.g. widget ko upar le jayen ya bada karen */
   /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
   /* #rover-chatbot-frame { width: 480px; height: 640px; } */
-${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- saved custom CSS will appear here -- */"}
+${
+  customCss
+    ? customCss
+        .split("\n")
+        .map((l) => "  " + l)
+        .join("\n")
+    : "  /* -- saved custom CSS will appear here -- */"
+}
 </style>`;
   };
 
@@ -737,11 +1039,90 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     return services;
   };
 
+  const buildCatalogBody = (d: EditDraft): any | null => {
+    const body: any = {
+      type: d.productDbType,
+      isProductCollection: true,
+      productMapping: d.productMapping,
+    };
+
+    if (d.productDbType === "mongodb") {
+      if (!d.productUri || !d.productDb || !d.productTable) {
+        toast.error("Please fill Connection URI, Database Name, and Collection Name");
+        return null;
+      }
+      body.uri = d.productUri;
+      body.database = d.productDb;
+      body.collection = d.productTable;
+    } else {
+      if (
+        !d.productDb ||
+        !d.productHost ||
+        !d.productUsername ||
+        !d.productPassword ||
+        !d.productTable
+      ) {
+        toast.error("Please fill all catalog fields first");
+        return null;
+      }
+      body.host = d.productHost;
+      body.port = d.productPort || (d.productDbType === "mysql" ? 3306 : 5432);
+      body.database = d.productDb;
+      body.user = d.productUsername;
+      body.password = d.productPassword;
+      body.table = d.productTable;
+      body.ssl = d.productSsl;
+    }
+
+    return body;
+  };
+
+  const runCatalogTest = async (d: EditDraft, silent = false) => {
+    const body = buildCatalogBody(d);
+    if (!body) return;
+
+    const toastId = toast.loading(
+      silent ? "Fetching catalog fields..." : "Testing catalog connection...",
+    );
+    try {
+      const res = await fetch("/api/chatbot/test-collection", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.connected) {
+        setDraft((prev) => {
+          const fields = Array.isArray(data.fields) ? data.fields : prev.catalogFields;
+          const guessed = guessMapping(fields, prev.productMapping);
+          return {
+            ...prev,
+            productConnected: true,
+            catalogFields: fields,
+            productMapping: { ...guessed, customFields: prev.productMapping.customFields ?? [] },
+          };
+        });
+        const msg =
+          data.productCount !== undefined
+            ? `Connected! Found ${data.productCount} product(s) in catalog.`
+            : "Catalog connection successful!";
+        toast.success(msg, { id: toastId });
+      } else {
+        setDraft((prev) => ({ ...prev, productConnected: false }));
+        toast.error(data.message || "Connection failed", { id: toastId });
+      }
+    } catch (err: any) {
+      setDraft((prev) => ({ ...prev, productConnected: false }));
+      toast.error(err.message || "Connection test failed", { id: toastId });
+    }
+  };
+
   const openEditor = (bot: Chatbot) => {
     setEditingBot(bot);
     setEditStep(1);
     setIsTemplateBot(isTemplateBotCheck(bot));
-    const isAgency = bot.type === "agency" || !!(bot.agencyEmail1 || bot.agencyEmail2 || bot.collectionDb);
+    const isAgency =
+      bot.type === "agency" || !!(bot.agencyEmail1 || bot.agencyEmail2 || bot.collectionDb);
     let cleanDesc = bot.description || "";
     if (!isAgency && cleanDesc) {
       const lines = cleanDesc.split("\n");
@@ -765,6 +1146,8 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
       type: bot.type || "simple",
       category: bot.category || "",
       useOwnDb: bot.useOwnDb ?? false,
+      bookingEnabled: (bot.bookingMethod || "none") !== "none",
+      bookingMethod: bot.bookingMethod || "none",
       orderSystemEnabled: bot.orderSystemEnabled ?? false,
       productType: bot.productType ?? "",
       currency: bot.currency || "United States Dollar (USD $)",
@@ -779,19 +1162,39 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
       productPassword: bot.productCollection?.password ?? "",
       productSsl: bot.productCollection?.ssl ?? false,
       productConnected: bot.productCollection?.connected ?? false,
-      productMapping: bot.productCollection?.mapping ? {
-        titleField: bot.productCollection.mapping.titleField || "name",
-        priceField: bot.productCollection.mapping.priceField || "price",
-        categoryField: bot.productCollection.mapping.categoryField || "category",
-        imageField: bot.productCollection.mapping.imageField || "image",
-        descriptionField: bot.productCollection.mapping.descriptionField || "description",
-      } : {
-        titleField: "name",
-        priceField: "price",
-        categoryField: "category",
-        imageField: "image",
-        descriptionField: "description",
-      },
+      catalogFields: [],
+      productMapping: bot.productCollection?.mapping
+        ? {
+            titleField: bot.productCollection.mapping.titleField || "name",
+            priceField: bot.productCollection.mapping.priceField || "price",
+            categoryField: bot.productCollection.mapping.categoryField || "category",
+            imageField: bot.productCollection.mapping.imageField || "image",
+            descriptionField: bot.productCollection.mapping.descriptionField || "description",
+            titleLabel: bot.productCollection.mapping.titleLabel || "Name / Title",
+            priceLabel: bot.productCollection.mapping.priceLabel || "Price",
+            categoryLabel: bot.productCollection.mapping.categoryLabel || "Category",
+            imageLabel: bot.productCollection.mapping.imageLabel || "Image URL",
+            descriptionLabel:
+              bot.productCollection.mapping.descriptionLabel || "Description / Details",
+            customFields: Array.isArray(bot.productCollection.mapping.customFields)
+              ? bot.productCollection.mapping.customFields.filter(
+                  (cf: any) => cf && (cf.label || cf.field),
+                )
+              : [],
+          }
+        : {
+            titleField: "name",
+            priceField: "price",
+            categoryField: "category",
+            imageField: "image",
+            descriptionField: "description",
+            titleLabel: "Name / Title",
+            priceLabel: "Price",
+            categoryLabel: "Category",
+            imageLabel: "Image URL",
+            descriptionLabel: "Description / Details",
+            customFields: [] as Array<{ label: string; field: string }>,
+          },
       name: bot.name,
       welcome: bot.welcome,
       description: cleanDesc,
@@ -813,6 +1216,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
       headerSubtitle: bot.headerSubtitle || "Online",
       widgetLauncher: bot.widgetLauncher ?? "icon",
       widgetLauncherText: bot.widgetLauncherText ?? "Chat with us",
+      widgetLauncherStyle: bot.widgetLauncherStyle ?? "rounded",
       widgetPosition: bot.widgetPosition ?? "bottom-right",
       widgetOpenMode: bot.widgetOpenMode ?? "overlay",
       widgetWidth: bot.widgetWidth ?? 400,
@@ -845,6 +1249,25 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
       trainingSheetServices: bot.trainingSheetServices ?? [],
       trainingFlow: bot.trainingFlow ?? "",
     });
+
+    setSelectedFlowSlug(null);
+
+    const pc = bot.productCollection;
+    if (pc?.connected) {
+      const fetchDraft: EditDraft = {
+        ...emptyDraft,
+        productDbType: (pc.dbType as any) ?? "",
+        productUri: pc.uri ?? "",
+        productDb: pc.db ?? "",
+        productTable: pc.table ?? "",
+        productHost: pc.host ?? "",
+        productPort: pc.port ?? 3306,
+        productUsername: pc.username ?? "",
+        productPassword: pc.password ?? "",
+        productSsl: pc.ssl ?? false,
+      };
+      setTimeout(() => runCatalogTest(fetchDraft, true), 400);
+    }
   };
 
   const handleViewFile = async (f: { name: string; content?: string; url?: string }) => {
@@ -860,9 +1283,12 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     try {
       const botId = editingBot?.id;
       if (!botId) return;
-      const res = await fetch(`/api/chatbot/${botId}/file-content?filename=${encodeURIComponent(f.name)}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `/api/chatbot/${botId}/file-content?filename=${encodeURIComponent(f.name)}`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
       const data = await res.json();
       if (res.ok && data.content) {
         setSelectedFileForView({ name: f.name, content: data.content });
@@ -877,7 +1303,327 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     setEditStep(1);
     setIsTemplateBot(false);
     setDraft(emptyDraft);
+    setDbSchemaMeta(null);
+    setSyncingDB(false);
+    setSelectedFlowSlug(null);
   };
+
+  const selectFlow = (f: DefaultFlowOption | null) => {
+    setSelectedFlowSlug(f ? f.slug : null);
+    setDraft((p) => ({
+      ...p,
+      trainingFlow: f ? f.trainingFlow || "" : "",
+      orderSystemEnabled: f ? true : p.orderSystemEnabled,
+    }));
+  };
+
+  useEffect(() => {
+    let alive = true;
+    const enrich = (f: DefaultFlowOption): DefaultFlowOption => ({
+      ...f,
+      trainingFlow: f.trainingFlow ?? demoDataForFlow(f.slug).trainingFlow,
+      welcome: f.welcome ?? demoDataForFlow(f.slug).welcome,
+    });
+    const fallback = FALLBACK_FLOWS.map(enrich);
+    const applyDefault = (flows: DefaultFlowOption[]) => {
+      const def = flows.find((fl) => fl.slug === "ecommerce") ?? flows[0];
+      if (!def) return;
+      setDraft((p) => (p.trainingFlow ? p : { ...p, trainingFlow: def.trainingFlow || "" }));
+      setSelectedFlowSlug(def.slug);
+    };
+    (async () => {
+      try {
+        const res = await fetch("/api/flow/defaults");
+        const data = await res.json();
+        if (!alive) return;
+        if (data?.success && Array.isArray(data.flows) && data.flows.length > 0) {
+          const withFlow = data.flows.map((f: DefaultFlowOption) => enrich(f));
+          setDefaultFlows(withFlow);
+          applyDefault(withFlow);
+        } else {
+          setDefaultFlows(fallback);
+          applyDefault(fallback);
+        }
+      } catch {
+        if (!alive) return;
+        setDefaultFlows(fallback);
+        applyDefault(fallback);
+      } finally {
+        if (alive) setFlowsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const selectedFlow = defaultFlows.find((f) => f.slug === selectedFlowSlug) ?? null;
+  const flowPreview = (() => {
+    if (!selectedFlow?.trainingFlow) return null;
+    try {
+      const obj = JSON.parse(selectedFlow.trainingFlow) as {
+        steps?: unknown;
+        [key: string]: unknown;
+      };
+      const steps: FlowStepMeta[] = Array.isArray(obj?.steps) ? (obj.steps as FlowStepMeta[]) : [];
+      if (steps.length > 0) return { kind: "single", categories: [] as string[], steps };
+      const cats = Object.keys(obj || {}).filter((k) =>
+        Array.isArray((obj[k] as { steps?: unknown } | undefined)?.steps),
+      );
+      if (cats.length > 0) {
+        return {
+          kind: "multi-category",
+          categories: cats,
+          steps: ((obj[cats[0]] as { steps?: FlowStepMeta[] } | undefined)?.steps ??
+            []) as FlowStepMeta[],
+        };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  })();
+
+  const draftFlowLibrarySlug = (() => {
+    try {
+      const obj = JSON.parse(draft.trainingFlow || "{}") as Record<string, unknown>;
+      if (Array.isArray(obj.steps)) return null;
+      const cats = Object.keys(obj).filter((k) =>
+        Array.isArray((obj[k] as { steps?: unknown } | undefined)?.steps),
+      );
+      return cats.length > 0 ? "ecommerce" : null;
+    } catch {
+      return null;
+    }
+  })();
+  const activeFlowSlug = selectedFlowSlug ?? draftFlowLibrarySlug;
+
+  const diagramFlow = ((): FlowDef | null => {
+    if (!selectedFlow || !flowPreview) return null;
+    const steps = flowPreview.steps.map((s, i) => {
+      const desc =
+        s.type === "form"
+          ? `Ask: ${(s.fields || []).map((fd) => fd.label).join(", ") || "enter details"}`
+          : s.type === "confirmation"
+            ? "Review the summary & confirm"
+            : s.type === "selection"
+              ? "Choose an option"
+              : "Continue with the next step";
+      return {
+        id: s.id || `step-${i}`,
+        label: s.title || `Step ${i + 1}`,
+        desc,
+        icon: stepIconFor(s),
+      };
+    });
+    if (steps.length === 0) return null;
+    const links: FlowLink[] = steps.slice(0, -1).map((s, i) => ({
+      source: s.id,
+      target: steps[i + 1].id,
+      label: i === 0 ? "Browse" : "Next",
+    }));
+    const spec: NonNullable<FlowDef["spec"]> = {};
+    flowPreview.steps.forEach((s, i) => {
+      const sid = steps[i].id;
+      const isPayment =
+        s.type === "selection" &&
+        ((s.fields || []).some((f) => f.name === "paymentMethod") ||
+          /payment|pay/i.test(s.title || ""));
+      const isRead = s.type === "selection" && (s.fields || []).some((f) => f.fetchProducts);
+      const isWrite = s.type === "confirmation";
+      if (isRead) {
+        spec[sid] = { kind: "db-read", label: "Read product catalog", detail: s.title || "" };
+      } else if (isWrite) {
+        spec[sid] = { kind: "db-write", label: "Save order", detail: s.title || "" };
+      } else if (isPayment) {
+        spec[sid] = { kind: "api", label: "Payment API", detail: s.title || "" };
+      }
+    });
+    return {
+      id: selectedFlow.slug,
+      name: selectedFlow.name,
+      tagline: selectedFlow.tagline,
+      icon: flowIconForSlug(selectedFlow.slug),
+      tone: selectedFlow.tone || "from-violet-500 to-indigo-500",
+      steps,
+      links,
+      spec: Object.keys(spec).length > 0 ? spec : undefined,
+    };
+  })();
+
+  const syncCategoriesAndFlowFromDB = async () => {
+    const hasDb =
+      draft.collectionConnected ||
+      Boolean(
+        draft.collectionUri ||
+        draft.collectionHost ||
+        draft.collectionTable ||
+        draft.productUri ||
+        draft.productTable,
+      ) ||
+      Boolean(editingBot?.dbCollection?.connected || editingBot?.productCollection?.uri);
+    if (!hasDb) {
+      toast.error("Please configure and connect your database in Step 3 (Orders & Storage) first!");
+      return;
+    }
+    setSyncingDB(true);
+    const toastId = toast.loading(
+      "Analyzing database collection & sampling catalog schema with AI...",
+    );
+    try {
+      const productConfig =
+        draft.productUri || draft.productTable || editingBot?.productCollection?.uri
+          ? {
+              dbType: draft.productDbType || editingBot?.productCollection?.dbType || "mongodb",
+              uri: draft.productUri || editingBot?.productCollection?.uri,
+              db: draft.productDb || editingBot?.productCollection?.db,
+              table: draft.productTable || editingBot?.productCollection?.table,
+              mapping: draft.productMapping || editingBot?.productCollection?.mapping,
+            }
+          : undefined;
+
+      const dbConfig =
+        draft.collectionUri || draft.collectionHost || draft.collectionTable
+          ? {
+              dbType: draft.databaseType || "mongodb",
+              uri: draft.collectionUri,
+              db: draft.collectionDb,
+              table: draft.collectionTable,
+              host: draft.collectionHost,
+              port: draft.collectionPort,
+              username: draft.collectionUsername,
+              password: draft.collectionPassword,
+              ssl: draft.collectionSsl,
+              mapping: draft.productMapping,
+            }
+          : undefined;
+
+      const res = await fetch("/api/orders/detect-schema", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          chatbotId: editingBot?.id || (editingBot as any)?._id,
+          productConfig,
+          dbConfig,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to analyze database");
+
+      if (data.schemaInfo) {
+        setDbSchemaMeta(data.schemaInfo);
+      }
+
+      const allExistingCats = [
+        ...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])]),
+      ]
+        .map((s: string) => s?.trim())
+        .filter(Boolean);
+      const fetchedCats: string[] =
+        data.categories && data.categories.length > 0
+          ? data.categories
+          : allExistingCats.length > 0
+            ? allExistingCats
+            : ["Audio Video Cables"];
+
+      const flowObj: any = {};
+      for (const cat of fetchedCats) {
+        flowObj[cat] = JSON.parse(JSON.stringify(data.flow || { steps: [] }));
+      }
+      // Also preserve a fallback key so steps always render
+      flowObj["General"] = JSON.parse(JSON.stringify(data.flow || { steps: [] }));
+
+      setDraft((prev) => ({
+        ...prev,
+        trainingSheetServices: fetchedCats,
+        extractedServices: fetchedCats,
+        trainingFlow: JSON.stringify(flowObj, null, 2),
+      }));
+      setSelectedFlowCategory(fetchedCats[0]);
+      toast.success(
+        `Synced ${fetchedCats.length} categories from DB (${data.schemaInfo?.isProductCatalog ? "Product Catalog" : "Database"}) & built AI flow!`,
+        { id: toastId },
+      );
+    } catch (err: any) {
+      console.error("DB Sync Error:", err);
+      setSyncingDB(false);
+    }
+  };
+
+  const [generatingFlow, setGeneratingFlow] = useState(false);
+
+  const generateAIFlowWithGroqGemini = async () => {
+    try {
+      setGeneratingFlow(true);
+      // Detect the currently selected flow slug so the server generates
+      // the correct per-type journey (hotel, ride, table, ticket, session,
+      // multi-category service, or ecommerce).
+      const currentSlug = activeFlowSlug ?? selectedFlowSlug ?? "service";
+      const isSingleFlow = ["hotel", "ride", "table", "ticket", "session"].includes(currentSlug);
+
+      const toastId = toast.loading(
+        isSingleFlow
+          ? `Generating ${currentSlug} booking flow with AI…`
+          : "Generating journey flow with Groq / Gemini AI…",
+      );
+      const cats = [
+        ...new Set([
+          ...(draft.trainingSheetServices || []),
+          ...(draft.extractedServices || []),
+        ]),
+      ].filter(Boolean);
+
+      const res = await fetch("/api/chatbot/generate-flow", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          botName: draft.name,
+          // For single-flow types (hotel/ride/etc.) categories are not used;
+          // for multi-category types pass whatever the user configured.
+          categories: cats.length > 0 ? cats : ["Web Dev", "App Dev", "ChatBot"],
+          description: draft.description || draft.welcome,
+          flowSlug: currentSlug,          // ← tell the server which journey to build
+          preferredProvider: "groq",
+        }),
+      });
+
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Server response error (${res.status})`);
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to generate flow");
+      }
+
+      setDraft((prev) => ({
+        ...prev,
+        trainingFlow: data.trainingFlow,
+        // Only update service lists for multi-category flows;
+        // single-step flows (hotel/ride/etc.) don't use categories.
+        ...(isSingleFlow
+          ? {}
+          : {
+              trainingSheetServices: data.categories || prev.trainingSheetServices,
+              extractedServices: data.categories || prev.extractedServices,
+            }),
+      }));
+
+      toast.success(
+        `${isSingleFlow ? currentSlug.charAt(0).toUpperCase() + currentSlug.slice(1) + " booking" : "AI"} flow generated with ${data.provider || "AI"}!`,
+        { id: toastId },
+      );
+    } catch (err: any) {
+      console.error("Generate AI Flow error:", err);
+      toast.error(err.message || "Failed to auto-generate AI flow");
+    } finally {
+      setGeneratingFlow(false);
+    }
+  };
+
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -892,7 +1638,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(extension);
     const signRes = await fetch("/api/chatbot/upload/cloudinary", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ resourceType: isImage ? "image" : "raw" }),
     });
     const signData = await signRes.json();
@@ -1024,9 +1770,12 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
   };
 
   const parseLinesFromText = (text: string): string[] => {
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     const result: string[] = [];
-    const tocLine = lines.find(l => /table\s+of\s+contents/i.test(l));
+    const tocLine = lines.find((l) => /table\s+of\s+contents/i.test(l));
     if (tocLine) {
       const re = /\d+\.\s+([A-Za-z&][A-Za-z& \/-]+?)\s*\(\d+\s*products?\)/g;
       let m;
@@ -1047,7 +1796,10 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     return result;
   };
 
-  const uploadEditFileType = async (files: FileList | null, field: 'knowledgeBase' | 'trainingKnowledge' | 'trainingSheet') => {
+  const uploadEditFileType = async (
+    files: FileList | null,
+    field: "knowledgeBase" | "trainingKnowledge" | "trainingSheet",
+  ) => {
     if (!files) return;
     setUploading(true);
     setUploadProgress(0);
@@ -1075,7 +1827,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     }
     if (newFiles.length) {
       const patch: any = { [field]: [...(draft as any)[field], ...newFiles] };
-      if (field === 'trainingSheet' && editingBot?.type === 'agency') {
+      if (field === "trainingSheet" && editingBot?.type === "agency") {
         const lines = parseLinesFromText(combinedContent);
         if (lines.length > 0) {
           patch.trainingSheetServices = [...new Set([...draft.trainingSheetServices, ...lines])];
@@ -1091,14 +1843,28 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     setTimeout(() => setUploadStatus(""), 2000);
   };
 
-  const addManualEditFileType = (field: 'knowledgeBase' | 'trainingKnowledge' | 'trainingSheet') => {
-    let name: string, content: string, setName: (v: string) => void, setContent: (v: string) => void;
-    if (field === 'knowledgeBase') {
-      name = manualKBName; content = manualKBContent; setName = setManualKBName; setContent = setManualKBContent;
-    } else if (field === 'trainingKnowledge') {
-      name = manualTKName; content = manualTKContent; setName = setManualTKName; setContent = setManualTKContent;
+  const addManualEditFileType = (
+    field: "knowledgeBase" | "trainingKnowledge" | "trainingSheet",
+  ) => {
+    let name: string,
+      content: string,
+      setName: (v: string) => void,
+      setContent: (v: string) => void;
+    if (field === "knowledgeBase") {
+      name = manualKBName;
+      content = manualKBContent;
+      setName = setManualKBName;
+      setContent = setManualKBContent;
+    } else if (field === "trainingKnowledge") {
+      name = manualTKName;
+      content = manualTKContent;
+      setName = setManualTKName;
+      setContent = setManualTKContent;
     } else {
-      name = manualTSName; content = manualTSContent; setName = setManualTSName; setContent = setManualTSContent;
+      name = manualTSName;
+      content = manualTSContent;
+      setName = setManualTSName;
+      setContent = setManualTSContent;
     }
     if (!name.trim() || !content.trim()) {
       toast.error("Provide name and content");
@@ -1113,7 +1879,10 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     toast.success("Added");
   };
 
-  const removeEditFileType = (index: number, field: 'knowledgeBase' | 'trainingKnowledge' | 'trainingSheet') => {
+  const removeEditFileType = (
+    index: number,
+    field: "knowledgeBase" | "trainingKnowledge" | "trainingSheet",
+  ) => {
     setDraft((prev) => {
       const next = [...(prev as any)[field]];
       next.splice(index, 1);
@@ -1125,11 +1894,18 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
     if (!editingBot) return;
     setSavingEdit(true);
     try {
-      const isAgency = draft.type === "agency" || !!(draft.agencyEmail1 || draft.agencyEmail2 || draft.collectionDb || draft.databaseType);
+      const isAgency =
+        draft.type === "agency" ||
+        !!(draft.agencyEmail1 || draft.agencyEmail2 || draft.collectionDb || draft.databaseType);
       const payload: Record<string, any> = {
         type: draft.type,
         category: draft.category,
         useOwnDb: draft.useOwnDb,
+        bookingMethod: draft.bookingEnabled
+          ? draft.bookingMethod === "none"
+            ? "chatbot"
+            : draft.bookingMethod
+          : "none",
         name: draft.name,
         welcome: draft.welcome,
         description: draft.description,
@@ -1166,7 +1942,15 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
           smartPosition: draft.widgetSmartPosition,
           customCss: draft.widgetCustomCss,
         },
-        knowledge: { files: draft.knowledgeFiles, knowledgeBase: draft.knowledgeBase, trainingKnowledge: draft.trainingKnowledge, trainingSheet: draft.trainingSheet, extractedServices: draft.extractedServices, trainingSheetServices: draft.trainingSheetServices, trainingFlow: draft.trainingFlow },
+        knowledge: {
+          files: draft.knowledgeFiles,
+          knowledgeBase: draft.knowledgeBase,
+          trainingKnowledge: draft.trainingKnowledge,
+          trainingSheet: draft.trainingSheet,
+          extractedServices: draft.extractedServices,
+          trainingSheetServices: draft.trainingSheetServices,
+          trainingFlow: draft.trainingFlow,
+        },
       };
 
       if (isAgency) {
@@ -1261,8 +2045,23 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
               Your chatbots and ready-made templates — generate embed scripts for your website.
             </p>
           </div>
-          <button onClick={() => setHelpOpen(true)} className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground shadow-soft">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground shadow-soft"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+              />
+            </svg>
             How to use this
           </button>
         </div>
@@ -1349,8 +2148,13 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                       {b.planRestricted && (
                         <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
                           <Shield className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-[11px] font-semibold text-amber-600">Upgrade your plan</span>
-                          <Link to="/plans" className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:underline">
+                          <span className="text-[11px] font-semibold text-amber-600">
+                            Upgrade your plan
+                          </span>
+                          <Link
+                            to="/plans"
+                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:underline"
+                          >
                             <ArrowUpCircle className="h-3 w-3" /> Upgrade
                           </Link>
                         </div>
@@ -1396,10 +2200,14 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                               {splitEmbedScript(b.embedScript || "").css && (
                                 <>
                                   <button
-                                    onClick={() => setCssOpen((prev) => ({ ...prev, [b.id]: !prev[b.id] }))}
+                                    onClick={() =>
+                                      setCssOpen((prev) => ({ ...prev, [b.id]: !prev[b.id] }))
+                                    }
                                     className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                                   >
-                                    <ChevronDown className={`h-3 w-3 transition-transform ${cssOpen[b.id] ? "rotate-180" : ""}`} />
+                                    <ChevronDown
+                                      className={`h-3 w-3 transition-transform ${cssOpen[b.id] ? "rotate-180" : ""}`}
+                                    />
                                     {cssOpen[b.id] ? "Hide CSS" : "CSS (customize)"}
                                   </button>
                                   {cssOpen[b.id] && (
@@ -1475,14 +2283,18 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                                 className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-mono text-[11px] font-semibold text-blue-400 transition hover:bg-blue-500/20"
                               >
                                 <KeyRound className="h-3.5 w-3.5" />
-                                {consoleKeys[b.id].slice(0, 11)}…<Copy className="h-3 w-3 opacity-60" />
+                                {consoleKeys[b.id].slice(0, 11)}…
+                                <Copy className="h-3 w-3 opacity-60" />
                               </button>
                             )}
                           </>
                         )}
                         <button
                           {...(i === 0 ? { "data-tour": "step5" } : {})}
-                          onClick={() => { setPreview(b); if (tourStep === 5) setTourStep(6); }}
+                          onClick={() => {
+                            setPreview(b);
+                            if (tourStep === 5) setTourStep(6);
+                          }}
                           className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                           <Eye className="h-4 w-4" />
@@ -1649,7 +2461,7 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
               <div className="flex min-w-max items-center gap-1">
                 {[
                   { n: 1, label: "Identity" },
-                  { n: 2, label: "Product Catalog" },
+                  { n: 2, label: "Data Collection" },
                   { n: 3, label: "Orders & Storage" },
                   { n: 4, label: "Training & Flow" },
                   { n: 5, label: "Bot Details" },
@@ -1672,12 +2484,23 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                               : "border-border bg-card text-muted-foreground hover:border-primary/40",
                         )}
                       >
-                        <span className={cn("grid h-4 w-4 place-items-center rounded-full text-[9px] font-extrabold", active ? "bg-primary text-primary-foreground" : done ? "bg-emerald-500 text-white" : "bg-muted")}>
+                        <span
+                          className={cn(
+                            "grid h-4 w-4 place-items-center rounded-full text-[9px] font-extrabold",
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : done
+                                ? "bg-emerald-500 text-white"
+                                : "bg-muted",
+                          )}
+                        >
                           {done ? <Check className="h-2.5 w-2.5" /> : s.n}
                         </span>
                         {s.label}
                       </button>
-                      {i < 6 && <div className={cn("h-px w-3", done ? "bg-emerald-500/50" : "bg-border")} />}
+                      {i < 6 && (
+                        <div className={cn("h-px w-3", done ? "bg-emerald-500/50" : "bg-border")} />
+                      )}
                     </div>
                   );
                 })}
@@ -1729,22 +2552,46 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                       </h3>
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">Logo</label>
+                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                        Logo
+                      </label>
                       <div className="flex flex-wrap items-center gap-3">
                         {defaultIcons.map((icon, i) => (
-                          <button key={i} type="button" onClick={() => setDraft((p) => ({ ...p, logo: icon }))}
-                            className={`overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${draft.logo === icon ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}>
-                            <img src={icon} alt={`Default ${i}`} className="h-10 w-10 object-cover" />
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setDraft((p) => ({ ...p, logo: icon }))}
+                            className={`overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${draft.logo === icon ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}
+                          >
+                            <img
+                              src={icon}
+                              alt={`Default ${i}`}
+                              className="h-10 w-10 object-cover"
+                            />
                           </button>
                         ))}
                         <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/40 p-5 text-sm text-muted-foreground hover:bg-muted/70 flex-1">
                           {draft.logo && !defaultIcons.includes(draft.logo) ? (
-                            <img src={draft.logo} alt="" className="h-14 w-14 rounded-xl object-cover" />
+                            <img
+                              src={draft.logo}
+                              alt=""
+                              className="h-14 w-14 rounded-xl object-cover"
+                            />
                           ) : (
-                            <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-soft text-primary"><Upload className="h-5 w-5" /></div>
+                            <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-soft text-primary">
+                              <Upload className="h-5 w-5" />
+                            </div>
                           )}
-                          <div><div className="font-medium text-foreground">Upload logo</div><div className="text-xs">PNG, JPG or SVG</div></div>
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])} />
+                          <div>
+                            <div className="font-medium text-foreground">Upload logo</div>
+                            <div className="text-xs">PNG, JPG or SVG</div>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])}
+                          />
                         </label>
                       </div>
                     </div>
@@ -1753,10 +2600,10 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                         Launcher button
                       </label>
                       <div className="flex flex-wrap items-center gap-3">
-                        {([
+                        {[
                           { v: "icon" as const, l: "Icon", d: "Logo icon" },
                           { v: "button" as const, l: "Button", d: "Text button" },
-                        ]).map((s) => (
+                        ].map((s) => (
                           <button
                             key={s.v}
                             type="button"
@@ -1764,7 +2611,9 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                             className={`flex-1 min-w-[120px] rounded-xl border px-3 py-2.5 text-left transition ${draft.widgetLauncher === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
                           >
                             <span className="block text-xs font-semibold">{s.l}</span>
-                            <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                              {s.d}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -1772,7 +2621,9 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                         <div className="mt-3 space-y-3">
                           <input
                             value={draft.widgetLauncherText}
-                            onChange={(e) => setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))}
+                            onChange={(e) =>
+                              setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))
+                            }
                             className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             placeholder="Chat with us"
                           />
@@ -1880,7 +2731,9 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                           min={0}
                           max={32}
                           value={draft.radius}
-                          onChange={(e) => setDraft((p) => ({ ...p, radius: Number(e.target.value) }))}
+                          onChange={(e) =>
+                            setDraft((p) => ({ ...p, radius: Number(e.target.value) }))
+                          }
                           className="w-full"
                         />
                       </div>
@@ -1929,2302 +2782,2623 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                 </>
               ) : (
                 <>
-              {editStep === 1 && (
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      Bot identity
-                    </p>
-                    <h3 className="mt-1 text-base font-semibold text-foreground">
-                      {draft.type === "agency" ? "Agency chatbot" : "Simple chatbot"}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {draft.category
-                        ? `Business category: ${categoryOptions.find((item) => item.id === draft.category)?.label || draft.category}`
-                        : "Choose a business category to tailor the bot context."}
-                    </p>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.type === "agency" ? "bg-violet-500/10 text-violet-600" : "bg-emerald-500/10 text-emerald-600"}`}>
-                    {draft.type === "agency" ? "Agency" : "Simple"}
-                  </span>
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-foreground/80">Bot type</span>
-                    <div className="h-11 w-full rounded-xl border border-border bg-muted/40 px-3 flex items-center text-sm text-muted-foreground cursor-not-allowed select-none">
-                      {draft.type === "agency" ? "Agency chatbot" : "Simple chatbot"}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-foreground/80">Category</span>
-                    <div className="h-11 w-full rounded-xl border border-border bg-muted/40 px-3 flex items-center text-sm text-muted-foreground cursor-not-allowed select-none">
-                      {categoryOptions.find((item) => item.id === draft.category)?.label || draft.category || "None"}
-                    </div>
-                  </div>
-                </div>
-
-                <label className="mt-3 flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 px-3 py-3 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={draft.useOwnDb}
-                    onChange={(e) => setDraft((p) => ({ ...p, useOwnDb: e.target.checked }))}
-                    className="rounded border-border"
-                  />
-                  <span>Use an existing database collection for products, orders, or records</span>
-                </label>
-              </div>
-              )}
-              {editStep === 2 && (
-              <>
-              {/* ── Product Catalog Database Connection (Order System) ── */}
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                      <ShoppingCart className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Product Catalog Database</p>
-                      <h3 className="text-sm font-semibold text-foreground">
-                        {draft.productConnected ? "Product catalog connected" : "Connect product collection"}
-                      </h3>
-                    </div>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.productConnected ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
-                    {draft.productConnected ? "Connected" : "Not connected"}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">Do you want to implement an Order System?</label>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setDraft((p) => ({ ...p, orderSystemEnabled: true }))}
-                      className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold transition ${
-                        draft.orderSystemEnabled
-                          ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <Check className={`h-3.5 w-3.5 ${draft.orderSystemEnabled ? "opacity-100" : "opacity-0"}`} />
-                      Yes, enable Order System
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDraft((p) => ({ ...p, orderSystemEnabled: false, productConnected: false }))}
-                      className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold transition ${
-                        !draft.orderSystemEnabled
-                          ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <Check className={`h-3.5 w-3.5 ${!draft.orderSystemEnabled ? "opacity-100" : "opacity-0"}`} />
-                      No, skip Order System
-                    </button>
-                  </div>
-                </div>
-
-                {draft.orderSystemEnabled && (
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-foreground/80">What type of products do you want to sell?</label>
-                      <input
-                        value={draft.productType}
-                        onChange={(e) => setDraft((p) => ({ ...p, productType: e.target.value }))}
-                        placeholder="e.g. E-Commerce Physical Products, Software, Services"
-                        className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold text-foreground/80">Select product database type</label>
-                      <div className="grid gap-2 md:grid-cols-3">
-                        {databaseTypeOptions.map((db) => (
-                          <button
-                            key={db.id}
-                            type="button"
-                            onClick={() => setDraft((p) => ({ ...p, productDbType: db.id as any }))}
-                            className={`rounded-xl border px-3 py-2 text-left transition ${draft.productDbType === db.id ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-card text-muted-foreground hover:bg-accent"}`}
-                          >
-                            <div className="text-xs font-semibold">{db.label}</div>
-                            <div className="mt-0.5 text-[10px] text-muted-foreground">{db.desc}</div>
-                          </button>
-                        ))}
+                  {editStep === 1 && (
+                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                            Bot identity
+                          </p>
+                          <h3 className="mt-1 text-base font-semibold text-foreground">
+                            {draft.type === "agency" ? "Agency chatbot" : "Simple chatbot"}
+                          </h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {draft.category
+                              ? `Business category: ${categoryOptions.find((item) => item.id === draft.category)?.label || draft.category}`
+                              : "Choose a business category to tailor the bot context."}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.type === "agency" ? "bg-violet-500/10 text-violet-600" : "bg-emerald-500/10 text-emerald-600"}`}
+                        >
+                          {draft.type === "agency" ? "Agency" : "Simple"}
+                        </span>
                       </div>
-                    </div>
 
-                    {draft.productDbType && (
-                      <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-3">
-                        {draft.productDbType === "mongodb" ? (
-                          <div className="space-y-3">
-                            <label className="block text-xs font-semibold text-foreground/80">
-                              Connection String URI
-                              <input
-                                value={draft.productUri}
-                                onChange={(e) => setDraft((p) => ({ ...p, productUri: e.target.value }))}
-                                placeholder="mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net"
-                                className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                              />
-                            </label>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Database Name
-                                <input
-                                  value={draft.productDb}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productDb: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Collection Name
-                                <input
-                                  value={draft.productTable}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productTable: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Host
-                                <input
-                                  value={draft.productHost}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productHost: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Port
-                                <input
-                                  type="number"
-                                  value={draft.productPort}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productPort: Number(e.target.value) }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                            </div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Database Name
-                                <input
-                                  value={draft.productDb}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productDb: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Table Name
-                                <input
-                                  value={draft.productTable}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productTable: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                            </div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Username
-                                <input
-                                  value={draft.productUsername}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productUsername: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-foreground/80">
-                                Password
-                                <input
-                                  type="password"
-                                  value={draft.productPassword}
-                                  onChange={(e) => setDraft((p) => ({ ...p, productPassword: e.target.value }))}
-                                  className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                              </label>
-                            </div>
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <input
-                                type="checkbox"
-                                checked={draft.productSsl}
-                                onChange={(e) => setDraft((p) => ({ ...p, productSsl: e.target.checked }))}
-                                className="rounded border-border"
-                              />
-                              Use SSL
-                            </label>
-                          </div>
-                        )}
-
-                        {/* Product Column Mappings */}
-                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
-                          <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                            <ShoppingCart className="h-3.5 w-3.5 text-primary" /> Product Column / Key Mappings
-                          </div>
-                          <div className="grid gap-2 md:grid-cols-2">
-                            <div>
-                              <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Title / Name Field</span>
-                              <input
-                                value={draft.productMapping?.titleField || "name"}
-                                onChange={(e) => setDraft((p) => ({ ...p, productMapping: { ...p.productMapping, titleField: e.target.value } }))}
-                                className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs"
-                                placeholder="name"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Price Field</span>
-                              <input
-                                value={draft.productMapping?.priceField || "price"}
-                                onChange={(e) => setDraft((p) => ({ ...p, productMapping: { ...p.productMapping, priceField: e.target.value } }))}
-                                className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs"
-                                placeholder="price"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Category Field</span>
-                              <input
-                                value={draft.productMapping?.categoryField || "category"}
-                                onChange={(e) => setDraft((p) => ({ ...p, productMapping: { ...p.productMapping, categoryField: e.target.value } }))}
-                                className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs"
-                                placeholder="category"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Image URL Field</span>
-                              <input
-                                value={draft.productMapping?.imageField || "image"}
-                                onChange={(e) => setDraft((p) => ({ ...p, productMapping: { ...p.productMapping, imageField: e.target.value } }))}
-                                className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs"
-                                placeholder="image"
-                              />
-                            </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-foreground/80">Bot type</span>
+                          <div className="h-11 w-full rounded-xl border border-border bg-muted/40 px-3 flex items-center text-sm text-muted-foreground cursor-not-allowed select-none">
+                            {draft.type === "agency" ? "Agency chatbot" : "Simple chatbot"}
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-foreground/80">Category</span>
+                          <div className="h-11 w-full rounded-xl border border-border bg-muted/40 px-3 flex items-center text-sm text-muted-foreground cursor-not-allowed select-none">
+                            {categoryOptions.find((item) => item.id === draft.category)?.label ||
+                              draft.category ||
+                              "None"}
+                          </div>
+                        </div>
+                      </div>
 
-                        <div className="flex items-center gap-3 pt-1">
+                      <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-card/70 px-3 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            Booking / Appointment
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Tell us if you have a booking system, and how customers should book.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={async () => {
-                              const body: any = {
-                                type: draft.productDbType,
-                                isProductCollection: true,
-                                productMapping: draft.productMapping,
-                              };
-
-                              if (draft.productDbType === "mongodb") {
-                                if (!draft.productUri || !draft.productDb || !draft.productTable) {
-                                  toast.error('Please fill Connection URI, Database Name, and Collection Name');
-                                  return;
-                                }
-                                body.uri = draft.productUri;
-                                body.database = draft.productDb;
-                                body.collection = draft.productTable;
-                              } else {
-                                if (!draft.productDb || !draft.productHost || !draft.productUsername || !draft.productPassword || !draft.productTable) {
-                                  toast.error('Please fill all catalog fields first');
-                                  return;
-                                }
-                                body.host = draft.productHost;
-                                body.port = draft.productPort || (draft.productDbType === "mysql" ? 3306 : 5432);
-                                body.database = draft.productDb;
-                                body.user = draft.productUsername;
-                                body.password = draft.productPassword;
-                                body.table = draft.productTable;
-                                body.ssl = draft.productSsl;
-                              }
-
-                              const toastId = toast.loading('Testing catalog connection...');
-                              try {
-                                const res = await fetch('/api/chatbot/test-collection', {
-                                  method: 'POST',
-                                  headers: getAuthHeaders(),
-                                  body: JSON.stringify(body),
-                                });
-                                const data = await res.json();
-                                if (data.connected) {
-                                  setDraft((prev) => ({ ...prev, productConnected: true }));
-                                  const msg = data.productCount !== undefined
-                                    ? `Connected! Found ${data.productCount} product(s) in catalog.`
-                                    : 'Catalog connection successful!';
-                                  toast.success(msg, { id: toastId });
-                                } else {
-                                  setDraft((prev) => ({ ...prev, productConnected: false }));
-                                  toast.error(data.message || 'Connection failed', { id: toastId });
-                                }
-                              } catch (err: any) {
-                                setDraft((prev) => ({ ...prev, productConnected: false }));
-                                toast.error(err.message || 'Connection test failed', { id: toastId });
-                              }
-                            }}
-                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                            onClick={() => setDraft((p) => ({ ...p, bookingEnabled: true }))}
+                            className={`rounded-xl border px-3 py-1.5 text-sm font-medium transition ${
+                              draft.bookingEnabled
+                                ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                                : "border-border/60 hover:border-primary/40 bg-card"
+                            }`}
                           >
-                            <Database className="h-3.5 w-3.5" /> Test Catalog Connection
+                            Yes, I have a booking system
                           </button>
-                          {draft.productConnected && (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
-                              <Check className="h-3.5 w-3.5" /> Catalog Connected
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              </>
-              )}
-              {editStep === 3 && (
-              <>
-              {/* ── Orders & Chat Storage Database Connection ── */}
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      Orders & Chat Storage Database
-                    </p>
-                    <h3 className="mt-1 text-sm font-semibold text-foreground">
-                      {draft.collectionConnected ? "Storage collection connected" : "Connect storage collection"}
-                    </h3>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.collectionConnected ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
-                    {draft.collectionConnected ? "Connected" : "Pending"}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-foreground/80">Select storage database type</label>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {databaseTypeOptions.map((db) => (
-                      <button
-                        key={db.id}
-                        type="button"
-                        onClick={() => setDraft((p) => ({ ...p, databaseType: db.id as any, databaseMode: p.databaseMode || "collection" }))}
-                        className={`rounded-xl border px-3 py-2 text-left transition ${draft.databaseType === db.id ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-card text-muted-foreground hover:bg-accent"}`}
-                      >
-                        <div className="text-xs font-semibold">{db.label}</div>
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">{db.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {draft.databaseType && (
-                  <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-3">
-                    {draft.databaseType === "mongodb" ? (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-semibold text-foreground/80">
-                          Connection string URI
-                          <input
-                            value={draft.collectionUri}
-                            onChange={(e) => setDraft((p) => ({ ...p, collectionUri: e.target.value }))}
-                            placeholder="mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net"
-                            className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                        </label>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Database name
-                            <input
-                              value={draft.collectionDb}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionDb: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Collection name
-                            <input
-                              value={draft.collectionTable}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionTable: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Host
-                            <input
-                              value={draft.collectionHost}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionHost: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Port
-                            <input
-                              type="number"
-                              value={draft.collectionPort}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionPort: Number(e.target.value) }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Database name
-                            <input
-                              value={draft.collectionDb}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionDb: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Table name
-                            <input
-                              value={draft.collectionTable}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionTable: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Username
-                            <input
-                              value={draft.collectionUsername}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionUsername: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                          <label className="block text-xs font-semibold text-foreground/80">
-                            Password
-                            <input
-                              type="password"
-                              value={draft.collectionPassword}
-                              onChange={(e) => setDraft((p) => ({ ...p, collectionPassword: e.target.value }))}
-                              className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </label>
-                        </div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={draft.collectionSsl}
-                            onChange={(e) => setDraft((p) => ({ ...p, collectionSsl: e.target.checked }))}
-                            className="rounded border-border"
-                          />
-                          Use SSL
-                        </label>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const body: any = { type: draft.databaseType, isProductCollection: false };
-
-                          if (draft.databaseType === "mongodb") {
-                            if (!draft.collectionUri || !draft.collectionDb || !draft.collectionTable) {
-                              toast.error('Please fill Connection URI, Database Name, and Collection Name');
-                              return;
-                            }
-                            body.uri = draft.collectionUri;
-                            body.database = draft.collectionDb;
-                            body.collection = draft.collectionTable;
-                          } else {
-                            if (!draft.collectionDb || !draft.collectionHost || !draft.collectionUsername || !draft.collectionPassword || !draft.collectionTable) {
-                              toast.error('Please fill all collection fields first');
-                              return;
-                            }
-                            body.host = draft.collectionHost;
-                            body.port = draft.collectionPort || (draft.databaseType === "mysql" ? 3306 : 5432);
-                            body.database = draft.collectionDb;
-                            body.user = draft.collectionUsername;
-                            body.password = draft.collectionPassword;
-                            body.table = draft.collectionTable;
-                            body.ssl = draft.collectionSsl;
-                          }
-
-                          const toastId = toast.loading('Testing storage connection...');
-                          try {
-                            const res = await fetch('/api/chatbot/test-collection', {
-                              method: 'POST',
-                              headers: getAuthHeaders(),
-                              body: JSON.stringify(body),
-                            });
-                            const data = await res.json();
-                            if (data.connected) {
-                              setDraft((prev) => ({ ...prev, collectionConnected: true }));
-                              toast.success('Storage connection successful!', { id: toastId });
-                            } else {
-                              setDraft((prev) => ({ ...prev, collectionConnected: false }));
-                              toast.error(data.message || 'Connection failed', { id: toastId });
-                            }
-                          } catch (err: any) {
-                            setDraft((prev) => ({ ...prev, collectionConnected: false }));
-                            toast.error(err.message || 'Connection test failed', { id: toastId });
-                          }
-                        }}
-                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
-                      >
-                        <Database className="h-3.5 w-3.5" /> Test Storage Connection
-                      </button>
-                      {draft.collectionConnected && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
-                          <Check className="h-3.5 w-3.5" /> Storage Connected
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
-                      <label className="mb-1 block text-xs font-semibold text-foreground/80">Storage target</label>
-                      <select
-                        value={draft.collectionStoreType}
-                        onChange={(e) => setDraft((p) => ({ ...p, collectionStoreType: e.target.value as any }))}
-                        className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      >
-                        <option value="">Select storage target purpose…</option>
-                        <option value="user_chat">User Chat (Store user messages & chat logs)</option>
-                        <option value="all_orders">All Orders (Store booking orders & product purchases)</option>
-                        <option value="agent_contact">Real-time Agent Contact (Store support escalations)</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {draft.orderSystemEnabled && (
-                <StripeConnectCard compact />
-              )}
-              </>
-              )}
-              {editStep === 4 && (
-              <>
-              {/* ── Training Sheet Files & File Categories Section ── */}
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      Training Data & Categories
-                    </p>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Training Sheet Files & File Categories
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Uploaded Training Files List */}
-                {((draft.trainingSheet && draft.trainingSheet.length > 0) || (draft.knowledgeFiles && draft.knowledgeFiles.length > 0)) && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground/80">Uploaded Training Files</label>
-                    <div className="flex flex-wrap gap-2">
-                      {[...(draft.trainingSheet || []), ...(draft.knowledgeFiles || [])].map((file, fIdx) => (
-                        <div key={fIdx} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground shadow-xs">
-                          <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="font-medium truncate max-w-[220px]">{file.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* File Categories List */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-foreground/80">
-                      File Categories ({[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].length})
-                    </label>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const newCatName = "New Category";
-                        setDraft((prev) => {
-                          const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                          const updated = [...currentList, newCatName];
-                          const flowStr = prev.trainingFlow || "{}";
-                          let flowObj: any = {};
-                          try { flowObj = JSON.parse(flowStr); } catch {}
-                          // Build category-specific flow
-                          const catFlow = { steps: [
-                            { id: "step_1", title: "Order Details", type: "form", fields: [
-                              { name: "product", label: "Product Name", type: "text", required: true },
-                              { name: "quantity", label: "Quantity", type: "number", required: true },
-                              { name: "price", label: "Price", type: "number", required: true },
-                            ]},
-                            { id: "step_2", title: "Customer Details", type: "form", fields: [
-                              { name: "fullName", label: "Full Name", type: "text", required: true },
-                              { name: "phone", label: "Phone Number", type: "tel", required: true },
-                              { name: "email", label: "Email Address", type: "email", required: true },
-                              { name: "address", label: "Full Address", type: "text", required: true },
-                            ]},
-                            { id: "step_3", title: "Payment Method", type: "selection", fields: [
-                              { name: "paymentMethod", label: "Payment Method", type: "checkbox", options: ["Cash on Delivery", "Online Payment"], required: true },
-                            ]},
-                            { id: "step_4", title: "Confirmation", type: "confirmation", fields: [] },
-                          ]};
-                          // Add to multi-category flows or convert legacy format
-                          if (flowObj.steps) {
-                            // Legacy single flow → convert to multi-flow
-                            flowObj = {};
-                          }
-                          flowObj[newCatName] = catFlow;
-                          return { ...prev, trainingSheetServices: updated, extractedServices: updated, trainingFlow: JSON.stringify(flowObj, null, 2) };
-                        });
-                        // Try to auto-generate via API for better flow
-                        try {
-                          const res = await fetch("/api/orders/generate-flow", {
-                            method: "POST",
-                            headers: getAuthHeaders(),
-                            body: JSON.stringify({ category: newCatName, services: [newCatName] }),
-                          });
-                          if (res.ok) {
-                            const data = await res.json();
-                            if (data.flow) {
-                              setDraft((prev) => {
-                                let flowObj: any = {};
-                                try { flowObj = JSON.parse(prev.trainingFlow || "{}"); } catch {}
-                                flowObj[newCatName] = data.flow;
-                                return { ...prev, trainingFlow: JSON.stringify(flowObj, null, 2) };
-                              });
-                            }
-                          }
-                        } catch {}
-                        toast.success(`Flow auto-generated for "${newCatName}"`);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
-                    >
-                      + Add Category
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                    {[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].map((catName, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-xs font-extrabold text-muted-foreground border">
-                          {idx + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={catName}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const oldName = catName;
-                            setDraft((prev) => {
-                              const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                              currentList[idx] = val;
-                              // Also rename the flow key
-                              let flowObj: any = {};
-                              try { flowObj = JSON.parse(prev.trainingFlow || "{}"); } catch {}
-                              if (flowObj[oldName] && oldName !== val) {
-                                flowObj[val] = flowObj[oldName];
-                                delete flowObj[oldName];
-                              }
-                              return { ...prev, trainingSheetServices: currentList, extractedServices: currentList, trainingFlow: JSON.stringify(flowObj, null, 2) };
-                            });
-                          }}
-                          className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDraft((prev) => {
-                              const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                              const removedCat = currentList[idx];
-                              currentList.splice(idx, 1);
-                              // Also remove its flow from trainingFlow
-                              let flowObj: any = {};
-                              try { flowObj = JSON.parse(prev.trainingFlow || "{}"); } catch {}
-                              if (flowObj[removedCat]) {
-                                delete flowObj[removedCat];
-                              }
-                              return { ...prev, trainingSheetServices: currentList, extractedServices: currentList, trainingFlow: JSON.stringify(flowObj, null, 2) };
-                            });
-                          }}
-                          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
-                          title="Remove Category"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-
-                    {[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].length === 0 && (
-                      <p className="text-xs text-muted-foreground italic">No file categories found. Click "+ Add Category" to create one.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Training Flow ── */}
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Training Flow</p>
-                    <h3 className="text-sm font-semibold text-foreground">Flow Instructions</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const allServices = [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])];
-                      if (!draft.category && !draft.description && allServices.length === 0) {
-                        toast.error("Please set a category or add services first");
-                        return;
-                      }
-                      try {
-                        setSavingEdit(true);
-                        const flowObj: any = {};
-                        for (const service of allServices) {
-                          try {
-                            const res = await fetch("/api/orders/generate-flow", {
-                              method: "POST",
-                              headers: getAuthHeaders(),
-                              body: JSON.stringify({
-                                category: service,
-                                description: draft.description || service,
-                                services: [service],
-                              }),
-                            });
-                            const data = await res.json();
-                            if (res.ok && data.flow) {
-                              flowObj[service] = data.flow;
-                            } else {
-                              // Fallback: standard flow
-                              flowObj[service] = { steps: [
-                                { id: "step_1", title: "Order Details", type: "form", fields: [
-                                  { name: "product", label: "Product Name", type: "text", required: true },
-                                  { name: "quantity", label: "Quantity", type: "number", required: true },
-                                  { name: "price", label: "Price", type: "number", required: true },
-                                ]},
-                                { id: "step_2", title: "Customer Details", type: "form", fields: [
-                                  { name: "fullName", label: "Full Name", type: "text", required: true },
-                                  { name: "phone", label: "Phone Number", type: "tel", required: true },
-                                  { name: "email", label: "Email Address", type: "email", required: true },
-                                  { name: "address", label: "Full Address", type: "text", required: true },
-                                ]},
-                                { id: "step_3", title: "Payment Method", type: "selection", fields: [
-                                  { name: "paymentMethod", label: "Payment Method", type: "checkbox", options: ["Cash on Delivery", "Online Payment"], required: true },
-                                ]},
-                                { id: "step_4", title: "Confirmation", type: "confirmation", fields: [] },
-                              ]};
-                            }
-                          } catch {
-                            flowObj[service] = { steps: [] };
-                          }
-                        }
-                        setDraft((p) => ({ ...p, trainingFlow: JSON.stringify(flowObj, null, 2) }));
-                        toast.success("Flows generated for all categories");
-                      } catch (err: any) {
-                        toast.error(err.message || "Failed to generate flows");
-                      } finally {
-                        setSavingEdit(false);
-                      }
-                    }}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Auto Generate Flow
-                  </button>
-                </div>
-
-                {/* Product Source */}
-                <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80 mb-2">
-                    <Database className="h-3.5 w-3.5 text-primary" />
-                    Products & Services Are Fetched From:
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].length > 0 ? (
-                      [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].map((s, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground shadow-xs">
-                          <ShoppingCart className="h-3 w-3 text-primary" />
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs italic text-muted-foreground">No categories added yet. Add categories in "Training Data & Categories" section above.</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Category Flow Tabs */}
-                {(() => {
-                  const allCats = [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].map((s: string) => s?.trim()).filter(Boolean);
-                  if (allCats.length === 0) return null;
-                  // Check if trainingFlow is multi-category format
-                  let isMulti = false;
-                  try {
-                    const parsed = JSON.parse(draft.trainingFlow || "{}");
-                    isMulti = !parsed.steps && allCats.some((c) => parsed[c]?.steps);
-                  } catch {}
-                  const showTabs = isMulti || allCats.length > 1;
-                  if (!showTabs) return null;
-                  return (
-                    <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-muted-foreground mr-1">Category:</span>
-                      {allCats.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setSelectedFlowCategory(selectedFlowCategory === cat ? null : cat)}
-                          className={cn(
-                            "px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all",
-                            selectedFlowCategory === cat
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground",
-                          )}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                      {selectedFlowCategory && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFlowCategory(null)}
-                          className="px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ✕ Clear
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Editable Visual Flow Builder */}
-                {(() => {
-                  let parsedFlow: { steps: any[] } | null = null;
-                  try {
-                    const allCats = [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].map((s: string) => s?.trim()).filter(Boolean);
-                    const parsed = JSON.parse(draft.trainingFlow || "{}");
-                    // Try to get steps from selected category flow
-                    if (selectedFlowCategory && parsed[selectedFlowCategory]?.steps) {
-                      parsedFlow = parsed[selectedFlowCategory];
-                    } else if (parsed?.steps && Array.isArray(parsed.steps) && parsed.steps.length > 0) {
-                      parsedFlow = parsed;
-                    } else if (!parsed.steps && allCats.length > 0) {
-                      // Try first category
-                      const firstCat = allCats[0];
-                      if (parsed[firstCat]?.steps) {
-                        parsedFlow = parsed[firstCat];
-                      }
-                    }
-                  } catch {}
-
-                  const stepTypes = ["selection", "form", "confirmation"] as const;
-                  const fieldTypes = ["text", "tel", "email", "number", "select", "textarea", "date", "checkbox"] as const;
-
-                  const stepIcons: Record<string, any> = {
-                    selection: ListChecks,
-                    form: User,
-                    confirmation: Check,
-                  };
-                  const fieldIcons: Record<string, any> = {
-                    text: FileText,
-                    tel: Phone,
-                    email: Mail,
-                    number: DollarSign,
-                    select: ListChecks,
-                    textarea: FileText,
-                    date: FileText,
-                    checkbox: CheckSquare,
-                  };
-                  const typeLabels: Record<string, string> = {
-                    selection: "Choose Option",
-                    form: "Fill Details",
-                    confirmation: "Confirm",
-                  };
-                  const fieldTypeLabels: Record<string, string> = {
-                    text: "Text",
-                    tel: "Phone",
-                    email: "Email",
-                    number: "Number",
-                    select: "Options",
-                    textarea: "Text Area",
-                    date: "Date",
-                    checkbox: "Checkboxes",
-                  };
-
-                  const getSteps = (): any[] => {
-                    try {
-                      const allCats = [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].map((s: string) => s?.trim()).filter(Boolean);
-                      const p = JSON.parse(draft.trainingFlow || "{}");
-                      if (selectedFlowCategory && p[selectedFlowCategory]?.steps) {
-                        return p[selectedFlowCategory].steps;
-                      }
-                      if (!p.steps && allCats.length > 0) {
-                        const firstCat = allCats[0];
-                        if (p[firstCat]?.steps) return p[firstCat].steps;
-                      }
-                      return p?.steps || [];
-                    } catch { return []; }
-                  };
-
-                  const updateFlow = (steps: any[]) => {
-                    setDraft((p) => {
-                      let flowObj: any = {};
-                      try { flowObj = JSON.parse(p.trainingFlow || "{}"); } catch {}
-                      if (selectedFlowCategory) {
-                        flowObj[selectedFlowCategory] = { ...flowObj[selectedFlowCategory], steps };
-                      } else {
-                        // If there are category-specific flows, update the first one
-                        const allCats = [...new Set([...(p.extractedServices || []), ...(p.trainingSheetServices || [])])].map((s: string) => s?.trim()).filter(Boolean);
-                        const catInFlow = allCats.find((c) => flowObj[c]?.steps);
-                        if (catInFlow) {
-                          flowObj[catInFlow] = { ...flowObj[catInFlow], steps };
-                        } else {
-                          flowObj = { steps };
-                        }
-                      }
-                      return { ...p, trainingFlow: JSON.stringify(flowObj, null, 2) };
-                    });
-                  };
-
-                  const addStep = (type: string) => {
-                    const steps = getSteps();
-                    const newStep: any = {
-                      id: `step_${steps.length + 1}`,
-                      title: type === "selection" ? "Select Service" : type === "form" ? "New Form" : "Confirmation",
-                      type,
-                      fields: type === "confirmation" ? [] : [{ name: "field_1", label: "Field", type: "text", required: true }],
-                    };
-                    steps.push(newStep);
-                    updateFlow(steps);
-                  };
-
-                  const removeStep = (idx: number) => {
-                    const steps = getSteps();
-                    steps.splice(idx, 1);
-                    updateFlow(steps);
-                  };
-
-                  const updateStep = (idx: number, key: string, val: any) => {
-                    const steps = getSteps();
-                    if (!steps[idx]) return;
-                    steps[idx][key] = val;
-                    updateFlow(steps);
-                  };
-
-                  const addField = (stepIdx: number) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]) return;
-                    const fields = steps[stepIdx].fields || [];
-                    fields.push({ name: `field_${fields.length + 1}`, label: "New Field", type: "text", required: true });
-                    steps[stepIdx].fields = fields;
-                    updateFlow(steps);
-                  };
-
-                  const removeField = (stepIdx: number, fieldIdx: number) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]?.fields) return;
-                    steps[stepIdx].fields.splice(fieldIdx, 1);
-                    updateFlow(steps);
-                  };
-
-                  const updateField = (stepIdx: number, fieldIdx: number, key: string, val: any) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]?.fields?.[fieldIdx]) return;
-                    steps[stepIdx].fields[fieldIdx][key] = val;
-                    updateFlow(steps);
-                  };
-
-                  const addOption = (stepIdx: number, fieldIdx: number) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]?.fields?.[fieldIdx]) return;
-                    const opts = steps[stepIdx].fields[fieldIdx].options || [];
-                    opts.push("New Option");
-                    steps[stepIdx].fields[fieldIdx].options = opts;
-                    updateFlow(steps);
-                  };
-
-                  const removeOption = (stepIdx: number, fieldIdx: number, optIdx: number) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]?.fields?.[fieldIdx]?.options) return;
-                    steps[stepIdx].fields[fieldIdx].options.splice(optIdx, 1);
-                    updateFlow(steps);
-                  };
-
-                  const updateOption = (stepIdx: number, fieldIdx: number, optIdx: number, val: string) => {
-                    const steps = getSteps();
-                    if (!steps[stepIdx]?.fields?.[fieldIdx]?.options) return;
-                    steps[stepIdx].fields[fieldIdx].options[optIdx] = val;
-                    updateFlow(steps);
-                  };
-
-                  const moveStep = (stepIdx: number, direction: "up" | "down") => {
-                    const steps = getSteps();
-                    const targetIdx = direction === "up" ? stepIdx - 1 : stepIdx + 1;
-                    if (targetIdx < 0 || targetIdx >= steps.length) return;
-                    const temp = steps[stepIdx];
-                    steps[stepIdx] = steps[targetIdx];
-                    steps[targetIdx] = temp;
-                    updateFlow(steps);
-                  };
-
-                  const resetStandardFlow = () => {
-                    const categories = [...new Set([...(draft.extractedServices || []), ...(draft.trainingSheetServices || [])])].map((s: string) => s?.trim()).filter(Boolean);
-                    if (categories.length === 0) {
-                      // Legacy single flow
-                      const standardFlow = {
-                        steps: [
-                          { id: "step_1", title: "Select Service", type: "selection", fields: [
-                            { name: "service", label: "Choose Service / Category", type: "select", options: ["Electronic", "Mobile Phone"], fetchProducts: true, required: true },
-                          ]},
-                          { id: "step_2", title: "Order Details", type: "form", fields: [
-                            { name: "product", label: "Product Name", type: "text", required: true },
-                            { name: "quantity", label: "Quantity", type: "number", required: true },
-                            { name: "price", label: "Price", type: "number", required: true },
-                          ]},
-                          { id: "step_3", title: "Customer Details", type: "form", fields: [
-                            { name: "fullName", label: "Full Name", type: "text", required: true },
-                            { name: "phone", label: "Phone Number", type: "tel", required: true },
-                            { name: "email", label: "Email Address", type: "email", required: true },
-                            { name: "address", label: "Full Address", type: "text", required: true },
-                          ]},
-                          { id: "step_4", title: "Payment Method", type: "selection", fields: [
-                            { name: "paymentMethod", label: "Payment Method", type: "checkbox", options: ["Cash on Delivery", "Online Payment"], required: true },
-                          ]},
-                          { id: "step_5", title: "Confirmation", type: "confirmation", fields: [] },
-                        ]
-                      };
-                      setDraft((p) => ({ ...p, trainingFlow: JSON.stringify(standardFlow, null, 2) }));
-                      toast.success("Standard E-Commerce Flow loaded");
-                      return;
-                    }
-                    // Per-category standard flows
-                    const catFlow = { steps: [
-                      { id: "step_1", title: "Order Details", type: "form", fields: [
-                        { name: "product", label: "Product Name", type: "text", required: true },
-                        { name: "quantity", label: "Quantity", type: "number", required: true },
-                        { name: "price", label: "Price", type: "number", required: true },
-                      ]},
-                      { id: "step_2", title: "Customer Details", type: "form", fields: [
-                        { name: "fullName", label: "Full Name", type: "text", required: true },
-                        { name: "phone", label: "Phone Number", type: "tel", required: true },
-                        { name: "email", label: "Email Address", type: "email", required: true },
-                        { name: "address", label: "Full Address", type: "text", required: true },
-                      ]},
-                      { id: "step_3", title: "Payment Method", type: "selection", fields: [
-                        { name: "paymentMethod", label: "Payment Method", type: "checkbox", options: ["Cash on Delivery", "Online Payment"], required: true },
-                      ]},
-                      { id: "step_4", title: "Confirmation", type: "confirmation", fields: [] },
-                    ]};
-                    const flowObj: any = {};
-                    for (const cat of categories) {
-                      flowObj[cat] = JSON.parse(JSON.stringify(catFlow));
-                    }
-                    setDraft((p) => ({ ...p, trainingFlow: JSON.stringify(flowObj, null, 2) }));
-                    toast.success("Standard flows loaded for all categories");
-                  };
-
-                  const steps = getSteps();
-
-                  return (
-                    <div className="space-y-0">
-                      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                        <span className="text-xs font-semibold text-foreground/80">Chatbot will ask the customer step-by-step:</span>
-                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={resetStandardFlow}
-                            className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                            title="Load standard 5-step E-Commerce Order Flow"
+                            onClick={() =>
+                              setDraft((p) => ({
+                                ...p,
+                                bookingEnabled: false,
+                                bookingMethod: "none",
+                                useOwnDb: false,
+                              }))
+                            }
+                            className={`rounded-xl border px-3 py-1.5 text-sm font-medium transition ${
+                              !draft.bookingEnabled
+                                ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                                : "border-border/60 hover:border-primary/40 bg-card"
+                            }`}
                           >
-                            <Sparkles className="h-3 w-3" />
-                            Load Standard Flow
+                            No, use Webotme built-in
                           </button>
-                          <div className="relative group/add">
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors cursor-pointer"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add Step
-                            </button>
-                            <div className="absolute right-0 top-full z-20 mt-1 hidden min-w-[140px] rounded-xl border border-border bg-card shadow-lg group-focus-within/add:block group-hover/add:block">
-                              {stepTypes.map((t) => (
+                        </div>
+
+                        {draft.bookingEnabled && (
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              How would you like customers to book?
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              {(
+                                [
+                                  {
+                                    id: "chatbot",
+                                    icon: MessageSquareText,
+                                    title: "Via Chatbot",
+                                    desc: "Book by chatting with the bot",
+                                  },
+                                  {
+                                    id: "web",
+                                    icon: Globe,
+                                    title: "Via Web App",
+                                    desc: "Book on your web app",
+                                  },
+                                  {
+                                    id: "both",
+                                    icon: Layers,
+                                    title: "Both",
+                                    desc: "Chatbot and web app, both",
+                                  },
+                                ] as const
+                              ).map((opt) => (
                                 <button
-                                  key={t}
+                                  key={opt.id}
                                   type="button"
-                                  onClick={() => addStep(t)}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer first:rounded-t-xl last:rounded-b-xl"
+                                  onClick={() =>
+                                    setDraft((p) => ({
+                                      ...p,
+                                      bookingMethod: opt.id,
+                                      useOwnDb: opt.id === "web" ? false : true,
+                                    }))
+                                  }
+                                  className={`rounded-xl border p-3 text-left transition hover:shadow-sm ${
+                                    draft.bookingMethod === opt.id
+                                      ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                                      : "border-border/60 hover:border-primary/40 bg-card"
+                                  }`}
                                 >
-                                  {t === "selection" ? <ListChecks className="h-3.5 w-3.5" /> : t === "form" ? <User className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                                  {t === "selection" ? "Choose Option Step" : t === "form" ? "Fill Details Step" : "Confirmation Step"}
+                                  <div className="mb-1 text-primary">
+                                    <opt.icon className="h-4 w-4" />
+                                  </div>
+                                  <p className="text-xs font-semibold">{opt.title}</p>
+                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                    {opt.desc}
+                                  </p>
                                 </button>
                               ))}
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {steps.length === 0 ? (
-                        <div className="mb-4 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center">
-                          <ListChecks className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                          <p className="text-sm font-medium text-foreground/60 mb-1">No flow configured yet</p>
-                          <p className="text-xs text-muted-foreground/50 mb-3">Click "Auto Generate Flow" above or "Add Step" to create one.</p>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          {steps.map((step, idx) => {
-                            const StepIcon = stepIcons[step.type] || FileText;
-                            return (
-                              <div key={step.id || idx} className="flex gap-4">
-                                {/* Number + Connector */}
-                                <div className="flex flex-col items-center">
-                                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-[11px] font-extrabold text-primary-foreground shadow-sm">
-                                    {idx + 1}
-                                  </div>
-                                  {idx < steps.length - 1 && (
-                                    <div className="mt-1 w-0.5 flex-1 rounded-full bg-gradient-to-b from-primary/40 to-primary/10" />
-                                  )}
-                                </div>
-                                {/* Step Card */}
-                                <div className="group/card mb-5 flex-1 rounded-xl border border-border bg-card shadow-xs hover:border-primary/30 transition-all">
-                                  {/* Step Header */}
-                                  <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5 bg-muted/30">
-                                    <StepIcon className="h-4 w-4 shrink-0 text-primary" />
-                                    <input
-                                      type="text"
-                                      value={step.title || ""}
-                                      onChange={(e) => updateStep(idx, "title", e.target.value)}
-                                      className="flex-1 bg-transparent text-xs font-bold text-foreground outline-none border-0 p-0"
-                                      placeholder="Step Title"
-                                    />
-                                    <select
-                                      value={step.type || "form"}
-                                      onChange={(e) => updateStep(idx, "type", e.target.value)}
-                                      className="rounded-md bg-card border border-border/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground outline-none cursor-pointer"
-                                    >
-                                      {stepTypes.map((t) => (
-                                        <option key={t} value={t}>{typeLabels[t]}</option>
-                                      ))}
-                                    </select>
-                                    <div className="flex items-center gap-0.5">
-                                      <button
-                                        type="button"
-                                        disabled={idx === 0}
-                                        onClick={() => moveStep(idx, "up")}
-                                        className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 transition-all cursor-pointer"
-                                        title="Move Step Up"
-                                      >
-                                        <ChevronUp className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={idx === steps.length - 1}
-                                        onClick={() => moveStep(idx, "down")}
-                                        className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 transition-all cursor-pointer"
-                                        title="Move Step Down"
-                                      >
-                                        <ChevronDown className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => removeStep(idx)}
-                                        className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all cursor-pointer"
-                                        title="Delete Step"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {/* Step Body */}
-                                  <div className="px-4 py-3 space-y-2">
-                                    {step.type === "confirmation" ? (
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
-                                        <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                                        Shows complete order summary & asks customer to confirm order
-                                      </div>
-                                    ) : (
-                                      <>
-                                        {(step.fields || []).map((field: any, fIdx: number) => {
-                                          const FieldIcon = fieldIcons[field.type] || FileText;
-                                          return (
-                                            <div key={fIdx} className="group/field relative rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                                              <div className="flex flex-wrap items-center gap-2">
-                                                <FieldIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                <input
-                                                  type="text"
-                                                  value={field.label || ""}
-                                                  onChange={(e) => updateField(idx, fIdx, "label", e.target.value)}
-                                                  className="min-w-[120px] flex-1 bg-transparent text-xs font-medium text-foreground outline-none border-0 p-0"
-                                                  placeholder="Field Label"
-                                                />
-                                                {field.name !== "paymentMethod" && (
-                                                  <select
-                                                    value={field.type || "text"}
-                                                    onChange={(e) => updateField(idx, fIdx, "type", e.target.value)}
-                                                    className="rounded border border-border/50 bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground outline-none cursor-pointer"
-                                                  >
-                                                    {fieldTypes.map((ft) => (
-                                                      <option key={ft} value={ft}>{fieldTypeLabels[ft]}</option>
-                                                    ))}
-                                                  </select>
-                                                )}
-                                                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={field.required !== false}
-                                                    onChange={(e) => updateField(idx, fIdx, "required", e.target.checked)}
-                                                    className="h-3 w-3 rounded border-border accent-primary"
-                                                  />
-                                                  Required
-                                                </label>
-                                                {(field.type === "select" || field.type === "checkbox" || step.type === "selection") && (
-                                                  <label className="flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded cursor-pointer border border-primary/20">
-                                                    <input
-                                                      type="checkbox"
-                                                      checked={field.fetchProducts !== false}
-                                                      onChange={(e) => updateField(idx, fIdx, "fetchProducts", e.target.checked)}
-                                                      className="h-3 w-3 rounded border-border accent-primary"
-                                                    />
-                                                    <Database className="h-3 w-3" />
-                                                    Fetch DB Products
-                                                  </label>
-                                                )}
-                                                <button
-                                                  type="button"
-                                                  onClick={() => removeField(idx, fIdx)}
-                                                  className="opacity-0 group-hover/field:opacity-100 grid h-5 w-5 place-items-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all cursor-pointer ml-auto"
-                                                  title="Delete Field"
-                                                >
-                                                  <X className="h-3 w-3" />
-                                                </button>
-                                              </div>
-                                              {field.type === "select" && (
-                                                <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-5">
-                                                  {(field.options || []).map((opt: string, oIdx: number) => (
-                                                    <span key={oIdx} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                                      <input
-                                                        type="text"
-                                                        value={opt}
-                                                        onChange={(e) => updateOption(idx, fIdx, oIdx, e.target.value)}
-                                                        className="w-20 bg-transparent text-[10px] text-foreground outline-none border-0 p-0"
-                                                      />
-                                                      <button
-                                                        type="button"
-                                                        onClick={() => removeOption(idx, fIdx, oIdx)}
-                                                        className="text-muted-foreground/50 hover:text-red-500 transition-colors cursor-pointer"
-                                                      >
-                                                        <X className="h-2.5 w-2.5" />
-                                                      </button>
-                                                    </span>
-                                                  ))}
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => addOption(idx, fIdx)}
-                                                    className="inline-flex items-center gap-0.5 rounded-md border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60 hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
-                                                  >
-                                                    <Plus className="h-2.5 w-2.5" />
-                                                    Add Option
-                                                  </button>
-                                                </div>
-                                              )}
-                                              {field.type === "checkbox" && (
-                                                <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-5">
-                                                  {(() => {
-                                                    const knownDefaults: Record<string, string[]> = {
-                                                      paymentMethod: ["Cash on Delivery", "Online Payment"],
-                                                    };
-                                                    const defaults = knownDefaults[field.name] || [];
-                                                    const allOpts = [...new Set([...(field.options || []), ...defaults])];
-                                                    return allOpts.map((opt: string) => {
-                                                      const isChecked = (field.options || []).includes(opt);
-                                                      return (
-                                                        <label key={opt} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[10px] font-medium text-foreground cursor-pointer hover:bg-muted transition-colors select-none">
-                                                          <input
-                                                            type="checkbox"
-                                                            checked={isChecked}
-                                                            onChange={() => {
-                                                              const steps = getSteps();
-                                                              const f = steps[idx]?.fields?.[fIdx];
-                                                              if (!f) return;
-                                                              let opts = f.options || [];
-                                                              if (isChecked) {
-                                                                opts = opts.filter((o: string) => o !== opt);
-                                                              } else {
-                                                                opts = [...opts, opt];
-                                                              }
-                                                              f.options = opts;
-                                                              updateFlow(steps);
-                                                            }}
-                                                            className="h-3 w-3 rounded border-border accent-primary"
-                                                          />
-                                                          {opt}
-                                                        </label>
-                                                      );
-                                                    });
-                                                  })()}
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                        <button
-                                          type="button"
-                                          onClick={() => addField(idx)}
-                                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/60 hover:text-primary transition-colors cursor-pointer"
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                          Add Field
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Raw JSON Toggle & Editor */}
-                <details className="group mt-4">
-                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                    <Braces className="h-3.5 w-3.5" />
-                    <span>Show Raw JSON</span>
-                    <ChevronRight className="h-3 w-3 ml-auto transition-transform group-open:rotate-90" />
-                  </summary>
-                  <div className="mt-3">
-                    <textarea
-                      value={draft.trainingFlow}
-                      onChange={(e) => setDraft((p) => ({ ...p, trainingFlow: e.target.value }))}
-                      placeholder='Paste or edit the flow JSON here...'
-                      rows={6}
-                      className="min-h-[140px] w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
-                    />
-                    <p className="mt-1 text-[10px] text-muted-foreground/50">Edit the JSON directly or use "Auto Generate Flow" to create one.</p>
-                  </div>
-                </details>
-              </div>
-              </>
-              )}
-              {editStep === 5 && (
-              <>
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Bot Details</h2>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Chatbot Name
-                    </label>
-                    <input
-                      value={draft.name}
-                      onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Welcome Message
-                    </label>
-                    <input
-                      value={draft.welcome}
-                      onChange={(e) => setDraft((p) => ({ ...p, welcome: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-                </div>
-
-                {/* ── Display Currency Dropdown Selection ── */}
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-primary" />
-                    <label className="text-xs font-bold text-foreground">
-                      Chatbot Display Currency
-                    </label>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Select the currency to format product prices shown in the chatbot window (e.g. USD $, PKR Rs, EUR €, GBP £, AED, SAR).
-                  </p>
-                  <select
-                    value={draft.currency}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const matched = CURRENCY_LIST.find((c) => c.name === val || c.code === val);
-                      setDraft((p) => ({
-                        ...p,
-                        currency: val,
-                        currencySymbol: matched?.symbol || "$",
-                      }));
-                    }}
-                    className="h-11 w-full rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  >
-                    {CURRENCY_LIST.map((c) => (
-                      <option key={c.code} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {draft.orderSystemEnabled && (
-                  <>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Agency Email 1
-                        </label>
-                        <input
-                          type="email"
-                          value={draft.agencyEmail1 || ""}
-                          onChange={(e) => setDraft((p) => ({ ...p, agencyEmail1: e.target.value }))}
-                          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Agency Email 2
-                        </label>
-                        <input
-                          type="email"
-                          value={draft.agencyEmail2 || ""}
-                          onChange={(e) => setDraft((p) => ({ ...p, agencyEmail2: e.target.value }))}
-                          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+                        )}
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Order emails will be received on these emails in any order. You can add any other email
-                      of your choice — except the email used to create this account, which already receives orders.
-                    </p>
-                  </>
-                )}
-                <details className="group">
-                  <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-                    <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
-                    Advanced: Custom Design
-                  </summary>
-                  <div className="mt-4 space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Header style
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {["gradient", "solid", "glass"].map((s) => (
+                  )}
+                  {editStep === 2 && (
+                    <>
+                      {/* ── Data Collection Connection (Order System) ── */}
+                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                              <ShoppingCart className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                                Data Collection (Database)
+                              </p>
+                              <h3 className="text-sm font-semibold text-foreground">
+                                {draft.productConnected
+                                  ? "Data collection connected"
+                                  : "Connect your collection"}
+                              </h3>
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.productConnected ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
+                          >
+                            {draft.productConnected ? "Connected" : "Not connected"}
+                          </span>
+                        </div>
+
+                        <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                          Give the connection string (URI) of your database collection below —
+                          Webotme will automatically detect its columns and fetch any data from it
+                          (items, products, services, bookings, etc.) to answer customers. Orders
+                          you take are saved here too.
+                        </p>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-foreground/80">
+                            Do you want to implement an Order System?
+                          </label>
+                          <div className="flex gap-3">
                             <button
-                              key={s}
                               type="button"
-                              onClick={() => setDraft((p) => ({ ...p, headerStyle: s as any }))}
-                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.headerStyle === s ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                              onClick={() => setDraft((p) => ({ ...p, orderSystemEnabled: true }))}
+                              className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold transition ${
+                                draft.orderSystemEnabled
+                                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                                  : "border-border bg-card text-muted-foreground hover:bg-accent"
+                              }`}
                             >
-                              {s}
+                              <Check
+                                className={`h-3.5 w-3.5 ${draft.orderSystemEnabled ? "opacity-100" : "opacity-0"}`}
+                              />
+                              Yes, enable Order System
                             </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Message size
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { v: "sm", l: "Small" },
-                            { v: "md", l: "Medium" },
-                            { v: "lg", l: "Large" },
-                          ].map((s) => (
                             <button
-                              key={s.v}
                               type="button"
                               onClick={() =>
-                                setDraft((p) => ({ ...p, messageFontSize: s.v as any }))
+                                setDraft((p) => ({
+                                  ...p,
+                                  orderSystemEnabled: false,
+                                  productConnected: false,
+                                }))
                               }
-                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.messageFontSize === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                              className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-semibold transition ${
+                                !draft.orderSystemEnabled
+                                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20"
+                                  : "border-border bg-card text-muted-foreground hover:bg-accent"
+                              }`}
                             >
-                              {s.l}
+                              <Check
+                                className={`h-3.5 w-3.5 ${!draft.orderSystemEnabled ? "opacity-100" : "opacity-0"}`}
+                              />
+                              No, skip Order System
                             </button>
-                          ))}
+                          </div>
                         </div>
+
+                        {draft.orderSystemEnabled && (
+                          <div className="space-y-4 pt-2">
+                            <div>
+                              <label className="mb-1 block text-xs font-semibold text-foreground/80">
+                                What do you sell?
+                              </label>
+                              <p className="mb-2 text-[11px] text-muted-foreground">
+                                Describe what you offer or the bookings customers can place — e.g.
+                                Physical Products, Software, Services, Appointments. e.g. Physical
+                                Products, Software, Services, Appointments.
+                              </p>
+                              <input
+                                value={draft.productType}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, productType: e.target.value }))
+                                }
+                                placeholder="e.g. Physical Products, Software, Services, Appointments"
+                                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-semibold text-foreground/80">
+                                Select database type
+                              </label>
+                              <div className="grid gap-2 md:grid-cols-3">
+                                {databaseTypeOptions.map((db) => (
+                                  <button
+                                    key={db.id}
+                                    type="button"
+                                    onClick={() =>
+                                      setDraft((p) => ({ ...p, productDbType: db.id as any }))
+                                    }
+                                    className={`rounded-xl border px-3 py-2 text-left transition ${draft.productDbType === db.id ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-card text-muted-foreground hover:bg-accent"}`}
+                                  >
+                                    <div className="text-xs font-semibold">{db.label}</div>
+                                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                      {db.desc}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {draft.productDbType && (
+                              <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-3">
+                                {draft.productDbType === "mongodb" ? (
+                                  <div className="space-y-3">
+                                    <label className="block text-xs font-semibold text-foreground/80">
+                                      Connection String URI
+                                      <input
+                                        value={draft.productUri}
+                                        onChange={(e) =>
+                                          setDraft((p) => ({ ...p, productUri: e.target.value }))
+                                        }
+                                        placeholder="mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net"
+                                        className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                      />
+                                    </label>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Database Name
+                                        <input
+                                          value={draft.productDb}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({ ...p, productDb: e.target.value }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Collection Name
+                                        <input
+                                          value={draft.productTable}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({
+                                              ...p,
+                                              productTable: e.target.value,
+                                            }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Host
+                                        <input
+                                          value={draft.productHost}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({ ...p, productHost: e.target.value }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Port
+                                        <input
+                                          type="number"
+                                          value={draft.productPort}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({
+                                              ...p,
+                                              productPort: Number(e.target.value),
+                                            }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Database Name
+                                        <input
+                                          value={draft.productDb}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({ ...p, productDb: e.target.value }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Table Name
+                                        <input
+                                          value={draft.productTable}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({
+                                              ...p,
+                                              productTable: e.target.value,
+                                            }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Username
+                                        <input
+                                          value={draft.productUsername}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({
+                                              ...p,
+                                              productUsername: e.target.value,
+                                            }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                      <label className="block text-xs font-semibold text-foreground/80">
+                                        Password
+                                        <input
+                                          type="password"
+                                          value={draft.productPassword}
+                                          onChange={(e) =>
+                                            setDraft((p) => ({
+                                              ...p,
+                                              productPassword: e.target.value,
+                                            }))
+                                          }
+                                          className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                      </label>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <input
+                                        type="checkbox"
+                                        checked={draft.productSsl}
+                                        onChange={(e) =>
+                                          setDraft((p) => ({ ...p, productSsl: e.target.checked }))
+                                        }
+                                        className="rounded border-border"
+                                      />
+                                      Use SSL
+                                    </label>
+                                  </div>
+                                )}
+
+                                {/* Product columns — auto-detected from the collection */}
+                                <DetectedCatalogColumns
+                                  mapping={draft.productMapping}
+                                  catalogFields={draft.catalogFields}
+                                  connected={draft.productConnected}
+                                  onMappingChange={(m) =>
+                                    setDraft((p) => ({
+                                      ...p,
+                                      productMapping: { ...m, customFields: m.customFields ?? [] },
+                                    }))
+                                  }
+                                />
+
+                                <div className="flex items-center gap-3 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => runCatalogTest(draft, false)}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                                  >
+                                    <Database className="h-3.5 w-3.5" /> Test &amp; Auto-Detect
+                                    Columns
+                                  </button>
+                                  {draft.productConnected && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
+                                      <Check className="h-3.5 w-3.5" /> Collection Connected
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Bot bubble color
-                        </label>
-                        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
-                          <input
-                            type="color"
-                            value={draft.botBubbleColor}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, botBubbleColor: e.target.value }))
-                            }
-                            className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
-                          />
-                          <input
-                            value={draft.botBubbleColor}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, botBubbleColor: e.target.value }))
-                            }
-                            className="flex-1 bg-transparent text-sm focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Bot text color
-                        </label>
-                        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
-                          <input
-                            type="color"
-                            value={draft.botTextColor}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, botTextColor: e.target.value }))
-                            }
-                            className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
-                          />
-                          <input
-                            value={draft.botTextColor}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, botTextColor: e.target.value }))
-                            }
-                            className="flex-1 bg-transparent text-sm focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Show avatar
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={draft.showAvatar}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, showAvatar: e.target.checked }))
-                            }
-                            className="rounded border-border"
-                          />
-                          <span className="text-sm text-muted-foreground">Display bot avatar</span>
-                        </label>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Header subtitle
-                        </label>
-                        <input
-                          value={draft.headerSubtitle}
-                          onChange={(e) =>
-                            setDraft((p) => ({ ...p, headerSubtitle: e.target.value }))
-                          }
-                          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Text style
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { id: "default" as const, l: "Default" },
-                          { id: "bold" as const, l: "Bold" },
-                          { id: "italic" as const, l: "Italic" },
-                          { id: "romantic" as const, l: "Romantic" },
-                          { id: "playful" as const, l: "Playful" },
-                          { id: "elegant" as const, l: "Elegant" },
-                        ].map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => setDraft((p) => ({ ...p, textStyle: s.id }))}
-                            className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${draft.textStyle === s.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                    </>
+                  )}
+                  {editStep === 3 && (
+                    <>
+                      {/* ── Orders & Chat Storage Database Connection ── */}
+                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                              Orders & Chat Storage Database
+                            </p>
+                            <h3 className="mt-1 text-sm font-semibold text-foreground">
+                              {draft.collectionConnected
+                                ? "Storage collection connected"
+                                : "Connect storage collection"}
+                            </h3>
+                          </div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.collectionConnected ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
                           >
-                            {s.l}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </details>
-                <details className="group">
-                  <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-                    <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
-                    Widget Behaviour (launcher, position, open mode)
-                  </summary>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Launcher style
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { v: "icon" as const, l: "Icon only" },
-                          { v: "button" as const, l: "Text button" },
-                        ].map((s) => (
-                          <button
-                            key={s.v}
-                            type="button"
-                            onClick={() => setDraft((p) => ({ ...p, widgetLauncher: s.v }))}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.widgetLauncher === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
-                          >
-                            {s.l}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {draft.widgetLauncher === "button" && (
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Button text
-                        </label>
-                        <input
-                          value={draft.widgetLauncherText}
-                          onChange={(e) =>
-                            setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))
-                          }
-                          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          placeholder="Chat with us"
-                        />
-                        <div className="mt-3">
-                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Button style
+                            {draft.collectionConnected ? "Connected" : "Pending"}
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold text-foreground/80">
+                            Select storage database type
                           </label>
-                          <div className="grid grid-cols-4 gap-2">
-                            {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                          <div className="grid gap-2 md:grid-cols-3">
+                            {databaseTypeOptions.map((db) => (
                               <button
-                                key={st}
+                                key={db.id}
                                 type="button"
-                                onClick={() => setDraft((p) => ({ ...p, widgetLauncherStyle: st }))}
-                                className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                                onClick={() =>
+                                  setDraft((p) => ({
+                                    ...p,
+                                    databaseType: db.id as any,
+                                    databaseMode: p.databaseMode || "collection",
+                                  }))
+                                }
+                                className={`rounded-xl border px-3 py-2 text-left transition ${draft.databaseType === db.id ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30" : "border-border bg-card text-muted-foreground hover:bg-accent"}`}
                               >
-                                {st}
+                                <div className="text-xs font-semibold">{db.label}</div>
+                                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                  {db.desc}
+                                </div>
                               </button>
                             ))}
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-4">
-                          <div
-                            className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all"
-                            style={{
-                              background: `linear-gradient(135deg, ${draft.primaryColor || "#7c3aed"}, ${draft.secondaryColor || "#db2777"})`,
-                              borderRadius:
-                                draft.widgetLauncherStyle === "pill"
-                                  ? 999
-                                  : draft.widgetLauncherStyle === "square"
-                                    ? 6
-                                    : draft.widgetLauncherStyle === "soft"
-                                      ? 18
-                                      : 12,
-                            }}
-                          >
-                            {draft.widgetLauncherText || "Chat with us"}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Launcher position
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["bottom-right", "bottom-left", "top-right", "top-left"] as const).map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => setDraft((d) => ({ ...d, widgetPosition: p }))}
-                            className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${draft.widgetPosition === p ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
-                          >
-                            {p.replace("-", " ")}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Open mode
-                      </label>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        {[
-                          { v: "overlay" as const, l: "Popup window", d: "Floats over the page" },
-                          { v: "sidebar" as const, l: "Side panel", d: "Page shrinks, panel slides from side" },
-                          { v: "fullscreen" as const, l: "Fullscreen", d: "Covers the whole screen" },
-                          { v: "newtab" as const, l: "New tab", d: "Opens chat in a new tab" },
-                        ].map((s) => (
-                          <button
-                            key={s.v}
-                            type="button"
-                            onClick={() => setDraft((p) => ({ ...p, widgetOpenMode: s.v }))}
-                            className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${draft.widgetOpenMode === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
-                          >
-                            <span className="block font-semibold">{s.l}</span>
-                            <span className="mt-0.5 block text-[10px] text-muted-foreground">{s.d}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={draft.widgetSmartPosition}
-                        onChange={(e) => setDraft((p) => ({ ...p, widgetSmartPosition: e.target.checked }))}
-                        className="rounded border-border"
-                      />
-                      Smart opening direction (panel opens towards the free space automatically)
-                    </label>
-                    {draft.widgetOpenMode === "overlay" && (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Panel width — {draft.widgetWidth}px
-                          </label>
-                          <input
-                            type="range"
-                            min={280}
-                            max={700}
-                            value={draft.widgetWidth}
-                            onChange={(e) => setDraft((p) => ({ ...p, widgetWidth: Number(e.target.value) }))}
-                            className="w-full"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Panel height — {draft.widgetHeight}px
-                          </label>
-                          <input
-                            type="range"
-                            min={360}
-                            max={900}
-                            value={draft.widgetHeight}
-                            onChange={(e) => setDraft((p) => ({ ...p, widgetHeight: Number(e.target.value) }))}
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Custom CSS (advanced)
-                      </label>
-                      <textarea
-                        value={draft.widgetCustomCss}
-                        onChange={(e) => setDraft((p) => ({ ...p, widgetCustomCss: e.target.value }))}
-                        className="min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        placeholder={"/** Move / resize the widget from your site **/\n#rover-chatbot-frame { width: 480px; height: 640px; }\n#rover-chatbot-bubble { bottom: 80px; right: 40px; }"}
-                      />
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        These styles are injected with the widget script — no extra CSS needed on your site.
-                      </p>
-                    </div>
-                  </div>
-                </details>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                    Description
-                  </label>
-                  <textarea
-                    value={draft.description}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDraft((p) => ({
-                        ...p,
-                        description: v,
-                        extractedServices: p.extractedServices?.length
-                          ? p.extractedServices
-                          : parseServicesFromDescription(v),
-                      }));
-                    }}
-                    rows={3}
-                    className="min-h-[88px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                {!isTemplateBot && (
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">Logo</label>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {defaultIcons.map((icon, i) => (
-                        <button key={i} type="button" onClick={() => setDraft((p) => ({ ...p, logo: icon }))}
-                          className={`overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${draft.logo === icon ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}>
-                          <img src={icon} alt={`Default ${i}`} className="h-10 w-10 object-cover" />
-                        </button>
-                      ))}
-                      <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/40 p-5 text-sm text-muted-foreground hover:bg-muted/70 flex-1">
-                        {draft.logo && !defaultIcons.includes(draft.logo) ? (
-                          <img src={draft.logo} alt="" className="h-14 w-14 rounded-xl object-cover" />
-                        ) : (
-                          <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-soft text-primary"><Upload className="h-5 w-5" /></div>
-                        )}
-                        <div><div className="font-medium text-foreground">Upload logo</div><div className="text-xs">PNG, JPG or SVG</div></div>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])} />
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Theme</h2>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Primary color
-                    </label>
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
-                      <input
-                        type="color"
-                        value={draft.primary}
-                        onChange={(e) => setDraft((p) => ({ ...p, primary: e.target.value }))}
-                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
-                      />
-                      <input
-                        value={draft.primary}
-                        onChange={(e) => setDraft((p) => ({ ...p, primary: e.target.value }))}
-                        className="flex-1 bg-transparent text-sm focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Secondary color
-                    </label>
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
-                      <input
-                        type="color"
-                        value={draft.secondary}
-                        onChange={(e) => setDraft((p) => ({ ...p, secondary: e.target.value }))}
-                        className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
-                      />
-                      <input
-                        value={draft.secondary}
-                        onChange={(e) => setDraft((p) => ({ ...p, secondary: e.target.value }))}
-                        className="flex-1 bg-transparent text-sm focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Font
-                    </label>
-                    <select
-                      value={draft.font}
-                      onChange={(e) => setDraft((p) => ({ ...p, font: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      {fonts.map((f) => (
-                        <option key={f}>{f}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                      Border radius — {draft.radius}px
-                    </label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={32}
-                      value={draft.radius}
-                      onChange={(e) => setDraft((p) => ({ ...p, radius: Number(e.target.value) }))}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                    Bubble style
-                  </label>
-                  <div className="flex gap-2">
-                    {bubbles.map((b) => (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => setDraft((p) => ({ ...p, bubble: b.id }))}
-                        className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${draft.bubble === b.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
-                      >
-                        {b.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                    Template
-                  </label>
-                  <select
-                    value={draft.template}
-                    onChange={(e) =>
-                      setDraft((p) => ({ ...p, template: e.target.value as Template }))
-                    }
-                    className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  >
-                    {[
-                      "Modern Glass UI",
-                      "Minimal AI Assistant",
-                      "Floating Support Widget",
-                      "Rounded Messenger Style",
-                      "Neon AI Interface",
-                      "Custom",
-                    ].map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              </>
-              )}
-              {editStep === 6 && (
-              <>
-              {!isTemplateBot && (
-                <div className="space-y-6">
-                  <h2 className="text-lg font-semibold">Training Knowledge</h2>
 
-                  {/* ── Existing Knowledge Files ── */}
-                  <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                    <h3 className="text-sm font-semibold mb-2">General Knowledge Files</h3>
-                    {draft.knowledgeFiles.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {draft.knowledgeFiles.map((f, idx) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2">
-                            <button onClick={() => setSelectedFileForView(f)} className="min-w-0 flex-1 truncate text-left text-xs font-mono hover:text-primary">{f.name}</button>
-                            <button onClick={() => removeKnowledgeFile(idx)} className="shrink-0 text-destructive hover:text-destructive/80"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <input value={manualKnowledgeName} onChange={(e) => setManualKnowledgeName(e.target.value)} placeholder="File name" className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      <button onClick={addManualKnowledge} className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">Add</button>
-                    </div>
-                    <textarea value={manualKnowledgeContent} onChange={(e) => setManualKnowledgeContent(e.target.value)} placeholder="Paste knowledge content here…" rows={3} className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                    <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
-                      <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
-                      <input type="file" multiple accept=".pdf,.docx,.txt,.md,.json" className="hidden" onChange={(e) => addKnowledgeFiles(e.target.files)} />
-                    </label>
-                  </div>
+                        {draft.databaseType && (
+                          <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-3">
+                            {draft.databaseType === "mongodb" ? (
+                              <div className="space-y-3">
+                                <label className="block text-xs font-semibold text-foreground/80">
+                                  Connection string URI
+                                  <input
+                                    value={draft.collectionUri}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, collectionUri: e.target.value }))
+                                    }
+                                    placeholder="mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net"
+                                    className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </label>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Database name
+                                    <input
+                                      value={draft.collectionDb}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({ ...p, collectionDb: e.target.value }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Collection name
+                                    <input
+                                      value={draft.collectionTable}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({ ...p, collectionTable: e.target.value }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Host
+                                    <input
+                                      value={draft.collectionHost}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({ ...p, collectionHost: e.target.value }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Port
+                                    <input
+                                      type="number"
+                                      value={draft.collectionPort}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({
+                                          ...p,
+                                          collectionPort: Number(e.target.value),
+                                        }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Database name
+                                    <input
+                                      value={draft.collectionDb}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({ ...p, collectionDb: e.target.value }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Table name
+                                    <input
+                                      value={draft.collectionTable}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({ ...p, collectionTable: e.target.value }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Username
+                                    <input
+                                      value={draft.collectionUsername}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({
+                                          ...p,
+                                          collectionUsername: e.target.value,
+                                        }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-semibold text-foreground/80">
+                                    Password
+                                    <input
+                                      type="password"
+                                      value={draft.collectionPassword}
+                                      onChange={(e) =>
+                                        setDraft((p) => ({
+                                          ...p,
+                                          collectionPassword: e.target.value,
+                                        }))
+                                      }
+                                      className="mt-1 h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </label>
+                                </div>
+                                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.collectionSsl}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, collectionSsl: e.target.checked }))
+                                    }
+                                    className="rounded border-border"
+                                  />
+                                  Use SSL
+                                </label>
+                              </div>
+                            )}
 
-                  {/* ── Knowledge Base ── */}
-                  <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                    <h3 className="text-sm font-semibold mb-2">Knowledge Base Files</h3>
-                    {draft.knowledgeBase.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {draft.knowledgeBase.map((f, idx) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2">
-                            <span className="flex-1 truncate text-xs font-mono">{f.name}</span>
-                            <button onClick={() => handleViewFile(f)} className="shrink-0 text-muted-foreground hover:text-primary"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => removeEditFileType(idx, 'knowledgeBase')} className="shrink-0 text-destructive hover:text-destructive/80"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <input value={manualKBName} onChange={(e) => setManualKBName(e.target.value)} placeholder="File name" className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      <button onClick={() => addManualEditFileType('knowledgeBase')} className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">Add</button>
-                    </div>
-                    <textarea value={manualKBContent} onChange={(e) => setManualKBContent(e.target.value)} placeholder="Paste knowledge base content here…" rows={3} className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                    <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
-                      <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
-                      <input type="file" multiple accept=".pdf,.docx,.txt,.md,.json" className="hidden" onChange={(e) => uploadEditFileType(e.target.files, 'knowledgeBase')} />
-                    </label>
-                  </div>
+                            <div className="flex items-center gap-3 pt-1">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const body: any = {
+                                    type: draft.databaseType,
+                                    isProductCollection: false,
+                                  };
 
-                  {/* ── Training Knowledge ── */}
-                  <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                    <h3 className="text-sm font-semibold mb-2">Training Knowledge Files</h3>
-                    {draft.trainingKnowledge.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {draft.trainingKnowledge.map((f, idx) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2">
-                            <span className="flex-1 truncate text-xs font-mono">{f.name}</span>
-                            <button onClick={() => handleViewFile(f)} className="shrink-0 text-muted-foreground hover:text-primary"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => removeEditFileType(idx, 'trainingKnowledge')} className="shrink-0 text-destructive hover:text-destructive/80"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <input value={manualTKName} onChange={(e) => setManualTKName(e.target.value)} placeholder="File name" className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      <button onClick={() => addManualEditFileType('trainingKnowledge')} className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">Add</button>
-                    </div>
-                    <textarea value={manualTKContent} onChange={(e) => setManualTKContent(e.target.value)} placeholder="Paste training knowledge content here…" rows={3} className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                    <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
-                      <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
-                      <input type="file" multiple accept=".pdf,.docx,.txt,.md,.json" className="hidden" onChange={(e) => uploadEditFileType(e.target.files, 'trainingKnowledge')} />
-                    </label>
-                  </div>
-
-                  {/* ── Training Sheet ── */}
-                  <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                    <h3 className="text-sm font-semibold mb-2">Training Sheet Files</h3>
-                    {draft.trainingSheet.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {draft.trainingSheet.map((f, idx) => (
-                          <div key={idx} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2">
-                            <span className="flex-1 truncate text-xs font-mono">{f.name}</span>
-                            <button onClick={() => handleViewFile(f)} className="shrink-0 text-muted-foreground hover:text-primary"><Eye className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => removeEditFileType(idx, 'trainingSheet')} className="shrink-0 text-destructive hover:text-destructive/80"><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* ── Interactive File Categories Editor ── */}
-                    <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                          <FileText className="h-3.5 w-3.5 text-primary" />
-                          File Categories ({[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].length})
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDraft((prev) => {
-                              const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                              const updated = [...currentList, "New Category"];
-                              return { ...prev, trainingSheetServices: updated, extractedServices: updated };
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
-                        >
-                          + Add Category
-                        </button>
-                      </div>
-
-                      <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                        {[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].map((svc, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-[11px] font-extrabold text-primary border border-primary/20">
-                              {i + 1}
-                            </span>
-                            <input
-                              type="text"
-                              value={svc}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDraft((prev) => {
-                                  const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                                  currentList[i] = val;
-                                  return { ...prev, trainingSheetServices: currentList, extractedServices: currentList };
-                                });
-                              }}
-                              className="h-8 flex-1 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDraft((prev) => {
-                                  const currentList = [...new Set([...(prev.trainingSheetServices || []), ...(prev.extractedServices || [])])];
-                                  currentList.splice(i, 1);
-                                  return { ...prev, trainingSheetServices: currentList, extractedServices: currentList };
-                                });
-                              }}
-                              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
-                              title="Remove Category"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-
-                        {[...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])])].length === 0 && (
-                          <p className="text-xs text-muted-foreground italic">No file categories found. Click "+ Add Category" to create one.</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input value={manualTSName} onChange={(e) => setManualTSName(e.target.value)} placeholder="File name" className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                      <button onClick={() => addManualEditFileType('trainingSheet')} className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">Add</button>
-                    </div>
-                    <textarea value={manualTSContent} onChange={(e) => setManualTSContent(e.target.value)} placeholder="Paste training sheet content here…" rows={3} className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                    <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
-                      <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
-                      <input type="file" multiple accept=".pdf,.docx,.txt,.md,.json" className="hidden" onChange={(e) => uploadEditFileType(e.target.files, 'trainingSheet')} />
-                    </label>
-                  </div>
-
-                  {uploading && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{uploadStatus}</span><span>{uploadProgress}%</span></div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} /></div>
-                    </div>
-                  )}
-                </div>
-              )}
-                </>
-              )}
-              {editStep === 7 && (
-                <div className="space-y-5">
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-5">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                        Email Setup
-                      </p>
-                      <h3 className="mt-1 text-base font-semibold text-foreground">
-                        Order &amp; booking emails
-                      </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Whenever an order or service request comes through this chatbot, the
-                        notification emails follow this setup — no matter which website the
-                        widget is installed on.
-                      </p>
-                    </div>
-
-                    {/* 1) Owner notification email */}
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Add your email where you receive ALL order emails
-                      </label>
-                      <input
-                        type="email"
-                        value={draft.ownerEmail}
-                        onChange={(e) => setDraft((p) => ({ ...p, ownerEmail: e.target.value }))}
-                        placeholder="orders@yourbusiness.com"
-                        className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      />
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Full details of every new order / booking will be delivered to this inbox.
-                        Your account email always receives a copy too.
-                      </p>
-                    </div>
-
-                    {/* 2) Customer confirmation toggle */}
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3">
-                      <div>
-                        <div className="text-sm font-semibold">
-                          Send confirmation to the customer
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          The customer who placed the order / booking also receives a confirmation
-                          email. Turn off to notify only you.
-                        </div>
-                      </div>
-                      <Switch
-                        checked={draft.customerConfirmation}
-                        onCheckedChange={(v) => setDraft((p) => ({ ...p, customerConfirmation: v }))}
-                      />
-                    </div>
-
-                    {/* 3) Sender mode */}
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold text-foreground/80">
-                        Do you want to add your own email for sending mail, or use this
-                        platform&apos;s email?
-                      </label>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => setDraft((p) => ({ ...p, senderMode: "platform" }))}
-                          className={`rounded-xl border p-4 text-left transition ${
-                            draft.senderMode === "platform"
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                              : "border-border/60 hover:border-primary/40"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 text-sm font-semibold">
-                            <Shield className="h-4 w-4 text-primary" /> Use platform email
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Emails are sent from the Webotme system — no extra setup needed.
-                          </p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft((p) => ({ ...p, senderMode: "own" }))}
-                          className={`rounded-xl border p-4 text-left transition ${
-                            draft.senderMode === "own"
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                              : "border-border/60 hover:border-primary/40"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 text-sm font-semibold">
-                            <Mail className="h-4 w-4 text-primary" /> My own business email
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Emails are sent from one of your connected addresses — customers see
-                            your brand.
-                          </p>
-                        </button>
-                      </div>
-
-                      {draft.senderMode === "own" && (
-                        connectedEmails.length > 0 ? (
-                          <div className="mt-3 space-y-2">
-                            <p className="text-xs font-semibold text-foreground/80">
-                              Select which connected email this chatbot should send from:
-                            </p>
-                            {connectedEmails.map((cfg) => {
-                              const selected = draft.configId
-                                ? draft.configId === cfg.id
-                                : cfg.id === connectedEmails[0]?.id;
-                              return (
-                                <button
-                                  key={cfg.id}
-                                  type="button"
-                                  onClick={() =>
-                                    setDraft((p) => ({ ...p, configId: cfg.id }))
+                                  if (draft.databaseType === "mongodb") {
+                                    if (
+                                      !draft.collectionUri ||
+                                      !draft.collectionDb ||
+                                      !draft.collectionTable
+                                    ) {
+                                      toast.error(
+                                        "Please fill Connection URI, Database Name, and Collection Name",
+                                      );
+                                      return;
+                                    }
+                                    body.uri = draft.collectionUri;
+                                    body.database = draft.collectionDb;
+                                    body.collection = draft.collectionTable;
+                                  } else {
+                                    if (
+                                      !draft.collectionDb ||
+                                      !draft.collectionHost ||
+                                      !draft.collectionUsername ||
+                                      !draft.collectionPassword ||
+                                      !draft.collectionTable
+                                    ) {
+                                      toast.error("Please fill all collection fields first");
+                                      return;
+                                    }
+                                    body.host = draft.collectionHost;
+                                    body.port =
+                                      draft.collectionPort ||
+                                      (draft.databaseType === "mysql" ? 3306 : 5432);
+                                    body.database = draft.collectionDb;
+                                    body.user = draft.collectionUsername;
+                                    body.password = draft.collectionPassword;
+                                    body.table = draft.collectionTable;
+                                    body.ssl = draft.collectionSsl;
                                   }
-                                  className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
-                                    selected
-                                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                                      : "border-border/60 hover:border-primary/40"
-                                  }`}
-                                >
-                                  <div className="min-w-0 space-y-0.5">
-                                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                                      <span className="font-mono text-xs">
-                                        {cfg.smtpUserMasked || cfg.fromEmail}
+
+                                  const toastId = toast.loading("Testing storage connection...");
+                                  try {
+                                    const res = await fetch("/api/chatbot/test-collection", {
+                                      method: "POST",
+                                      headers: getAuthHeaders(),
+                                      body: JSON.stringify(body),
+                                    });
+                                    const data = await res.json();
+                                    if (data.connected) {
+                                      setDraft((prev) => ({ ...prev, collectionConnected: true }));
+                                      toast.success("Storage connection successful!", {
+                                        id: toastId,
+                                      });
+                                    } else {
+                                      setDraft((prev) => ({ ...prev, collectionConnected: false }));
+                                      toast.error(data.message || "Connection failed", {
+                                        id: toastId,
+                                      });
+                                    }
+                                  } catch (err: any) {
+                                    setDraft((prev) => ({ ...prev, collectionConnected: false }));
+                                    toast.error(err.message || "Connection test failed", {
+                                      id: toastId,
+                                    });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                <Database className="h-3.5 w-3.5" /> Test Storage Connection
+                              </button>
+                              {draft.collectionConnected && (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
+                                  <Check className="h-3.5 w-3.5" /> Storage Connected
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                              <label className="mb-1 block text-xs font-semibold text-foreground/80">
+                                Storage target
+                              </label>
+                              <select
+                                value={draft.collectionStoreType}
+                                onChange={(e) =>
+                                  setDraft((p) => ({
+                                    ...p,
+                                    collectionStoreType: e.target.value as any,
+                                  }))
+                                }
+                                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              >
+                                <option value="">Select storage target purpose…</option>
+                                <option value="user_chat">
+                                  User Chat (Store user messages & chat logs)
+                                </option>
+                                <option value="all_orders">
+                                  All Orders (Store booking orders & product purchases)
+                                </option>
+                                <option value="agent_contact">
+                                  Real-time Agent Contact (Store support escalations)
+                                </option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {draft.orderSystemEnabled && <StripeConnectCard compact />}
+                    </>
+                  )}
+                  {editStep === 4 && (
+                    <>
+                      {/* ── Connected Database Sync Banner ── */}
+                      {(draft.collectionConnected ||
+                        draft.collectionTable ||
+                        draft.collectionUri) && (
+                        <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground shrink-0 shadow-md shadow-primary/20">
+                              <Database className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-extrabold uppercase tracking-wider text-primary">
+                                  Connected Database
+                                </span>
+                                <span className="rounded-md bg-card border border-border px-2 py-0.5 text-xs font-mono font-bold text-foreground">
+                                  {draft.collectionTable || "Storage Collection"}
+                                </span>
+                                {draft.collectionConnected && (
+                                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    Live Connected
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                AI inspects your collection schema, detects whether it is a product
+                                catalog with brand/price fields, auto-extracts categories, and
+                                builds a customized ordering flow.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={syncingDB}
+                            onClick={syncCategoriesAndFlowFromDB}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:brightness-110 transition shrink-0 cursor-pointer disabled:opacity-50"
+                          >
+                            <Sparkles className={cn("h-4 w-4", syncingDB && "animate-spin")} />
+                            {syncingDB
+                              ? "Analyzing DB Schema..."
+                              : "✨ AI Auto-Detect & Build Flow"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ── Detected DB Schema Chips ── */}
+                      {dbSchemaMeta && (
+                        <div className="rounded-xl border border-border/80 bg-card p-3 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                            AI Schema Analysis:
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded-lg px-2 py-0.5 font-semibold text-[11px] border",
+                              dbSchemaMeta.isProductCatalog
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                                : "border-violet-500/30 bg-violet-500/10 text-violet-600",
+                            )}
+                          >
+                            {dbSchemaMeta.isProductCatalog
+                              ? "🛒 Product Catalog"
+                              : "📅 Service / Booking"}
+                          </span>
+                          {dbSchemaMeta.hasBrand && (
+                            <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-blue-500/30 bg-blue-500/10 text-blue-600">
+                              🏷️ Brand Field Detected
+                            </span>
+                          )}
+                          {dbSchemaMeta.hasPrice && (
+                            <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-amber-500/30 bg-amber-500/10 text-amber-600">
+                              💲 Price Field Detected
+                            </span>
+                          )}
+                          {dbSchemaMeta.hasImage && (
+                            <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-indigo-500/30 bg-indigo-500/10 text-indigo-600">
+                              🖼️ Image Field Detected
+                            </span>
+                          )}
+                          {dbSchemaMeta.sampleCount > 0 && (
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              Sampled {dbSchemaMeta.sampleCount} live records
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Default Flow Library Section ── */}
+                      <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <Layers className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold">Default Flow Library</h3>
+                            <p className="text-[11px] text-muted-foreground">
+                              Pick a built-in journey (saved as knowledge.trainingFlow) — the widget
+                              runs it end-to-end in chat. Selecting a flow overwrites the flow
+                              below.
+                            </p>
+                          </div>
+                        </div>
+
+                        {flowsLoading ? (
+                          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading default flows…
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              <button
+                                type="button"
+                                onClick={() => selectFlow(null)}
+                                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${activeFlowSlug === null && !draft.trainingFlow ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
+                              >
+                                <span className="text-sm font-semibold flex items-center gap-2">
+                                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-muted text-muted-foreground">
+                                    <Layers className="h-3.5 w-3.5" />
+                                  </span>
+                                  No Flow
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  Knowledge-only answers
+                                </span>
+                              </button>
+
+                              {defaultFlows.map((f) => {
+                                const active = activeFlowSlug === f.slug;
+                                return (
+                                  <button
+                                    key={f.slug}
+                                    type="button"
+                                    onClick={() => selectFlow(f)}
+                                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
+                                  >
+                                    <span className="text-sm font-semibold flex items-center gap-2">
+                                      <span
+                                        className={`grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br ${f.tone || "from-violet-500 to-indigo-500"} text-white`}
+                                      >
+                                        <Sparkles className="h-3.5 w-3.5" />
                                       </span>
-                                      {cfg.verified ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                                          <Check className="h-3 w-3" /> Verified
-                                        </span>
-                                      ) : (
-                                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                                          Not verified
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[11px] text-muted-foreground">
-                                      {cfg.type === "smtp" ? "Business SMTP" : "Resend API"}
-                                      {cfg.fromName ? ` • ${cfg.fromName}` : ""}
-                                    </div>
+                                      {f.name}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {f.tagline}
+                                    </span>
+                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      {f.stepsCount ?? "?"} steps
+                                      {f.flowKind === "multi-category" ? " · multi-category" : ""}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {selectedFlow && flowPreview && (
+                              <div className="mt-4 rounded-xl border border-primary/25 bg-card p-4">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-primary" />
+                                    {selectedFlow.name} — Flow Preview
+                                  </h4>
+                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                    {flowPreview.categories.length > 0
+                                      ? `categories: ${flowPreview.categories.join(" · ")}`
+                                      : `${flowPreview.steps.length} steps`}
+                                  </span>
+                                </div>
+                                {diagramFlow ? (
+                                  <div className="mt-4">
+                                    <FlowDiagram flow={diagramFlow} height={420} />
                                   </div>
-                                  {selected && (
-                                    <Check className="h-4 w-4 shrink-0 text-primary" />
-                                  )}
+                                ) : (
+                                  <ol className="mt-3 space-y-2">
+                                    {flowPreview.steps.map((s, i) => (
+                                      <li
+                                        key={s.id ?? i}
+                                        className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 px-3 py-2"
+                                      >
+                                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                                          {i + 1}
+                                        </span>
+                                        <span className="flex-1">
+                                          <span className="block text-sm font-medium">
+                                            {s.title}
+                                          </span>
+                                          <span className="block text-[11px] text-muted-foreground">
+                                            {s.type === "selection"
+                                              ? "Choose an option"
+                                              : s.type === "form"
+                                                ? `Ask: ${(s.fields || []).map((fd) => fd.label).join(", ") || "enter details"}`
+                                                : "Confirm"}
+                                          </span>
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+                                {selectedFlow.welcome ? (
+                                  <p className="mt-3 text-[11px] text-muted-foreground">
+                                    Welcome: {selectedFlow.welcome}
+                                  </p>
+                                ) : null}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* ── Training Sheet Files & File Categories Section ── */}
+                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                              Training Data & Categories
+                            </p>
+                            <h3 className="text-sm font-semibold text-foreground">
+                              Training Sheet Files & File Categories
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* Uploaded Training Files List */}
+                        {((draft.trainingSheet && draft.trainingSheet.length > 0) ||
+                          (draft.knowledgeFiles && draft.knowledgeFiles.length > 0)) && (
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground/80">
+                              Uploaded Training Files
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                ...(draft.trainingSheet || []),
+                                ...(draft.knowledgeFiles || []),
+                              ].map((file, fIdx) => (
+                                <div
+                                  key={fIdx}
+                                  className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground shadow-xs"
+                                >
+                                  <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span className="font-medium truncate max-w-[220px]">
+                                    {file.name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* File Categories List */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-foreground/80">
+                              File Categories (
+                              {
+                                [
+                                  ...new Set([
+                                    ...(draft.trainingSheetServices || []),
+                                    ...(draft.extractedServices || []),
+                                  ]),
+                                ].length
+                              }
+                              )
+                            </label>
+                            <div className="flex items-center gap-2">
+                              {(draft.collectionConnected ||
+                                draft.collectionTable ||
+                                draft.collectionUri) && (
+                                <button
+                                  type="button"
+                                  disabled={syncingDB}
+                                  onClick={syncCategoriesAndFlowFromDB}
+                                  className="inline-flex items-center gap-1 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer shadow-xs"
+                                  title="Fetch categories from your database"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  {syncingDB ? "Syncing..." : "Sync from DB"}
                                 </button>
-                              );
-                            })}
-                            {!connectedEmails.some((c) => c.verified) && (
-                              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                                None of these are verified yet — test them in Settings → Email
-                                setup, otherwise the platform fallback is used.
+                              )}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const newCatName = "New Category";
+                                  const isServiceBooking = isServiceBookingFlowJson(
+                                    draft.trainingFlow,
+                                  );
+                                  setDraft((prev) => {
+                                    const currentList = [
+                                      ...new Set([
+                                        ...(prev.trainingSheetServices || []),
+                                        ...(prev.extractedServices || []),
+                                      ]),
+                                    ];
+                                    const updated = [...currentList, newCatName];
+                                    const flowStr = prev.trainingFlow || "{}";
+                                    let flowObj: any = {};
+                                    try {
+                                      flowObj = JSON.parse(flowStr);
+                                    } catch {}
+                                    // Service-booking bots get a service-style placeholder
+                                    // (the runtime AI expands each chosen service anyway);
+                                    // e-commerce bots keep the product/quantity flow.
+                                    // Build category-specific flow
+                                    const catFlow = isServiceBooking
+                                      ? {
+                                          steps: [
+                                            {
+                                              id: "step_1",
+                                              title: "Choose a Service",
+                                              type: "selection",
+                                              fields: [
+                                                {
+                                                  name: "service",
+                                                  label: "Service",
+                                                  type: "text",
+                                                  options: ["Basic", "Standard", "Premium"],
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_2",
+                                              title: "Pick a Slot",
+                                              type: "selection",
+                                              fields: [
+                                                {
+                                                  name: "slot",
+                                                  label: "Slot",
+                                                  type: "text",
+                                                  options: [
+                                                    "Today 3:00 PM",
+                                                    "Tomorrow 10:00 AM",
+                                                    "Friday 4:30 PM",
+                                                  ],
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_3",
+                                              title: "Your Name",
+                                              type: "form",
+                                              fields: [
+                                                {
+                                                  name: "fullName",
+                                                  label: "Full Name",
+                                                  type: "text",
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_4",
+                                              title: "Phone Number",
+                                              type: "form",
+                                              fields: [
+                                                {
+                                                  name: "phone",
+                                                  label: "Phone Number",
+                                                  type: "tel",
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_5",
+                                              title: "Payment Method",
+                                              type: "selection",
+                                              fields: [
+                                                {
+                                                  name: "paymentMethod",
+                                                  label: "Payment Method",
+                                                  type: "checkbox",
+                                                  options: ["Cash on Delivery", "Online Payment"],
+                                                  required: true,
+                                                  allowSkip: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_6",
+                                              title: "Confirmation",
+                                              type: "confirmation",
+                                              fields: [],
+                                            },
+                                          ],
+                                        }
+                                      : {
+                                          steps: [
+                                            {
+                                              id: "step_1",
+                                              title: "Order Details",
+                                              type: "form",
+                                              fields: [
+                                                {
+                                                  name: "product",
+                                                  label: "Product Name",
+                                                  type: "text",
+                                                  required: true,
+                                                },
+                                                {
+                                                  name: "quantity",
+                                                  label: "Quantity",
+                                                  type: "number",
+                                                  required: true,
+                                                },
+                                                {
+                                                  name: "price",
+                                                  label: "Price",
+                                                  type: "number",
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_2",
+                                              title: "Customer Details",
+                                              type: "form",
+                                              fields: [
+                                                {
+                                                  name: "fullName",
+                                                  label: "Full Name",
+                                                  type: "text",
+                                                  required: true,
+                                                },
+                                                {
+                                                  name: "phone",
+                                                  label: "Phone Number",
+                                                  type: "tel",
+                                                  required: true,
+                                                },
+                                                {
+                                                  name: "email",
+                                                  label: "Email Address",
+                                                  type: "email",
+                                                  required: true,
+                                                },
+                                                {
+                                                  name: "address",
+                                                  label: "Full Address",
+                                                  type: "text",
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_3",
+                                              title: "Payment Method",
+                                              type: "selection",
+                                              fields: [
+                                                {
+                                                  name: "paymentMethod",
+                                                  label: "Payment Method",
+                                                  type: "checkbox",
+                                                  options: ["Cash on Delivery", "Online Payment"],
+                                                  required: true,
+                                                },
+                                              ],
+                                            },
+                                            {
+                                              id: "step_4",
+                                              title: "Confirmation",
+                                              type: "confirmation",
+                                              fields: [],
+                                            },
+                                          ],
+                                        };
+                                    // Add to multi-category flows or convert legacy format
+                                    if (flowObj.steps) {
+                                      // Legacy single flow → convert to multi-flow
+                                      flowObj = {};
+                                    }
+                                    flowObj[newCatName] = catFlow;
+                                    return {
+                                      ...prev,
+                                      trainingSheetServices: updated,
+                                      extractedServices: updated,
+                                      trainingFlow: JSON.stringify(flowObj, null, 2),
+                                    };
+                                  });
+                                  // Try to auto-generate via API for better flow
+                                  try {
+                                    const res = await fetch("/api/orders/generate-flow", {
+                                      method: "POST",
+                                      headers: getAuthHeaders(),
+                                      body: JSON.stringify({
+                                        category: newCatName,
+                                        services: [newCatName],
+                                        flowHint: isServiceBooking ? "service" : undefined,
+                                      }),
+                                    });
+                                    if (res.ok) {
+                                      const data = await res.json();
+                                      if (data.flow) {
+                                        setDraft((prev) => {
+                                          let flowObj: any = {};
+                                          try {
+                                            flowObj = JSON.parse(prev.trainingFlow || "{}");
+                                          } catch {}
+                                          flowObj[newCatName] = data.flow;
+                                          return {
+                                            ...prev,
+                                            trainingFlow: JSON.stringify(flowObj, null, 2),
+                                          };
+                                        });
+                                      }
+                                    }
+                                  } catch {}
+                                  toast.success(`Flow auto-generated for "${newCatName}"`);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
+                              >
+                                + Add Category
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                            {[
+                              ...new Set([
+                                ...(draft.trainingSheetServices || []),
+                                ...(draft.extractedServices || []),
+                              ]),
+                            ].map((catName, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-xs font-extrabold text-muted-foreground border">
+                                  {idx + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={catName}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const oldName = catName;
+                                    setDraft((prev) => {
+                                      const currentList = [
+                                        ...new Set([
+                                          ...(prev.trainingSheetServices || []),
+                                          ...(prev.extractedServices || []),
+                                        ]),
+                                      ];
+                                      currentList[idx] = val;
+                                      // Also rename the flow key
+                                      let flowObj: any = {};
+                                      try {
+                                        flowObj = JSON.parse(prev.trainingFlow || "{}");
+                                      } catch {}
+                                      if (flowObj[oldName] && oldName !== val) {
+                                        flowObj[val] = flowObj[oldName];
+                                        delete flowObj[oldName];
+                                      }
+                                      return {
+                                        ...prev,
+                                        trainingSheetServices: currentList,
+                                        extractedServices: currentList,
+                                        trainingFlow: JSON.stringify(flowObj, null, 2),
+                                      };
+                                    });
+                                  }}
+                                  className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraft((prev) => {
+                                      const currentList = [
+                                        ...new Set([
+                                          ...(prev.trainingSheetServices || []),
+                                          ...(prev.extractedServices || []),
+                                        ]),
+                                      ];
+                                      const removedCat = currentList[idx];
+                                      currentList.splice(idx, 1);
+                                      // Also remove its flow from trainingFlow
+                                      let flowObj: any = {};
+                                      try {
+                                        flowObj = JSON.parse(prev.trainingFlow || "{}");
+                                      } catch {}
+                                      if (flowObj[removedCat]) {
+                                        delete flowObj[removedCat];
+                                      }
+                                      return {
+                                        ...prev,
+                                        trainingSheetServices: currentList,
+                                        extractedServices: currentList,
+                                        trainingFlow: JSON.stringify(flowObj, null, 2),
+                                      };
+                                    });
+                                  }}
+                                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
+                                  title="Remove Category"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+
+                            {[
+                              ...new Set([
+                                ...(draft.trainingSheetServices || []),
+                                ...(draft.extractedServices || []),
+                              ]),
+                            ].length === 0 && (
+                              <p className="text-xs text-muted-foreground italic">
+                                No file categories found. Click "+ Add Category" to create one.
                               </p>
                             )}
-                            <a
-                              href="/dashboard/settings?tab=email"
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                            >
-                              Manage saved emails <ArrowRight className="h-3 w-3" />
-                            </a>
                           </div>
-                        ) : (
-                          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400 space-y-2">
-                            <p>
-                              First set up your email — you haven&apos;t connected any business
-                              email yet. Connect one, then select it here.
-                            </p>
-                            <a
-                              href="/dashboard/settings?tab=email"
-                              className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 px-3 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500/25 dark:text-amber-400"
-                            >
-                              First set up your email <ArrowRight className="h-3 w-3" />
-                            </a>
-                          </div>
-                        )
-                      )}
-                    </div>
+                        </div>
+                      </div>
 
-                    <p className="rounded-xl border border-border/60 bg-card/70 p-3 text-[11px] text-muted-foreground">
-                      💡 These settings apply only to this chatbot. For your other agency
-                      chatbots, use the same step in each bot&apos;s editor.
-                    </p>
-                  </div>
-                </div>
-              )}
-              </>
+                      {/* ── Flow Builder ── */}
+                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                              <Sparkles className="h-4 w-4 text-primary" /> Visual Flow Builder
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Customize journey steps or auto-generate with Groq / Gemini AI
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={generatingFlow}
+                            onClick={generateAIFlowWithGroqGemini}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft hover:brightness-110 transition cursor-pointer disabled:opacity-50"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            {generatingFlow ? "Generating Flow..." : "AI Auto-Generate Flow"}
+                          </button>
+                        </div>
+                        <FlowBuilder
+                          trainingFlow={draft.trainingFlow}
+                          onChange={(json) => setDraft((p) => ({ ...p, trainingFlow: json }))}
+                          onServiceOptionsChange={(opts) =>
+                            setDraft((p) => ({
+                              ...p,
+                              trainingSheetServices: opts,
+                              extractedServices: opts,
+                            }))
+                          }
+                        />
+                      </div>
+
+
+                      <details className="group rounded-xl border border-border/60 bg-card/40 p-3">
+                        <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition list-none">
+                          <Braces className="h-4 w-4" />
+                          <span>Advanced Flow JSON &amp; Raw Schema</span>
+                          <ChevronRight className="h-3.5 w-3.5 ml-auto transition-transform group-open:rotate-90" />
+                        </summary>
+                        <div className="mt-3 space-y-2">
+                          <textarea
+                            value={draft.trainingFlow}
+                            onChange={(e) =>
+                              setDraft((p) => ({ ...p, trainingFlow: e.target.value }))
+                            }
+                            placeholder="Paste or edit flow JSON here..."
+                            rows={6}
+                            className="min-h-[140px] w-full rounded-xl border border-border bg-card p-3 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            Direct edits to this JSON are synced instantly to the visual builder.
+                          </p>
+                        </div>
+                      </details>
+                    </>
+                  )}
+                  {editStep === 5 && (
+                    <>
+                      <div className="space-y-4">
+                        <h2 className="text-lg font-semibold">Bot Details</h2>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Chatbot Name
+                            </label>
+                            <input
+                              value={draft.name}
+                              onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+                              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Welcome Message
+                            </label>
+                            <input
+                              value={draft.welcome}
+                              onChange={(e) => setDraft((p) => ({ ...p, welcome: e.target.value }))}
+                              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                          </div>
+                        </div>
+
+                        {/* ── Display Currency Dropdown Selection ── */}
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-primary" />
+                            <label className="text-xs font-bold text-foreground">
+                              Chatbot Display Currency
+                            </label>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Select the currency to format product prices shown in the chatbot window
+                            (e.g. USD $, PKR Rs, EUR €, GBP £, AED, SAR).
+                          </p>
+                          <select
+                            value={draft.currency}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const matched = CURRENCY_LIST.find(
+                                (c) => c.name === val || c.code === val,
+                              );
+                              setDraft((p) => ({
+                                ...p,
+                                currency: val,
+                                currencySymbol: matched?.symbol || "$",
+                              }));
+                            }}
+                            className="h-11 w-full rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          >
+                            {CURRENCY_LIST.map((c) => (
+                              <option key={c.code} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {draft.orderSystemEnabled && (
+                          <>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Agency Email 1
+                                </label>
+                                <input
+                                  type="email"
+                                  value={draft.agencyEmail1 || ""}
+                                  onChange={(e) =>
+                                    setDraft((p) => ({ ...p, agencyEmail1: e.target.value }))
+                                  }
+                                  className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Agency Email 2
+                                </label>
+                                <input
+                                  type="email"
+                                  value={draft.agencyEmail2 || ""}
+                                  onChange={(e) =>
+                                    setDraft((p) => ({ ...p, agencyEmail2: e.target.value }))
+                                  }
+                                  className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Order emails will be received on these emails in any order. You can
+                              add any other email of your choice — except the email used to create
+                              this account, which already receives orders.
+                            </p>
+                          </>
+                        )}
+                        <details className="group">
+                          <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                            <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
+                            Advanced: Custom Design
+                          </summary>
+                          <div className="mt-4 space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Header style
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                  {["gradient", "solid", "glass"].map((s) => (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      onClick={() =>
+                                        setDraft((p) => ({ ...p, headerStyle: s as any }))
+                                      }
+                                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.headerStyle === s ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                                    >
+                                      {s}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Message size
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                  {[
+                                    { v: "sm", l: "Small" },
+                                    { v: "md", l: "Medium" },
+                                    { v: "lg", l: "Large" },
+                                  ].map((s) => (
+                                    <button
+                                      key={s.v}
+                                      type="button"
+                                      onClick={() =>
+                                        setDraft((p) => ({ ...p, messageFontSize: s.v as any }))
+                                      }
+                                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.messageFontSize === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                                    >
+                                      {s.l}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Bot bubble color
+                                </label>
+                                <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+                                  <input
+                                    type="color"
+                                    value={draft.botBubbleColor}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, botBubbleColor: e.target.value }))
+                                    }
+                                    className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
+                                  />
+                                  <input
+                                    value={draft.botBubbleColor}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, botBubbleColor: e.target.value }))
+                                    }
+                                    className="flex-1 bg-transparent text-sm focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Bot text color
+                                </label>
+                                <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+                                  <input
+                                    type="color"
+                                    value={draft.botTextColor}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, botTextColor: e.target.value }))
+                                    }
+                                    className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
+                                  />
+                                  <input
+                                    value={draft.botTextColor}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, botTextColor: e.target.value }))
+                                    }
+                                    className="flex-1 bg-transparent text-sm focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Show avatar
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.showAvatar}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({ ...p, showAvatar: e.target.checked }))
+                                    }
+                                    className="rounded border-border"
+                                  />
+                                  <span className="text-sm text-muted-foreground">
+                                    Display bot avatar
+                                  </span>
+                                </label>
+                              </div>
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Header subtitle
+                                </label>
+                                <input
+                                  value={draft.headerSubtitle}
+                                  onChange={(e) =>
+                                    setDraft((p) => ({ ...p, headerSubtitle: e.target.value }))
+                                  }
+                                  className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                Text style
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {[
+                                  { id: "default" as const, l: "Default" },
+                                  { id: "bold" as const, l: "Bold" },
+                                  { id: "italic" as const, l: "Italic" },
+                                  { id: "romantic" as const, l: "Romantic" },
+                                  { id: "playful" as const, l: "Playful" },
+                                  { id: "elegant" as const, l: "Elegant" },
+                                ].map((s) => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => setDraft((p) => ({ ...p, textStyle: s.id }))}
+                                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${draft.textStyle === s.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                                  >
+                                    {s.l}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </details>
+                        <details className="group">
+                          <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                            <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
+                            Widget Behaviour (launcher, position, open mode)
+                          </summary>
+                          <div className="mt-4 space-y-4">
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                Launcher style
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {[
+                                  { v: "icon" as const, l: "Icon only" },
+                                  { v: "button" as const, l: "Text button" },
+                                ].map((s) => (
+                                  <button
+                                    key={s.v}
+                                    type="button"
+                                    onClick={() => setDraft((p) => ({ ...p, widgetLauncher: s.v }))}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${draft.widgetLauncher === s.v ? "bg-gradient-primary text-primary-foreground" : "text-muted-foreground"}`}
+                                  >
+                                    {s.l}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {draft.widgetLauncher === "button" && (
+                              <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                  Button text
+                                </label>
+                                <input
+                                  value={draft.widgetLauncherText}
+                                  onChange={(e) =>
+                                    setDraft((p) => ({ ...p, widgetLauncherText: e.target.value }))
+                                  }
+                                  className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  placeholder="Chat with us"
+                                />
+                                <div className="mt-3">
+                                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                    Button style
+                                  </label>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {(["rounded", "pill", "square", "soft"] as const).map((st) => (
+                                      <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() =>
+                                          setDraft((p) => ({ ...p, widgetLauncherStyle: st }))
+                                        }
+                                        className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize transition ${draft.widgetLauncherStyle === st ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                                      >
+                                        {st}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex items-center justify-center rounded-xl border border-border/60 bg-muted/30 p-4">
+                                  <div
+                                    className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${draft.primary || "#7c3aed"}, ${draft.secondary || "#db2777"})`,
+
+                                      borderRadius:
+                                        draft.widgetLauncherStyle === "pill"
+                                          ? 999
+                                          : draft.widgetLauncherStyle === "square"
+                                            ? 6
+                                            : draft.widgetLauncherStyle === "soft"
+                                              ? 18
+                                              : 12,
+                                    }}
+                                  >
+                                    {draft.widgetLauncherText || "Chat with us"}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                Launcher position
+                              </label>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(
+                                  ["bottom-right", "bottom-left", "top-right", "top-left"] as const
+                                ).map((p) => (
+                                  <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setDraft((d) => ({ ...d, widgetPosition: p }))}
+                                    className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${draft.widgetPosition === p ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                                  >
+                                    {p.replace("-", " ")}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                Open mode
+                              </label>
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {[
+                                  {
+                                    v: "overlay" as const,
+                                    l: "Popup window",
+                                    d: "Floats over the page",
+                                  },
+                                  {
+                                    v: "sidebar" as const,
+                                    l: "Side panel",
+                                    d: "Page shrinks, panel slides from side",
+                                  },
+                                  {
+                                    v: "fullscreen" as const,
+                                    l: "Fullscreen",
+                                    d: "Covers the whole screen",
+                                  },
+                                  {
+                                    v: "newtab" as const,
+                                    l: "New tab",
+                                    d: "Opens chat in a new tab",
+                                  },
+                                ].map((s) => (
+                                  <button
+                                    key={s.v}
+                                    type="button"
+                                    onClick={() => setDraft((p) => ({ ...p, widgetOpenMode: s.v }))}
+                                    className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition ${draft.widgetOpenMode === s.v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                                  >
+                                    <span className="block font-semibold">{s.l}</span>
+                                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                                      {s.d}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={draft.widgetSmartPosition}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, widgetSmartPosition: e.target.checked }))
+                                }
+                                className="rounded border-border"
+                              />
+                              Smart opening direction (panel opens towards the free space
+                              automatically)
+                            </label>
+                            {draft.widgetOpenMode === "overlay" && (
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                    Panel width — {draft.widgetWidth}px
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={280}
+                                    max={700}
+                                    value={draft.widgetWidth}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({
+                                        ...p,
+                                        widgetWidth: Number(e.target.value),
+                                      }))
+                                    }
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                    Panel height — {draft.widgetHeight}px
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={360}
+                                    max={900}
+                                    value={draft.widgetHeight}
+                                    onChange={(e) =>
+                                      setDraft((p) => ({
+                                        ...p,
+                                        widgetHeight: Number(e.target.value),
+                                      }))
+                                    }
+                                    className="w-full"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                                Custom CSS (advanced)
+                              </label>
+                              <textarea
+                                value={draft.widgetCustomCss}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, widgetCustomCss: e.target.value }))
+                                }
+                                className="min-h-20 w-full rounded-xl border border-border bg-card px-3 py-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder={
+                                  "/** Move / resize the widget from your site **/\n#rover-chatbot-frame { width: 480px; height: 640px; }\n#rover-chatbot-bubble { bottom: 80px; right: 40px; }"
+                                }
+                              />
+                              <p className="mt-1 text-[10px] text-muted-foreground">
+                                These styles are injected with the widget script — no extra CSS
+                                needed on your site.
+                              </p>
+                            </div>
+                          </div>
+                        </details>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Description
+                          </label>
+                          <textarea
+                            value={draft.description}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDraft((p) => ({
+                                ...p,
+                                description: v,
+                                extractedServices: p.extractedServices?.length
+                                  ? p.extractedServices
+                                  : parseServicesFromDescription(v),
+                              }));
+                            }}
+                            rows={3}
+                            className="min-h-[88px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        {!isTemplateBot && (
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Logo
+                            </label>
+                            <div className="flex flex-wrap items-center gap-3">
+                              {defaultIcons.map((icon, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setDraft((p) => ({ ...p, logo: icon }))}
+                                  className={`overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${draft.logo === icon ? "border-primary ring-2 ring-primary/20" : "border-transparent"}`}
+                                >
+                                  <img
+                                    src={icon}
+                                    alt={`Default ${i}`}
+                                    className="h-10 w-10 object-cover"
+                                  />
+                                </button>
+                              ))}
+                              <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/40 p-5 text-sm text-muted-foreground hover:bg-muted/70 flex-1">
+                                {draft.logo && !defaultIcons.includes(draft.logo) ? (
+                                  <img
+                                    src={draft.logo}
+                                    alt=""
+                                    className="h-14 w-14 rounded-xl object-cover"
+                                  />
+                                ) : (
+                                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-soft text-primary">
+                                    <Upload className="h-5 w-5" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-medium text-foreground">Upload logo</div>
+                                  <div className="text-xs">PNG, JPG or SVG</div>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        <h2 className="text-lg font-semibold">Theme</h2>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Primary color
+                            </label>
+                            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+                              <input
+                                type="color"
+                                value={draft.primary}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, primary: e.target.value }))
+                                }
+                                className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
+                              />
+                              <input
+                                value={draft.primary}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, primary: e.target.value }))
+                                }
+                                className="flex-1 bg-transparent text-sm focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Secondary color
+                            </label>
+                            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+                              <input
+                                type="color"
+                                value={draft.secondary}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, secondary: e.target.value }))
+                                }
+                                className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
+                              />
+                              <input
+                                value={draft.secondary}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, secondary: e.target.value }))
+                                }
+                                className="flex-1 bg-transparent text-sm focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Font
+                            </label>
+                            <select
+                              value={draft.font}
+                              onChange={(e) => setDraft((p) => ({ ...p, font: e.target.value }))}
+                              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                              {fonts.map((f) => (
+                                <option key={f}>{f}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Border radius — {draft.radius}px
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={32}
+                              value={draft.radius}
+                              onChange={(e) =>
+                                setDraft((p) => ({ ...p, radius: Number(e.target.value) }))
+                              }
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Bubble style
+                          </label>
+                          <div className="flex gap-2">
+                            {bubbles.map((b) => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                onClick={() => setDraft((p) => ({ ...p, bubble: b.id }))}
+                                className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${draft.bubble === b.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                              >
+                                {b.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Template
+                          </label>
+                          <select
+                            value={draft.template}
+                            onChange={(e) =>
+                              setDraft((p) => ({ ...p, template: e.target.value as Template }))
+                            }
+                            className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          >
+                            {[
+                              "Modern Glass UI",
+                              "Minimal AI Assistant",
+                              "Floating Support Widget",
+                              "Rounded Messenger Style",
+                              "Neon AI Interface",
+                              "Custom",
+                            ].map((t) => (
+                              <option key={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {editStep === 6 && (
+                    <>
+                      {!isTemplateBot && (
+                        <div className="space-y-6">
+                          <h2 className="text-lg font-semibold">Training Knowledge</h2>
+
+                          {/* ── Existing Knowledge Files ── */}
+                          <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+                            <h3 className="text-sm font-semibold mb-2">General Knowledge Files</h3>
+                            {draft.knowledgeFiles.length > 0 && (
+                              <div className="space-y-2 mb-3">
+                                {draft.knowledgeFiles.map((f, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2"
+                                  >
+                                    <button
+                                      onClick={() => setSelectedFileForView(f)}
+                                      className="min-w-0 flex-1 truncate text-left text-xs font-mono hover:text-primary"
+                                    >
+                                      {f.name}
+                                    </button>
+                                    <button
+                                      onClick={() => removeKnowledgeFile(idx)}
+                                      className="shrink-0 text-destructive hover:text-destructive/80"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              <input
+                                value={manualKnowledgeName}
+                                onChange={(e) => setManualKnowledgeName(e.target.value)}
+                                placeholder="File name"
+                                className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <button
+                                onClick={addManualKnowledge}
+                                className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                Add
+                              </button>
+                            </div>
+                            <textarea
+                              value={manualKnowledgeContent}
+                              onChange={(e) => setManualKnowledgeContent(e.target.value)}
+                              placeholder="Paste knowledge content here…"
+                              rows={3}
+                              className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
+                              <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.docx,.txt,.md,.json"
+                                className="hidden"
+                                onChange={(e) => addKnowledgeFiles(e.target.files)}
+                              />
+                            </label>
+                          </div>
+
+                          {/* ── Knowledge Base ── */}
+                          <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+                            <h3 className="text-sm font-semibold mb-2">Knowledge Base Files</h3>
+                            {draft.knowledgeBase.length > 0 && (
+                              <div className="space-y-2 mb-3">
+                                {draft.knowledgeBase.map((f, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2"
+                                  >
+                                    <span className="flex-1 truncate text-xs font-mono">
+                                      {f.name}
+                                    </span>
+                                    <button
+                                      onClick={() => handleViewFile(f)}
+                                      className="shrink-0 text-muted-foreground hover:text-primary"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => removeEditFileType(idx, "knowledgeBase")}
+                                      className="shrink-0 text-destructive hover:text-destructive/80"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              <input
+                                value={manualKBName}
+                                onChange={(e) => setManualKBName(e.target.value)}
+                                placeholder="File name"
+                                className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <button
+                                onClick={() => addManualEditFileType("knowledgeBase")}
+                                className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                Add
+                              </button>
+                            </div>
+                            <textarea
+                              value={manualKBContent}
+                              onChange={(e) => setManualKBContent(e.target.value)}
+                              placeholder="Paste knowledge base content here…"
+                              rows={3}
+                              className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
+                              <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.docx,.txt,.md,.json"
+                                className="hidden"
+                                onChange={(e) =>
+                                  uploadEditFileType(e.target.files, "knowledgeBase")
+                                }
+                              />
+                            </label>
+                          </div>
+
+                          {/* ── Training Knowledge ── */}
+                          <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+                            <h3 className="text-sm font-semibold mb-2">Training Knowledge Files</h3>
+                            {draft.trainingKnowledge.length > 0 && (
+                              <div className="space-y-2 mb-3">
+                                {draft.trainingKnowledge.map((f, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2"
+                                  >
+                                    <span className="flex-1 truncate text-xs font-mono">
+                                      {f.name}
+                                    </span>
+                                    <button
+                                      onClick={() => handleViewFile(f)}
+                                      className="shrink-0 text-muted-foreground hover:text-primary"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => removeEditFileType(idx, "trainingKnowledge")}
+                                      className="shrink-0 text-destructive hover:text-destructive/80"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              <input
+                                value={manualTKName}
+                                onChange={(e) => setManualTKName(e.target.value)}
+                                placeholder="File name"
+                                className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <button
+                                onClick={() => addManualEditFileType("trainingKnowledge")}
+                                className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                Add
+                              </button>
+                            </div>
+                            <textarea
+                              value={manualTKContent}
+                              onChange={(e) => setManualTKContent(e.target.value)}
+                              placeholder="Paste training knowledge content here…"
+                              rows={3}
+                              className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
+                              <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.docx,.txt,.md,.json"
+                                className="hidden"
+                                onChange={(e) =>
+                                  uploadEditFileType(e.target.files, "trainingKnowledge")
+                                }
+                              />
+                            </label>
+                          </div>
+
+                          {/* ── Training Sheet ── */}
+                          <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+                            <h3 className="text-sm font-semibold mb-2">Training Sheet Files</h3>
+                            {draft.trainingSheet.length > 0 && (
+                              <div className="space-y-2 mb-3">
+                                {draft.trainingSheet.map((f, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2"
+                                  >
+                                    <span className="flex-1 truncate text-xs font-mono">
+                                      {f.name}
+                                    </span>
+                                    <button
+                                      onClick={() => handleViewFile(f)}
+                                      className="shrink-0 text-muted-foreground hover:text-primary"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => removeEditFileType(idx, "trainingSheet")}
+                                      className="shrink-0 text-destructive hover:text-destructive/80"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* ── Interactive File Categories Editor ── */}
+                            <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                                  <FileText className="h-3.5 w-3.5 text-primary" />
+                                  File Categories (
+                                  {
+                                    [
+                                      ...new Set([
+                                        ...(draft.trainingSheetServices || []),
+                                        ...(draft.extractedServices || []),
+                                      ]),
+                                    ].length
+                                  }
+                                  )
+                                </h4>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraft((prev) => {
+                                      const currentList = [
+                                        ...new Set([
+                                          ...(prev.trainingSheetServices || []),
+                                          ...(prev.extractedServices || []),
+                                        ]),
+                                      ];
+                                      const updated = [...currentList, "New Category"];
+                                      return {
+                                        ...prev,
+                                        trainingSheetServices: updated,
+                                        extractedServices: updated,
+                                      };
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                                >
+                                  + Add Category
+                                </button>
+                              </div>
+
+                              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                                {[
+                                  ...new Set([
+                                    ...(draft.trainingSheetServices || []),
+                                    ...(draft.extractedServices || []),
+                                  ]),
+                                ].map((svc, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-[11px] font-extrabold text-primary border border-primary/20">
+                                      {i + 1}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={svc}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setDraft((prev) => {
+                                          const currentList = [
+                                            ...new Set([
+                                              ...(prev.trainingSheetServices || []),
+                                              ...(prev.extractedServices || []),
+                                            ]),
+                                          ];
+                                          currentList[i] = val;
+                                          return {
+                                            ...prev,
+                                            trainingSheetServices: currentList,
+                                            extractedServices: currentList,
+                                          };
+                                        });
+                                      }}
+                                      className="h-8 flex-1 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDraft((prev) => {
+                                          const currentList = [
+                                            ...new Set([
+                                              ...(prev.trainingSheetServices || []),
+                                              ...(prev.extractedServices || []),
+                                            ]),
+                                          ];
+                                          currentList.splice(i, 1);
+                                          return {
+                                            ...prev,
+                                            trainingSheetServices: currentList,
+                                            extractedServices: currentList,
+                                          };
+                                        });
+                                      }}
+                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
+                                      title="Remove Category"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+
+                                {[
+                                  ...new Set([
+                                    ...(draft.trainingSheetServices || []),
+                                    ...(draft.extractedServices || []),
+                                  ]),
+                                ].length === 0 && (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    No file categories found. Click "+ Add Category" to create one.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <input
+                                value={manualTSName}
+                                onChange={(e) => setManualTSName(e.target.value)}
+                                placeholder="File name"
+                                className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <button
+                                onClick={() => addManualEditFileType("trainingSheet")}
+                                className="rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                Add
+                              </button>
+                            </div>
+                            <textarea
+                              value={manualTSContent}
+                              onChange={(e) => setManualTSContent(e.target.value)}
+                              placeholder="Paste training sheet content here…"
+                              rows={3}
+                              className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground hover:bg-muted/70">
+                              <Upload className="h-4 w-4" /> Upload PDF, DOCX, or TXT files
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.docx,.txt,.md,.json"
+                                className="hidden"
+                                onChange={(e) =>
+                                  uploadEditFileType(e.target.files, "trainingSheet")
+                                }
+                              />
+                            </label>
+                          </div>
+
+                          {uploading && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{uploadStatus}</span>
+                                <span>{uploadProgress}%</span>
+                              </div>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all"
+                                  style={{ width: `${uploadProgress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {editStep === 7 && (
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-5">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                            Email Setup
+                          </p>
+                          <h3 className="mt-1 text-base font-semibold text-foreground">
+                            Order &amp; booking emails
+                          </h3>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Whenever an order or service request comes through this chatbot, the
+                            notification emails follow this setup — no matter which website the
+                            widget is installed on.
+                          </p>
+                        </div>
+
+                        {/* 1) Owner notification email */}
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                            Add your email where you receive ALL order emails
+                          </label>
+                          <input
+                            type="email"
+                            value={draft.ownerEmail}
+                            onChange={(e) =>
+                              setDraft((p) => ({ ...p, ownerEmail: e.target.value }))
+                            }
+                            placeholder="orders@yourbusiness.com"
+                            className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Full details of every new order / booking will be delivered to this
+                            inbox. Your account email always receives a copy too.
+                          </p>
+                        </div>
+
+                        {/* 2) Customer confirmation toggle */}
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3">
+                          <div>
+                            <div className="text-sm font-semibold">
+                              Send confirmation to the customer
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              The customer who placed the order / booking also receives a
+                              confirmation email. Turn off to notify only you.
+                            </div>
+                          </div>
+                          <Switch
+                            checked={draft.customerConfirmation}
+                            onCheckedChange={(v) =>
+                              setDraft((p) => ({ ...p, customerConfirmation: v }))
+                            }
+                          />
+                        </div>
+
+                        {/* 3) Sender mode */}
+                        <div>
+                          <label className="mb-2 block text-xs font-semibold text-foreground/80">
+                            Do you want to add your own email for sending mail, or use this
+                            platform&apos;s email?
+                          </label>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <button
+                              type="button"
+                              onClick={() => setDraft((p) => ({ ...p, senderMode: "platform" }))}
+                              className={`rounded-xl border p-4 text-left transition ${
+                                draft.senderMode === "platform"
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                  : "border-border/60 hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 text-sm font-semibold">
+                                <Shield className="h-4 w-4 text-primary" /> Use platform email
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Emails are sent from the Webotme system — no extra setup needed.
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDraft((p) => ({ ...p, senderMode: "own" }))}
+                              className={`rounded-xl border p-4 text-left transition ${
+                                draft.senderMode === "own"
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                  : "border-border/60 hover:border-primary/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 text-sm font-semibold">
+                                <Mail className="h-4 w-4 text-primary" /> My own business email
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Emails are sent from one of your connected addresses — customers see
+                                your brand.
+                              </p>
+                            </button>
+                          </div>
+
+                          {draft.senderMode === "own" &&
+                            (connectedEmails.length > 0 ? (
+                              <div className="mt-3 space-y-2">
+                                <p className="text-xs font-semibold text-foreground/80">
+                                  Select which connected email this chatbot should send from:
+                                </p>
+                                {connectedEmails.map((cfg) => {
+                                  const selected = draft.configId
+                                    ? draft.configId === cfg.id
+                                    : cfg.id === connectedEmails[0]?.id;
+                                  return (
+                                    <button
+                                      key={cfg.id}
+                                      type="button"
+                                      onClick={() => setDraft((p) => ({ ...p, configId: cfg.id }))}
+                                      className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+                                        selected
+                                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                          : "border-border/60 hover:border-primary/40"
+                                      }`}
+                                    >
+                                      <div className="min-w-0 space-y-0.5">
+                                        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                                          <span className="font-mono text-xs">
+                                            {cfg.smtpUserMasked || cfg.fromEmail}
+                                          </span>
+                                          {cfg.verified ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                                              <Check className="h-3 w-3" /> Verified
+                                            </span>
+                                          ) : (
+                                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                                              Not verified
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                          {cfg.type === "smtp" ? "Business SMTP" : "Resend API"}
+                                          {cfg.fromName ? ` • ${cfg.fromName}` : ""}
+                                        </div>
+                                      </div>
+                                      {selected && (
+                                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                                {!connectedEmails.some((c) => c.verified) && (
+                                  <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                    None of these are verified yet — test them in Settings → Email
+                                    setup, otherwise the platform fallback is used.
+                                  </p>
+                                )}
+                                <a
+                                  href="/dashboard/settings?tab=email"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                                >
+                                  Manage saved emails <ArrowRight className="h-3 w-3" />
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400 space-y-2">
+                                <p>
+                                  First set up your email — you haven&apos;t connected any business
+                                  email yet. Connect one, then select it here.
+                                </p>
+                                <a
+                                  href="/dashboard/settings?tab=email"
+                                  className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 px-3 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500/25 dark:text-amber-400"
+                                >
+                                  First set up your email <ArrowRight className="h-3 w-3" />
+                                </a>
+                              </div>
+                            ))}
+                        </div>
+
+                        <p className="rounded-xl border border-border/60 bg-card/70 p-3 text-[11px] text-muted-foreground">
+                          💡 These settings apply only to this chatbot. For your other agency
+                          chatbots, use the same step in each bot&apos;s editor.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="space-y-5">
@@ -4259,6 +5433,9 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                   widgetOpenMode={draft.widgetOpenMode}
                   widgetWidth={draft.widgetWidth}
                   widgetHeight={draft.widgetHeight}
+                  trainingFlow={draft.trainingFlow}
+                  orderSystemEnabled={draft.orderSystemEnabled}
+                  catalogConnected={Boolean(draft.productConnected || draft.collectionConnected)}
                 />
               </div>
             </div>
@@ -4351,11 +5528,17 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
             </DialogTitle>
           </DialogHeader>
           <div className="mt-2 space-y-3">
-            {selectedFileForView?.content || (selectedFileForView as any)?.contentPreview || (selectedFileForView as any)?.text ? (
+            {selectedFileForView?.content ||
+            (selectedFileForView as any)?.contentPreview ||
+            (selectedFileForView as any)?.text ? (
               <div className="rounded-xl border border-border bg-muted/20 p-4">
-                <h5 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Extracted File Knowledge</h5>
+                <h5 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Extracted File Knowledge
+                </h5>
                 <pre className="whitespace-pre-wrap text-xs leading-relaxed font-mono text-foreground max-h-[400px] overflow-y-auto p-2 bg-background/50 rounded-lg border border-border/50">
-                  {selectedFileForView?.content || (selectedFileForView as any)?.contentPreview || (selectedFileForView as any)?.text}
+                  {selectedFileForView?.content ||
+                    (selectedFileForView as any)?.contentPreview ||
+                    (selectedFileForView as any)?.text}
                 </pre>
               </div>
             ) : (
@@ -4363,9 +5546,14 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary mx-auto">
                   <FileText className="h-6 w-6" />
                 </div>
-                <h4 className="text-sm font-bold text-foreground">File Uploaded & Active in AI Knowledge Base</h4>
+                <h4 className="text-sm font-bold text-foreground">
+                  File Uploaded & Active in AI Knowledge Base
+                </h4>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  The document <span className="font-semibold text-foreground">{selectedFileForView?.name}</span> has been processed and indexed into vector embeddings for chatbot response retrieval.
+                  The document{" "}
+                  <span className="font-semibold text-foreground">{selectedFileForView?.name}</span>{" "}
+                  has been processed and indexed into vector embeddings for chatbot response
+                  retrieval.
                 </p>
               </div>
             )}
@@ -4373,95 +5561,133 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
         </DialogContent>
       </Dialog>
       {/* Tutorial Overlay */}
-      {tourStep > 0 && tourStep < 6 && tourRect && (() => {
-        const steps = [
-          { title: "Create Your First Chatbot", desc: "Click 'Use This Bot' on any ready-made template to instantly create a pre-loaded chatbot." },
-          { title: "Copy the Script", desc: "Click Copy to copy the embed script. Paste it into your website's HTML before the closing body tag." },
-          { title: "Regenerate Script", desc: "Click Regenerate to refresh the embed script if you change your bot's name or ID." },
-          { title: "Edit Your Bot", desc: "Click the pencil icon to open the editor. Change the name, description, theme, colors, and more." },
-          { title: "Preview Your Bot", desc: "Click the eye icon to see a live preview of how your chatbot looks and behaves." },
-        ];
-        const idx = tourStep - 1;
-        const s = steps[idx];
-        const closeTour = () => {
-          setTourStep(6);
-          localStorage.setItem("scriptsTourDone", "true");
-        };
-        const next = () => { if (tourStep < 5) setTourStep(tourStep + 1); else closeTour(); };
-        const tooltipW = 280;
-        const tooltipH = 180;
-        const topArea = tourRect.top - 12;
-        const bottomArea = window.innerHeight - tourRect.bottom - 12;
-        const showAbove = bottomArea < tooltipH && topArea >= tooltipH;
-        let tooltipTop: number;
-        if (showAbove) {
-          tooltipTop = Math.max(12, tourRect.top - tooltipH - 12);
-        } else if (bottomArea >= tooltipH) {
-          tooltipTop = tourRect.bottom + 12;
-        } else {
-          tooltipTop = 20;
-        }
-        tooltipTop = Math.min(tooltipTop, window.innerHeight - tooltipH - 12);
-        const arrowDir = showAbove ? "below" : "above";
-        return (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={tourStep}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 z-50"
-            >
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      {tourStep > 0 &&
+        tourStep < 6 &&
+        tourRect &&
+        (() => {
+          const steps = [
+            {
+              title: "Create Your First Chatbot",
+              desc: "Click 'Use This Bot' on any ready-made template to instantly create a pre-loaded chatbot.",
+            },
+            {
+              title: "Copy the Script",
+              desc: "Click Copy to copy the embed script. Paste it into your website's HTML before the closing body tag.",
+            },
+            {
+              title: "Regenerate Script",
+              desc: "Click Regenerate to refresh the embed script if you change your bot's name or ID.",
+            },
+            {
+              title: "Edit Your Bot",
+              desc: "Click the pencil icon to open the editor. Change the name, description, theme, colors, and more.",
+            },
+            {
+              title: "Preview Your Bot",
+              desc: "Click the eye icon to see a live preview of how your chatbot looks and behaves.",
+            },
+          ];
+          const idx = tourStep - 1;
+          const s = steps[idx];
+          const closeTour = () => {
+            setTourStep(6);
+            localStorage.setItem("scriptsTourDone", "true");
+          };
+          const next = () => {
+            if (tourStep < 5) setTourStep(tourStep + 1);
+            else closeTour();
+          };
+          const tooltipW = 280;
+          const tooltipH = 180;
+          const topArea = tourRect.top - 12;
+          const bottomArea = window.innerHeight - tourRect.bottom - 12;
+          const showAbove = bottomArea < tooltipH && topArea >= tooltipH;
+          let tooltipTop: number;
+          if (showAbove) {
+            tooltipTop = Math.max(12, tourRect.top - tooltipH - 12);
+          } else if (bottomArea >= tooltipH) {
+            tooltipTop = tourRect.bottom + 12;
+          } else {
+            tooltipTop = 20;
+          }
+          tooltipTop = Math.min(tooltipTop, window.innerHeight - tooltipH - 12);
+          const arrowDir = showAbove ? "below" : "above";
+          return (
+            <AnimatePresence mode="wait">
               <motion.div
-                initial={{ scale: 0.92, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="absolute z-10"
-                style={{
-                  left: tourRect.left - 6,
-                  top: tourRect.top - 6,
-                  width: tourRect.width + 12,
-                  height: tourRect.height + 12,
-                  pointerEvents: "auto",
-                  borderRadius: 16,
-                  boxShadow: "0 0 0 3px #D94A2D, 0 0 30px rgba(217,74,45,0.4), 0 0 0 9999px rgba(0,0,0,0.55)",
-                }}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: showAbove ? 10 : -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
-                className="fixed z-20 rounded-xl bg-card p-4 shadow-2xl border border-border/80"
-                style={{
-                  width: tooltipW,
-                  left: Math.max(12, Math.min(tourRect.left + tourRect.width / 2 - tooltipW / 2, window.innerWidth - tooltipW - 12)),
-                  top: tooltipTop,
-                  pointerEvents: "auto",
-                }}
+                key={tourStep}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="fixed inset-0 z-50"
               >
-                <div className={`absolute left-1/2 -translate-x-1/2 h-0 w-0 border-l-8 border-r-8 border-card ${arrowDir === "above" ? "-top-2 border-b-8 border-b-card" : "-bottom-2 border-t-8 border-t-card"}`} />
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Step {tourStep} of 5</span>
-                </div>
-                <p className="text-sm font-semibold">{s.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <button onClick={next} className="flex-1 rounded-lg bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110 transition-all">
-                    {tourStep < 5 ? "Next →" : "Finish"}
-                  </button>
-                </div>
-                {tourStep > 1 && (
-                  <button onClick={closeTour} className="mt-2 w-full text-center text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                    Skip tour
-                  </button>
-                )}
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                <motion.div
+                  initial={{ scale: 0.92, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  className="absolute z-10"
+                  style={{
+                    left: tourRect.left - 6,
+                    top: tourRect.top - 6,
+                    width: tourRect.width + 12,
+                    height: tourRect.height + 12,
+                    pointerEvents: "auto",
+                    borderRadius: 16,
+                    boxShadow:
+                      "0 0 0 3px #D94A2D, 0 0 30px rgba(217,74,45,0.4), 0 0 0 9999px rgba(0,0,0,0.55)",
+                  }}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: showAbove ? 10 : -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
+                  className="fixed z-20 rounded-xl bg-card p-4 shadow-2xl border border-border/80"
+                  style={{
+                    width: tooltipW,
+                    left: Math.max(
+                      12,
+                      Math.min(
+                        tourRect.left + tourRect.width / 2 - tooltipW / 2,
+                        window.innerWidth - tooltipW - 12,
+                      ),
+                    ),
+                    top: tooltipTop,
+                    pointerEvents: "auto",
+                  }}
+                >
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 h-0 w-0 border-l-8 border-r-8 border-card ${arrowDir === "above" ? "-top-2 border-b-8 border-b-card" : "-bottom-2 border-t-8 border-t-card"}`}
+                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Step {tourStep} of 5
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold">{s.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={next}
+                      className="flex-1 rounded-lg bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110 transition-all"
+                    >
+                      {tourStep < 5 ? "Next →" : "Finish"}
+                    </button>
+                  </div>
+                  {tourStep > 1 && (
+                    <button
+                      onClick={closeTour}
+                      className="mt-2 w-full text-center text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Skip tour
+                    </button>
+                  )}
+                </motion.div>
               </motion.div>
-            </motion.div>
-          </AnimatePresence>
-        );
-      })()}
+            </AnimatePresence>
+          );
+        })()}
 
       {/* Help Modal */}
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
@@ -4471,42 +5697,104 @@ ${customCss ? customCss.split("\n").map((l) => "  " + l).join("\n") : "  /* -- s
           </DialogHeader>
           <div className="space-y-5 text-sm">
             <div>
-              <h3 className="font-semibold flex items-center gap-2"><span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">1</span> Create a chatbot</h3>
-              <p className="mt-1 text-muted-foreground ml-8">Use a ready-made template by clicking "Use This Bot", or create a custom one from the Create Chatbot page. Each template comes with pre-loaded knowledge files.</p>
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  1
+                </span>{" "}
+                Create a chatbot
+              </h3>
+              <p className="mt-1 text-muted-foreground ml-8">
+                Use a ready-made template by clicking "Use This Bot", or create a custom one from
+                the Create Chatbot page. Each template comes with pre-loaded knowledge files.
+              </p>
             </div>
             <div>
-              <h3 className="font-semibold flex items-center gap-2"><span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">2</span> Generate the embed script</h3>
-              <p className="mt-1 text-muted-foreground ml-8">After creating a bot, click <strong>Generate</strong> on its card. The embed script will appear inside the card.</p>
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  2
+                </span>{" "}
+                Generate the embed script
+              </h3>
+              <p className="mt-1 text-muted-foreground ml-8">
+                After creating a bot, click <strong>Generate</strong> on its card. The embed script
+                will appear inside the card.
+              </p>
             </div>
             <div>
-              <h3 className="font-semibold flex items-center gap-2"><span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">3</span> Copy the script</h3>
-              <p className="mt-1 text-muted-foreground ml-8">Click <strong>Copy</strong> to copy the script to your clipboard. The script is a single <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">&lt;script&gt;</code> tag.</p>
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  3
+                </span>{" "}
+                Copy the script
+              </h3>
+              <p className="mt-1 text-muted-foreground ml-8">
+                Click <strong>Copy</strong> to copy the script to your clipboard. The script is a
+                single{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">&lt;script&gt;</code>{" "}
+                tag.
+              </p>
             </div>
             <div>
-              <h3 className="font-semibold flex items-center gap-2"><span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">4</span> Add to your website</h3>
-              <p className="mt-1 text-muted-foreground ml-8">Paste the copied script just before the <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">&lt;/body&gt;</code> tag in your HTML.</p>
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  4
+                </span>{" "}
+                Add to your website
+              </h3>
+              <p className="mt-1 text-muted-foreground ml-8">
+                Paste the copied script just before the{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">&lt;/body&gt;</code>{" "}
+                tag in your HTML.
+              </p>
               <div className="mt-2 ml-8 space-y-2">
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">WordPress</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Go to <strong>Appearance → Theme File Editor</strong> → <strong>footer.php</strong>, paste the script before <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;?php wp_footer(); ?&gt;</code>. Or use a plugin like "Insert Headers and Footers".</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Go to <strong>Appearance → Theme File Editor</strong> →{" "}
+                    <strong>footer.php</strong>, paste the script before{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
+                      &lt;?php wp_footer(); ?&gt;
+                    </code>
+                    . Or use a plugin like "Insert Headers and Footers".
+                  </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">Shopify</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Go to <strong>Online Store → Themes → Edit code</strong> → <strong>theme.liquid</strong>, paste the script before <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;/body&gt;</code>.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Go to <strong>Online Store → Themes → Edit code</strong> →{" "}
+                    <strong>theme.liquid</strong>, paste the script before{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;/body&gt;</code>.
+                  </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">Wix</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Go to <strong>Settings → Tracking & Analytics</strong>, click <strong>+ New Tool</strong>, choose <strong>Custom</strong>, paste the script and set it to load on <strong>All Pages</strong> in <strong>Body - end</strong>.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Go to <strong>Settings → Tracking & Analytics</strong>, click{" "}
+                    <strong>+ New Tool</strong>, choose <strong>Custom</strong>, paste the script
+                    and set it to load on <strong>All Pages</strong> in <strong>Body - end</strong>.
+                  </p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">Custom HTML</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Simply paste the script before <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;/body&gt;</code> in your HTML file.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Simply paste the script before{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;/body&gt;</code>{" "}
+                    in your HTML file.
+                  </p>
                 </div>
               </div>
             </div>
             <div>
-              <h3 className="font-semibold flex items-center gap-2"><span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">5</span> Customize your bot</h3>
-              <p className="mt-1 text-muted-foreground ml-8">Click the <strong>pencil (Edit)</strong> icon to change the bot name, welcome message, theme colors, font, bubble style, and more. Changes apply in real-time.</p>
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  5
+                </span>{" "}
+                Customize your bot
+              </h3>
+              <p className="mt-1 text-muted-foreground ml-8">
+                Click the <strong>pencil (Edit)</strong> icon to change the bot name, welcome
+                message, theme colors, font, bubble style, and more. Changes apply in real-time.
+              </p>
             </div>
           </div>
         </DialogContent>

@@ -9,6 +9,8 @@ export interface Chatbot {
   type: BotType;
   category?: string;
   useOwnDb?: boolean;
+  bookingEnabled?: boolean;
+  bookingMethod?: "none" | "chatbot" | "web" | "both";
   name: string;
   template: Template;
   description: string;
@@ -87,6 +89,12 @@ export interface Chatbot {
       categoryField?: string;
       imageField?: string;
       descriptionField?: string;
+      titleLabel?: string;
+      priceLabel?: string;
+      categoryLabel?: string;
+      imageLabel?: string;
+      descriptionLabel?: string;
+      customFields?: Array<{ label: string; field: string }>;
     };
   };
   dbCollection?: {
