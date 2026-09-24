@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { getStoredToken } from "@/lib/auth";
 import logo from "@/asset/logo.png";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; external?: boolean };
 export const navItems: NavItem[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/dashboard/inbox", label: "Installer", icon: MessageSquareText },
@@ -30,7 +30,7 @@ export const navItems: NavItem[] = [
   { to: "/dashboard/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/dashboard/storage", label: "Storage", icon: HardDrive },
   { to: "/dashboard/scripts", label: "Generated Scripts", icon: Code2 },
-  { to: "/api-keys/docs", label: "Docs", icon: BookOpen },
+  { to: "/docs", label: "Docs", icon: BookOpen, external: true },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -90,6 +90,32 @@ export function Sidebar({
   const renderLink = (item: NavItem) => {
     const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
     const Icon = item.icon;
+    if (item.external) {
+      return (
+        <a
+          key={item.to}
+          href={item.to}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(
+            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+            active
+              ? "text-primary"
+              : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+          )}
+        >
+          {active && (
+            <motion.span
+              layoutId="active-nav"
+              className="absolute inset-0 rounded-xl bg-sidebar-accent shadow-soft"
+              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+            />
+          )}
+          <Icon className="relative h-4.5 w-4.5 shrink-0" />
+          <span className="relative">{item.label}</span>
+        </a>
+      );
+    }
     return (
       <Link
         key={item.to}

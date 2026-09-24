@@ -39,7 +39,6 @@ import {
   Layers,
   ArrowUpCircle,
   BarChart3,
-  KeyRound,
   Clock,
   ShoppingBag,
   Zap,
@@ -752,8 +751,6 @@ function ScriptsPage() {
   const { chatbots, setChatbots, update, remove } = useChatbotsStore();
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  // consoleKey per chatbot (agency only) — fetched from the owner-only endpoint
-  const [consoleKeys, setConsoleKeys] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
@@ -901,20 +898,6 @@ function ScriptsPage() {
       return () => clearTimeout(timer);
     }
   }, [setChatbots]);
-
-  // Fetch this owner's analytics console keys (agency bots only)
-  useEffect(() => {
-    fetch("/api/store/my/console-keys", { headers: getAuthHeaders() })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const map: Record<string, string> = {};
-        for (const k of d?.keys || []) {
-          if (k.consoleKey) map[k.chatbotId] = k.consoleKey;
-        }
-        setConsoleKeys(map);
-      })
-      .catch(() => {});
-  }, [loading]);
 
   useEffect(() => {
     if (tourStep === 0 || tourStep >= 6) return;
@@ -2398,20 +2381,6 @@ ${
                             >
                               <BarChart3 className="h-3.5 w-3.5" /> Analytics
                             </a>
-                            {consoleKeys[b.id] && (
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(consoleKeys[b.id]);
-                                  toast.success("Console ID copied!");
-                                }}
-                                title="Copy your private console ID"
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 font-mono text-[11px] font-semibold text-blue-400 transition hover:bg-blue-500/20"
-                              >
-                                <KeyRound className="h-3.5 w-3.5" />
-                                {consoleKeys[b.id].slice(0, 11)}…
-                                <Copy className="h-3 w-3 opacity-60" />
-                              </button>
-                            )}
                           </>
                         )}
                         <button
@@ -2452,9 +2421,9 @@ ${
                           to="/api-keys/$botId"
                           params={{ botId: b.id }}
                           title="Open API key for this chatbot"
-                          className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-600 transition hover:bg-violet-500/20 hover:text-violet-700"
+                          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary p-0 text-primary-foreground shadow-soft transition hover:brightness-110"
                         >
-                          API Key <ArrowUpRight className="h-3.5 w-3.5" />
+                          <ArrowUpRight className="h-4 w-4" />
                         </Link>
                       </div>
                     </motion.div>

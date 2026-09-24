@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowUpRight,
@@ -214,9 +214,9 @@ function ApiKeysPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" className="rounded-xl text-sm">
-              <Link to="/api-keys/docs" className="inline-flex items-center gap-1.5">
+              <a href="/docs" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5">
                 <Terminal className="h-4 w-4" /> Docs
-              </Link>
+              </a>
             </Button>
             <Button
               onClick={() => setTab("create")}
@@ -594,8 +594,10 @@ function ApiKeysPage() {
 
                   {/* Docs link */}
                   <div className="mt-4">
-                    <Link
-                      to="/api-keys/docs"
+                    <a
+                      href="/docs"
+                      target="_blank"
+                      rel="noreferrer"
                       className="group flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
                     >
                       <span className="flex items-center gap-2 text-sm font-semibold text-primary">
@@ -603,7 +605,7 @@ function ApiKeysPage() {
                         How to use this API key — full documentation
                       </span>
                       <ArrowUpRight className="h-4 w-4 text-primary transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    </Link>
+                    </a>
                   </div>
                 </section>
               )}

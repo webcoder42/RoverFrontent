@@ -23,7 +23,6 @@ import {
   Workflow,
   GitBranch,
   Library,
-  Bot,
   ArrowRight,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
@@ -139,30 +138,6 @@ type ScanStatusData = {
   logs?: ScanLog[];
 };
 
-type WizardStepInfo = {
-  step: number;
-  title: string;
-  tab: string;
-  page: string;
-  purpose?: string;
-  status: string;
-  summary?: Record<string, unknown>;
-  enteredAt?: string;
-  completedAt?: string;
-};
-
-type WizardProgressData = {
-  _id?: string;
-  path?: string;
-  flowName?: string;
-  heading?: string;
-  status?: string;
-  currentStep?: number;
-  steps?: WizardStepInfo[];
-  startedAt?: string;
-  completedAt?: string;
-};
-
 function InboxPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -250,7 +225,6 @@ function InboxPage() {
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
   const [scanLogsLoading, setScanLogsLoading] = useState(false);
   const [scanLogsError, setScanLogsError] = useState("");
-  const [wizard, setWizard] = useState<WizardProgressData | null>(null);
 
   const fetchScanStatus = async (botId: string) => {
     try {
@@ -270,17 +244,6 @@ function InboxPage() {
     } finally {
       setScanLogsLoading(false);
     }
-    try {
-      const wres = await fetch(`/api/wizard/progress/${botId}`, {
-        headers: getAuthHeaders() as Record<string, string>,
-      });
-      if (wres.ok) {
-        const wdata = await wres.json();
-        setWizard(wdata.progress || null);
-      }
-    } catch {
-      /* live wizard data is optional */
-    }
   };
 
   const openLogs = (bot: Chatbot) => {
@@ -289,7 +252,6 @@ function InboxPage() {
     setScanLogs([]);
     setScanLogsError("");
     setScanLogsLoading(true);
-    setWizard(null);
     void fetchScanStatus(bot._id);
   };
 
@@ -297,7 +259,6 @@ function InboxPage() {
     setLogBot(null);
     setScanInfo(null);
     setScanLogs([]);
-    setWizard(null);
   };
 
   useEffect(() => {
@@ -515,7 +476,6 @@ function InboxPage() {
                 <ScannedPagesSection scanInfo={scanInfo} />
                 <FlowLibrarySection scanInfo={scanInfo} />
                 <FlowsSection scanInfo={scanInfo} />
-                <WizardFlowSection wizard={wizard} />
                 <FlowStepsSection scanInfo={scanInfo} />
                 {scanLogs.length > 0 ? (
                   <div className="space-y-2">
@@ -858,140 +818,6 @@ function FlowLibrarySection({ scanInfo }: { scanInfo: ScanStatusData | null }) {
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function WizardFlowSection({ wizard }: { wizard: WizardProgressData | null }) {
-  const steps = wizard?.steps;
-  if (!wizard || !Array.isArray(steps) || steps.length === 0) return null;
-  const completedCount = steps.filter((s) => s.status === "completed").length;
-  const isComplete = wizard.status === "completed";
-  const pathLabel =
-    wizard.path === "agency-auto"
-      ? "Agency · Auto Flow"
-      : wizard.path === "agency-custom"
-        ? "Agency · Custom Flow"
-        : "Simple";
-
-  return (
-    <div className="rounded-xl border border-border/60 bg-card p-4 shadow-soft">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className="grid h-6 w-6 place-items-center rounded-md bg-sky-500/10 text-sky-600">
-          <Bot className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Create Chatbot Flow (Live)
-          </span>
-          <p className="truncate text-[11px] font-semibold text-foreground">
-            {wizard.heading || wizard.flowName || "Create Chatbot Flow"}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "rounded-lg px-2 py-0.5 text-[10px] font-bold",
-            isComplete
-              ? "bg-emerald-500/10 text-emerald-600"
-              : "bg-sky-500/10 text-sky-600 animate-pulse",
-          )}
-        >
-          {isComplete ? "COMPLETED" : "IN PROGRESS"}
-        </span>
-      </div>
-      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[10px]">
-        <span className="rounded-md bg-muted px-2 py-0.5 font-semibold text-muted-foreground">
-          {pathLabel}
-        </span>
-        <span className="rounded-md bg-muted px-2 py-0.5 font-semibold text-muted-foreground">
-          {completedCount} / {steps.length} steps
-        </span>
-        {wizard.startedAt ? (
-          <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-            started {new Date(wizard.startedAt).toLocaleString()}
-          </span>
-        ) : null}
-      </div>
-      <div className="space-y-1.5">
-        {steps.map((s, idx) => {
-          const isDone = s.status === "completed";
-          const isCurrent = !isDone && !isComplete && wizard.currentStep === s.step;
-          const summary = s.summary && Object.keys(s.summary).length > 0 ? s.summary : null;
-          return (
-            <div
-              key={idx}
-              className={cn(
-                "flex items-start gap-2 rounded-lg border px-3 py-2",
-                isCurrent
-                  ? "border-sky-500/40 bg-sky-500/5"
-                  : isDone
-                    ? "border-border/40 bg-muted/20"
-                    : "border-border/30 bg-muted/10 opacity-60",
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
-                  isDone
-                    ? "bg-emerald-500/10 text-emerald-600"
-                    : isCurrent
-                      ? "bg-sky-500/10 text-sky-600"
-                      : "bg-foreground/10 text-muted-foreground",
-                )}
-              >
-                {isDone ? <Check className="h-3 w-3" /> : idx + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="font-semibold">{s.title || `Step ${idx + 1}`}</span>
-                  {s.tab ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-                      tab: {s.tab}
-                    </span>
-                  ) : null}
-                  {s.page ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-                      {s.page}
-                    </span>
-                  ) : null}
-                </div>
-                {s.purpose ? (
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                    {s.purpose}
-                  </p>
-                ) : null}
-                {summary ? (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {Object.entries(summary)
-                      .filter(
-                        ([k, v]) =>
-                          k === "botType" ||
-                          k === "flowMode" ||
-                          k === "category" ||
-                          k === "template" ||
-                          k === "name",
-                      )
-                      .slice(0, 6)
-                      .map(([k, v]) => (
-                        <span
-                          key={k}
-                          className="rounded bg-background px-1.5 py-0.5 text-[9px] text-muted-foreground"
-                        >
-                          {k}: {String(v ?? "").slice(0, 40)}
-                        </span>
-                      ))}
-                  </div>
-                ) : null}
-                {s.completedAt ? (
-                  <p className="mt-0.5 text-[9px] text-muted-foreground/70">
-                    done {new Date(s.completedAt).toLocaleString()}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
