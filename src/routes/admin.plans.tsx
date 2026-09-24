@@ -16,7 +16,6 @@ import {
   Headphones,
   Globe,
   CalendarClock,
-  Citrus,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -40,7 +39,6 @@ interface Plan {
   support: string;
   apiAccess: boolean;
   expiresInDays: number;
-  lemonSqueezyVariantId?: string | null;
   createdAt: string;
 }
 
@@ -81,7 +79,6 @@ function AdminPlans() {
   const [emailLimit, setEmailLimit] = useState("0");
   const [apiAccess, setApiAccess] = useState(false);
   const [expiresInDays, setExpiresInDays] = useState("30");
-  const [lemonSqueezyVariantId, setLemonSqueezyVariantId] = useState("");
 
   const token = localStorage.getItem("token");
   const headers: Record<string, string> = token
@@ -117,7 +114,6 @@ function AdminPlans() {
     setEmailLimit("0");
     setApiAccess(false);
     setExpiresInDays("30");
-    setLemonSqueezyVariantId("");
     setEditingId(null);
   };
 
@@ -137,7 +133,6 @@ function AdminPlans() {
     setEmailLimit(String((plan as any).emailLimit ?? 0));
     setApiAccess((plan as any).apiAccess ?? false);
     setExpiresInDays(String((plan as any).expiresInDays ?? 30));
-    setLemonSqueezyVariantId((plan as any).lemonSqueezyVariantId ?? "");
     setEditingId(plan._id);
     setShowForm(true);
   };
@@ -161,7 +156,6 @@ function AdminPlans() {
         emailLimit: Number(emailLimit),
         apiAccess,
         expiresInDays: Number(expiresInDays),
-        lemonSqueezyVariantId: lemonSqueezyVariantId.trim() || null,
       });
       const res = editingId
         ? await fetch(`/api/plans/${editingId}`, { method: "PUT", headers, body })
@@ -276,22 +270,6 @@ function AdminPlans() {
                     placeholder="30"
                     className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                    <Citrus className="mr-1 inline h-3 w-3" />
-                    Lemon Squeezy Variant ID
-                  </span>
-                  <input
-                    value={lemonSqueezyVariantId}
-                    onChange={(e) => setLemonSqueezyVariantId(e.target.value)}
-                    placeholder="e.g. 1974265"
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  <span className="mt-1 block text-[10px] text-muted-foreground">
-                    Set to the variant that charges the correct price (in your store's currency).
-                    Empty = PayPal only.
-                  </span>
                 </label>
               </>
             )}
@@ -625,19 +603,6 @@ function AdminPlans() {
                             <span className="text-muted-foreground flex items-center gap-0.5">
                               <X className="h-3 w-3" /> Not available
                             </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Citrus className="h-4 w-4" />{" "}
-                        <span>
-                          Lemon Squeezy:{" "}
-                          {plan.lemonSqueezyVariantId ? (
-                            <span className="font-mono text-emerald-500">
-                              #{plan.lemonSqueezyVariantId}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">No variant — PayPal only</span>
                           )}
                         </span>
                       </div>

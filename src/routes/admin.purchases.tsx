@@ -27,12 +27,10 @@ interface Purchase {
   currency: string;
   expiresInDays: number;
   status: "active" | "cancelled" | "expired";
-  paymentMethod: "free" | "paypal" | "lemonsqueezy";
+  paymentMethod: "free" | "paypal";
   paymentStatus: "free" | "paid" | "pending";
   paypalOrderId: string | null;
   paypalCaptureId: string | null;
-  lemonsqueezyOrderId: string | null;
-  lemonsqueezyCheckoutId: string | null;
   startedAt: string;
   expiresAt: string | null;
   periodDays: number;
@@ -171,9 +169,7 @@ function AdminPurchases() {
                       >
                         {p.paymentMethod === "paypal"
                           ? "PayPal · "
-                          : p.paymentMethod === "lemonsqueezy"
-                            ? "Lemon Squeezy · "
-                            : ""}
+                          : ""}
                         {p.paymentStatus === "paid"
                           ? "Paid"
                           : p.paymentStatus === "pending"
@@ -183,11 +179,6 @@ function AdminPurchases() {
                       {p.paypalOrderId && (
                         <div className="mt-1 font-mono text-[9px] text-muted-foreground">
                           order: {p.paypalOrderId.slice(-10)}
-                        </div>
-                      )}
-                      {p.lemonsqueezyOrderId && (
-                        <div className="mt-1 font-mono text-[9px] text-muted-foreground">
-                          ls order: {p.lemonsqueezyOrderId.slice(-10)}
                         </div>
                       )}
                     </td>

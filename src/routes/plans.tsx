@@ -68,7 +68,7 @@ interface PurchaseRecord {
   planPrice: number;
   currency: string;
   status: "active" | "cancelled" | "expired";
-  paymentMethod: "free" | "paypal" | "lemonsqueezy";
+  paymentMethod: "free" | "paypal";
   paymentStatus: "free" | "paid" | "pending";
   paypalOrderId?: string | null;
   paypalCaptureId?: string | null;
@@ -846,9 +846,7 @@ function PlansPage() {
                           >
                             {rec.paymentMethod === "paypal"
                               ? "PayPal · "
-                              : rec.paymentMethod === "lemonsqueezy"
-                                ? "Lemon Squeezy · "
-                                : ""}
+                              : ""}
                             {rec.paymentStatus === "paid"
                               ? "Paid"
                               : rec.paymentStatus === "pending"

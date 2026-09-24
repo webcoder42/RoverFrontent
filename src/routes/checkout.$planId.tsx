@@ -82,10 +82,6 @@ function CheckoutPage() {
   const handleSuccess = async (provider: PaymentProvider, result: unknown = {}) => {
     setPaying(true);
     try {
-      if (provider === "lemonsqueezy") {
-        toast.info("Redirecting to Lemon Squeezy secure checkout…");
-        return;
-      }
       const activated = (result as { activated?: boolean } | undefined)?.activated;
       if (!activated && plan) {
         // PayPal metadata fallback: activate the plan directly so the user
@@ -141,8 +137,7 @@ function CheckoutPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Complete your upgrade</h1>
           <p className="mt-2 text-muted-foreground max-w-md mx-auto">
-            Review your order and pay securely with PayPal or Lemon Squeezy to activate your new
-            plan.
+            Review your order and pay securely with PayPal to activate your new plan.
           </p>
         </div>
 
