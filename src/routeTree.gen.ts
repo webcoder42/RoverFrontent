@@ -32,7 +32,6 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settin
 import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts'
 import { Route as DashboardInstagramRouteImport } from './routes/dashboard.instagram'
 import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
-import { Route as DashboardFaqRouteImport } from './routes/dashboard.faq'
 import { Route as DashboardFacebookRouteImport } from './routes/dashboard.facebook'
 import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
 import { Route as ConsoleBotIdRouteImport } from './routes/console.$botId'
@@ -41,11 +40,14 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminStorageRouteImport } from './routes/admin.storage'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPurchasesRouteImport } from './routes/admin.purchases'
-import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminFlowsRouteImport } from './routes/admin.flows'
+import { Route as AdminCreateAutoFlowRouteImport } from './routes/admin.createAutoFlow'
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
+import { Route as AdminAutoFlowScanRouteImport } from './routes/admin.autoFlowScan'
+import { Route as DashboardApiKeysBotIdRouteImport } from './routes/dashboard.api-keys.$botId'
+import { Route as AdminScanStatusBotIdRouteImport } from './routes/admin.scan-status.$botId'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -162,11 +164,6 @@ const DashboardInboxRoute = DashboardInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardFaqRoute = DashboardFaqRouteImport.update({
-  id: '/faq',
-  path: '/faq',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardFacebookRoute = DashboardFacebookRouteImport.update({
   id: '/facebook',
   path: '/facebook',
@@ -207,11 +204,6 @@ const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
   path: '/purchases',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminProductsRoute = AdminProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminPlansRoute = AdminPlansRouteImport.update({
   id: '/plans',
   path: '/plans',
@@ -222,6 +214,11 @@ const AdminFlowsRoute = AdminFlowsRouteImport.update({
   path: '/flows',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCreateAutoFlowRoute = AdminCreateAutoFlowRouteImport.update({
+  id: '/createAutoFlow',
+  path: '/createAutoFlow',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCouponsRoute = AdminCouponsRouteImport.update({
   id: '/coupons',
   path: '/coupons',
@@ -230,6 +227,21 @@ const AdminCouponsRoute = AdminCouponsRouteImport.update({
 const AdminChatbotsRoute = AdminChatbotsRouteImport.update({
   id: '/chatbots',
   path: '/chatbots',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAutoFlowScanRoute = AdminAutoFlowScanRouteImport.update({
+  id: '/autoFlowScan',
+  path: '/autoFlowScan',
+  getParentRoute: () => AdminRoute,
+} as any)
+const DashboardApiKeysBotIdRoute = DashboardApiKeysBotIdRouteImport.update({
+  id: '/api-keys/$botId',
+  path: '/api-keys/$botId',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const AdminScanStatusBotIdRoute = AdminScanStatusBotIdRouteImport.update({
+  id: '/scan-status/$botId',
+  path: '/scan-status/$botId',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -244,11 +256,12 @@ export interface FileRoutesByFullPath {
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/admin/autoFlowScan': typeof AdminAutoFlowScanRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/createAutoFlow': typeof AdminCreateAutoFlowRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/plans': typeof AdminPlansRoute
-  '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
@@ -257,7 +270,6 @@ export interface FileRoutesByFullPath {
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
-  '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
@@ -271,6 +283,8 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/dashboard/api-keys/$botId': typeof DashboardApiKeysBotIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -281,11 +295,12 @@ export interface FileRoutesByTo {
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/admin/autoFlowScan': typeof AdminAutoFlowScanRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/createAutoFlow': typeof AdminCreateAutoFlowRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/plans': typeof AdminPlansRoute
-  '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
@@ -294,7 +309,6 @@ export interface FileRoutesByTo {
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
-  '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
@@ -308,6 +322,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/console': typeof ConsoleIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/dashboard/api-keys/$botId': typeof DashboardApiKeysBotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -321,11 +337,12 @@ export interface FileRoutesById {
   '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/admin/autoFlowScan': typeof AdminAutoFlowScanRoute
   '/admin/chatbots': typeof AdminChatbotsRoute
   '/admin/coupons': typeof AdminCouponsRoute
+  '/admin/createAutoFlow': typeof AdminCreateAutoFlowRoute
   '/admin/flows': typeof AdminFlowsRoute
   '/admin/plans': typeof AdminPlansRoute
-  '/admin/products': typeof AdminProductsRoute
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
@@ -334,7 +351,6 @@ export interface FileRoutesById {
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
-  '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
@@ -348,6 +364,8 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/dashboard/api-keys/$botId': typeof DashboardApiKeysBotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -362,11 +380,12 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/terms'
     | '/welcome'
+    | '/admin/autoFlowScan'
     | '/admin/chatbots'
     | '/admin/coupons'
+    | '/admin/createAutoFlow'
     | '/admin/flows'
     | '/admin/plans'
-    | '/admin/products'
     | '/admin/purchases'
     | '/admin/settings'
     | '/admin/storage'
@@ -375,7 +394,6 @@ export interface FileRouteTypes {
     | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/facebook'
-    | '/dashboard/faq'
     | '/dashboard/inbox'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
@@ -389,6 +407,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/console/'
     | '/dashboard/'
+    | '/admin/scan-status/$botId'
+    | '/dashboard/api-keys/$botId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -399,11 +419,12 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/terms'
     | '/welcome'
+    | '/admin/autoFlowScan'
     | '/admin/chatbots'
     | '/admin/coupons'
+    | '/admin/createAutoFlow'
     | '/admin/flows'
     | '/admin/plans'
-    | '/admin/products'
     | '/admin/purchases'
     | '/admin/settings'
     | '/admin/storage'
@@ -412,7 +433,6 @@ export interface FileRouteTypes {
     | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/facebook'
-    | '/dashboard/faq'
     | '/dashboard/inbox'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
@@ -426,6 +446,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/console'
     | '/dashboard'
+    | '/admin/scan-status/$botId'
+    | '/dashboard/api-keys/$botId'
   id:
     | '__root__'
     | '/'
@@ -438,11 +460,12 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/terms'
     | '/welcome'
+    | '/admin/autoFlowScan'
     | '/admin/chatbots'
     | '/admin/coupons'
+    | '/admin/createAutoFlow'
     | '/admin/flows'
     | '/admin/plans'
-    | '/admin/products'
     | '/admin/purchases'
     | '/admin/settings'
     | '/admin/storage'
@@ -451,7 +474,6 @@ export interface FileRouteTypes {
     | '/console/$botId'
     | '/dashboard/create'
     | '/dashboard/facebook'
-    | '/dashboard/faq'
     | '/dashboard/inbox'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
@@ -465,6 +487,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/console/'
     | '/dashboard/'
+    | '/admin/scan-status/$botId'
+    | '/dashboard/api-keys/$botId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -648,13 +672,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardInboxRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/faq': {
-      id: '/dashboard/faq'
-      path: '/faq'
-      fullPath: '/dashboard/faq'
-      preLoaderRoute: typeof DashboardFaqRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/dashboard/facebook': {
       id: '/dashboard/facebook'
       path: '/facebook'
@@ -711,13 +728,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPurchasesRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/products': {
-      id: '/admin/products'
-      path: '/products'
-      fullPath: '/admin/products'
-      preLoaderRoute: typeof AdminProductsRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/plans': {
       id: '/admin/plans'
       path: '/plans'
@@ -730,6 +740,13 @@ declare module '@tanstack/react-router' {
       path: '/flows'
       fullPath: '/admin/flows'
       preLoaderRoute: typeof AdminFlowsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/createAutoFlow': {
+      id: '/admin/createAutoFlow'
+      path: '/createAutoFlow'
+      fullPath: '/admin/createAutoFlow'
+      preLoaderRoute: typeof AdminCreateAutoFlowRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/coupons': {
@@ -746,33 +763,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChatbotsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/autoFlowScan': {
+      id: '/admin/autoFlowScan'
+      path: '/autoFlowScan'
+      fullPath: '/admin/autoFlowScan'
+      preLoaderRoute: typeof AdminAutoFlowScanRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/dashboard/api-keys/$botId': {
+      id: '/dashboard/api-keys/$botId'
+      path: '/api-keys/$botId'
+      fullPath: '/dashboard/api-keys/$botId'
+      preLoaderRoute: typeof DashboardApiKeysBotIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/admin/scan-status/$botId': {
+      id: '/admin/scan-status/$botId'
+      path: '/scan-status/$botId'
+      fullPath: '/admin/scan-status/$botId'
+      preLoaderRoute: typeof AdminScanStatusBotIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAutoFlowScanRoute: typeof AdminAutoFlowScanRoute
   AdminChatbotsRoute: typeof AdminChatbotsRoute
   AdminCouponsRoute: typeof AdminCouponsRoute
+  AdminCreateAutoFlowRoute: typeof AdminCreateAutoFlowRoute
   AdminFlowsRoute: typeof AdminFlowsRoute
   AdminPlansRoute: typeof AdminPlansRoute
-  AdminProductsRoute: typeof AdminProductsRoute
   AdminPurchasesRoute: typeof AdminPurchasesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStorageRoute: typeof AdminStorageRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminScanStatusBotIdRoute: typeof AdminScanStatusBotIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAutoFlowScanRoute: AdminAutoFlowScanRoute,
   AdminChatbotsRoute: AdminChatbotsRoute,
   AdminCouponsRoute: AdminCouponsRoute,
+  AdminCreateAutoFlowRoute: AdminCreateAutoFlowRoute,
   AdminFlowsRoute: AdminFlowsRoute,
   AdminPlansRoute: AdminPlansRoute,
-  AdminProductsRoute: AdminProductsRoute,
   AdminPurchasesRoute: AdminPurchasesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminStorageRoute: AdminStorageRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminScanStatusBotIdRoute: AdminScanStatusBotIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -780,7 +822,6 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface DashboardRouteChildren {
   DashboardCreateRoute: typeof DashboardCreateRoute
   DashboardFacebookRoute: typeof DashboardFacebookRoute
-  DashboardFaqRoute: typeof DashboardFaqRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardInstagramRoute: typeof DashboardInstagramRoute
   DashboardScriptsRoute: typeof DashboardScriptsRoute
@@ -790,12 +831,12 @@ interface DashboardRouteChildren {
   DashboardTemplatesRoute: typeof DashboardTemplatesRoute
   DashboardWhatsappRoute: typeof DashboardWhatsappRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardApiKeysBotIdRoute: typeof DashboardApiKeysBotIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardCreateRoute: DashboardCreateRoute,
   DashboardFacebookRoute: DashboardFacebookRoute,
-  DashboardFaqRoute: DashboardFaqRoute,
   DashboardInboxRoute: DashboardInboxRoute,
   DashboardInstagramRoute: DashboardInstagramRoute,
   DashboardScriptsRoute: DashboardScriptsRoute,
@@ -805,6 +846,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardTemplatesRoute: DashboardTemplatesRoute,
   DashboardWhatsappRoute: DashboardWhatsappRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardApiKeysBotIdRoute: DashboardApiKeysBotIdRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
-import { Users, Bot, MessageSquareText, BookOpen, Code2, Activity, Shield, UserCheck } from "lucide-react";
+import { Users, Bot, MessageSquareText, Code2, Activity, Shield, UserCheck } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { AnimatedCounter } from "@/components/common/AnimatedCounter";
 import { formatDate } from "@/lib/format";
@@ -16,7 +16,6 @@ interface AdminStats {
   totalUsers: number;
   totalChatbots: number;
   totalConversations: number;
-  totalFaqs: number;
   totalInstalls: number;
   adminCount: number;
   userCount: number;
@@ -77,7 +76,6 @@ function AdminDashboard() {
     { label: "Total Users", value: stats.totalUsers, icon: Users, hint: `${stats.adminCount} admin · ${stats.userCount} users`, tone: "from-violet-500 to-indigo-500" },
     { label: "Total Chatbots", value: stats.totalChatbots, icon: Bot, hint: `${stats.activeChatbots} active`, tone: "from-sky-500 to-cyan-500" },
     { label: "Conversations", value: stats.totalConversations, icon: MessageSquareText, hint: "All time", tone: "from-emerald-500 to-teal-500" },
-    { label: "FAQ Questions", value: stats.totalFaqs, icon: BookOpen, hint: "Knowledge base", tone: "from-fuchsia-500 to-pink-500" },
     { label: "Total Installs", value: stats.totalInstalls, icon: Code2, hint: "Script deployments", tone: "from-amber-500 to-orange-500" },
     { label: "Admin Users", value: stats.adminCount, icon: Shield, hint: "Privileged access", tone: "from-rose-500 to-red-500" },
     { label: "Regular Users", value: stats.userCount, icon: UserCheck, hint: "Standard accounts", tone: "from-teal-500 to-emerald-500" },
@@ -88,7 +86,6 @@ function AdminDashboard() {
     { t: "Users", v: stats.totalUsers },
     { t: "Chatbots", v: stats.totalChatbots },
     { t: "Conversations", v: stats.totalConversations },
-    { t: "FAQs", v: stats.totalFaqs },
     { t: "Installs", v: stats.totalInstalls },
   ];
 

@@ -44,15 +44,13 @@ const getVisitorId = () => {
   const key = "rover_visitor_id";
   let vid = localStorage.getItem(key);
   if (!vid) {
-    vid =
-      "v_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    vid = "v_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
     localStorage.setItem(key, vid);
   }
   return vid;
 };
 
-const makeSessionId = (visitorId: string) =>
-  `${visitorId}::${Date.now().toString(36)}`;
+const makeSessionId = (visitorId: string) => `${visitorId}::${Date.now().toString(36)}`;
 
 function EmbedChatWidget() {
   const { id } = Route.useParams();
@@ -67,9 +65,7 @@ function EmbedChatWidget() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [publishableKey, setPublishableKey] = useState<string | null>(null);
-  const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(new Set());
   const slideTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const imageListRef = useRef<string[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -84,9 +80,7 @@ function EmbedChatWidget() {
     if (slideTimerRef.current) clearInterval(slideTimerRef.current);
     if (imageListRef.current.length < 2) return;
     slideTimerRef.current = setInterval(() => {
-      setActiveImgIndex((prev) =>
-        prev < imageListRef.current.length - 1 ? prev + 1 : 0,
-      );
+      setActiveImgIndex((prev) => (prev < imageListRef.current.length - 1 ? prev + 1 : 0));
     }, 3000);
   };
 
@@ -124,12 +118,204 @@ function EmbedChatWidget() {
     };
   }, [selectedProduct]);
 
-  // Session / history state
   const [visitorId] = useState(() => getVisitorId());
   const [sessionId, setSessionId] = useState<string>("");
 
   // Auto Flow: latest page snapshot received from the parent-page widget.
   const pageSnapshotRef = useRef<any>(null);
+  const pendingStepsRef = useRef<string[]>([]);
+  const stepRunningRef = useRef(false);
+  const lastActionRef = useRef<{ hasNav: boolean; url: string } | null>(null);
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Autonomous goal task: once the user states a high-level goal, the widget
+  // keeps re-sending { goal, done[] } + live DOM to the server, which decides
+  // every next step itself (wizard flows, bookings, error/limit handling).
+  const taskActiveRef = useRef(false);
+  const taskRef = useRef<{
+    goal: string;
+    plan: string[];
+    done: string[];
+    iterations: number;
+  } | null>(null);
+  // Stall guards so an autonomous loop can never spin forever when the page
+  // stops responding to actions (same page + same actions two steps in a row).
+  const taskSigRef = useRef("");
+  const taskStallRef = useRef(0);
+  const taskLastActionsRef = useRef("");
+
+  // ── Multi-step workflow helpers ─────────────────────────────────────────
+  // Compound commands ("plan page may jao or pro plan active kro") are split
+  // into ordered steps on the server (pendingSteps). These steps are stored in
+  // sessionStorage, executed ONE at a time, and removed as soon as each one is
+  // dispatched with fresh page context. The AI therefore always knows exactly
+  // which step is coming next.
+  const persistPendingSteps = (next: string[]) => {
+    pendingStepsRef.current = next;
+    try {
+      if (next.length > 0) {
+        sessionStorage.setItem(
+          "rover_pending_steps_" + visitorId,
+          JSON.stringify({ steps: next, timestamp: Date.now() }),
+        );
+      } else {
+        sessionStorage.removeItem("rover_pending_steps_" + visitorId);
+      }
+    } catch (e) {}
+  };
+
+  const persistTask = (task: {
+    goal: string;
+    plan: string[];
+    done: string[];
+    iterations: number;
+  }) => {
+    taskRef.current = task;
+    try {
+      sessionStorage.setItem(
+        "rover_task_" + visitorId,
+        JSON.stringify({ ...task, timestamp: Date.now() }),
+      );
+    } catch (e) {}
+  };
+
+  const beginTask = (goal: string, plan: string[]) => {
+    taskActiveRef.current = true;
+    // The goal loop supersedes the plain step-queue — it sees the live DOM on
+    // every step and decides itself, so the queued strings are only hints.
+    persistPendingSteps([]);
+    if (!taskRef.current || taskRef.current.goal !== goal) {
+      persistTask({ goal, plan: plan || [], done: [], iterations: 0 });
+    } else {
+      taskRef.current.plan = plan || [];
+      persistTask(taskRef.current);
+    }
+  };
+
+  const completeTask = () => {
+    taskActiveRef.current = false;
+    taskRef.current = null;
+    taskSigRef.current = "";
+    taskStallRef.current = 0;
+    taskLastActionsRef.current = "";
+    try {
+      sessionStorage.removeItem("rover_task_" + visitorId);
+    } catch (e) {}
+  };
+
+  const getSnapshotSignature = () => {
+    const s = pageSnapshotRef.current || {};
+    const url = String(s.url || s.fullUrl || "");
+    const btnText = Array.isArray(s.buttons)
+      ? (s.buttons as any[])
+          .map((b: any) => `${b.text}|${b.ariaLabel}|${b.selector}`)
+          .join(",")
+      : "";
+    return `${url}::${btnText}::${String(s.visibleText || "").slice(0, 150)}`;
+  };
+
+  const shouldAutoContinue = () => taskActiveRef.current || pendingStepsRef.current.length > 0;
+
+  const advanceStep = async () => {
+    if (stepRunningRef.current) return;
+    stepRunningRef.current = true;
+    lastActionRef.current = null;
+    try {
+      // Autonomous goal mode → re-send the goal + fresh DOM and let the agent
+      // decide the next step itself.
+      if (taskActiveRef.current && taskRef.current) {
+        try {
+          window.parent?.postMessage({ type: "__rover_request_snapshot", force: true }, "*");
+        } catch (e) {}
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const task = taskRef.current;
+        if (!task) return;
+        if (task.iterations >= 12) {
+          completeTask();
+          const limitMsg: Message = {
+            id: Math.random().toString(36).substring(7),
+            sender: "bot",
+            text: "Is kaam ko auto-mukammal karne ke liye bohat zyada steps chahiye. Aap thora guide karein, ya dobara kaha dein — main wahi se continue karunga.",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, limitMsg]);
+          return;
+        }
+        task.iterations++;
+        persistTask(task);
+        if (sendRef.current) {
+          await sendRef.current("", false, {
+            task: { goal: task.goal, plan: task.plan || [], done: task.done || [] },
+          });
+        }
+      } else {
+        const steps = pendingStepsRef.current;
+        if (steps.length === 0) return;
+        const [nextStep, ...rest] = steps;
+        persistPendingSteps(rest);
+        if (sendRef.current) {
+          await sendRef.current(String(nextStep), false);
+        }
+      }
+    } finally {
+      stepRunningRef.current = false;
+    }
+  };
+
+  const scheduleStepAdvance = (delayMs: number) => {
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
+    stepTimerRef.current = setTimeout(() => {
+      stepTimerRef.current = null;
+      advanceStep();
+    }, delayMs);
+  };
+
+  // Restore an in-flight multi-step flow / autonomous task after a page refresh.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("rover_pending_workflow_" + visitorId);
+      const raw = sessionStorage.getItem("rover_pending_steps_" + visitorId);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          Array.isArray(parsed.steps) &&
+          parsed.steps.length > 0 &&
+          Date.now() - (parsed.timestamp || 0) < 5 * 60 * 1000
+        ) {
+          pendingStepsRef.current = parsed.steps.map((s: any) => String(s)).filter(Boolean);
+        } else {
+          sessionStorage.removeItem("rover_pending_steps_" + visitorId);
+        }
+      }
+      const taskRaw = sessionStorage.getItem("rover_task_" + visitorId);
+      if (taskRaw) {
+        const parsedTask = JSON.parse(taskRaw);
+        if (
+          parsedTask &&
+          typeof parsedTask.goal === "string" &&
+          parsedTask.goal &&
+          Date.now() - (parsedTask.timestamp || 0) < 15 * 60 * 1000
+        ) {
+          taskRef.current = {
+            goal: String(parsedTask.goal),
+            plan: Array.isArray(parsedTask.plan) ? parsedTask.plan.map((s: any) => String(s)) : [],
+            done: Array.isArray(parsedTask.done) ? parsedTask.done.map((s: any) => String(s)) : [],
+            iterations: Number(parsedTask.iterations || 0),
+          };
+          taskActiveRef.current = true;
+          // Resume the autonomous flow shortly after the widget loads.
+          setTimeout(() => {
+            if (taskActiveRef.current && !stepRunningRef.current) {
+              scheduleStepAdvance(2500);
+            }
+          }, 1800);
+        } else {
+          sessionStorage.removeItem("rover_task_" + visitorId);
+        }
+      }
+    } catch (e) {}
+  }, [visitorId]);
+
   const [inbox, setInbox] = useState<any[]>([]);
   const inboxRef = useRef<any[]>([]);
 
@@ -141,6 +327,20 @@ function EmbedChatWidget() {
       if (d.type === "__rover_page_snapshot" && d.snapshot) {
         pageSnapshotRef.current = d.snapshot;
         setInbox(d.snapshot.visibleText ? [d.snapshot] : []);
+
+        // ── Multi-step workflow: auto-continue queued steps ─────────────────
+        // Steps from the server (pendingSteps) live in sessionStorage. On each
+        // fresh page snapshot we run the next queued step when it's safe:
+        //   • after a NAVIGATION → only once the URL actually changed;
+        //   • after same-page click/fill → this DOM-change snapshot is it.
+        const nextUrl = String(d.snapshot?.url || d.snapshot?.fullUrl || "").split("?")[0];
+        const last = lastActionRef.current;
+        if (shouldAutoContinue()) {
+          const afterNav = last && last.hasNav;
+          if (!afterNav || last.url !== nextUrl) {
+            scheduleStepAdvance(700);
+          }
+        }
       } else if (d.type === "__rover_identity" && d.identity) {
         pageSnapshotRef.current = { ...(pageSnapshotRef.current || {}), identity: d.identity };
       } else if (d.type === "__rover_action_result" && d.requestId) {
@@ -157,7 +357,7 @@ function EmbedChatWidget() {
       window.parent?.postMessage({ type: "__rover_request_snapshot" }, "*");
     }, 1200);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [visitorId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -186,14 +386,11 @@ function EmbedChatWidget() {
           }
           const kn = bot.knowledge || {};
           // Normalize service arrays from nested or flat fields
-          bot.extractedServices =
-            kn.extractedServices ?? bot.extractedServices ?? [];
-          bot.trainingSheetServices =
-            kn.trainingSheetServices ?? bot.trainingSheetServices ?? [];
+          bot.extractedServices = kn.extractedServices ?? bot.extractedServices ?? [];
+          bot.trainingSheetServices = kn.trainingSheetServices ?? bot.trainingSheetServices ?? [];
           // Only show service buttons for agency chatbots (has agency email or collection db)
           const isAgency =
-            bot.type === "agency" ||
-            !!(bot.agencyEmail1 || bot.agencyEmail2 || bot.collectionDb);
+            bot.type === "agency" || !!(bot.agencyEmail1 || bot.agencyEmail2 || bot.collectionDb);
           if (isAgency && !bot.extractedServices?.length && bot.description) {
             const lines = bot.description.split("\n");
             const services: string[] = [];
@@ -252,6 +449,16 @@ function EmbedChatWidget() {
     const newSessionId = makeSessionId(visitorId);
     setSessionId(newSessionId);
 
+    // A fresh conversation starts with a clean step queue + task
+    persistPendingSteps([]);
+    completeTask();
+    stepRunningRef.current = false;
+    lastActionRef.current = null;
+    if (stepTimerRef.current) {
+      clearTimeout(stepTimerRef.current);
+      stepTimerRef.current = null;
+    }
+
     const welcomeMsg: Message = {
       id: "welcome-msg",
       sender: "bot",
@@ -267,8 +474,7 @@ function EmbedChatWidget() {
         body: JSON.stringify({
           sessionId: newSessionId,
           userId: visitorId,
-          welcomeMessage:
-            currentBot.welcome || "Hi 👋 How can I help you today?",
+          welcomeMessage: currentBot.welcome || "Hi 👋 How can I help you today?",
         }),
       });
     } catch (e) {
@@ -276,38 +482,58 @@ function EmbedChatWidget() {
     }
   };
 
-  const handleSend = async (overrideText?: string | React.MouseEvent | any) => {
+  const handleSend = async (
+    overrideText?: string | React.MouseEvent | any,
+    _isEvent?: boolean,
+    opts?: { task?: { goal: string; plan: string[]; done: string[] } },
+  ) => {
     const isEvent =
-      overrideText &&
-      typeof overrideText === "object" &&
-      "preventDefault" in overrideText;
+      _isEvent === true ||
+      (overrideText && typeof overrideText === "object" && "preventDefault" in overrideText);
+    const taskOpt = opts?.task;
+    const isTaskStep = Boolean(taskOpt);
     const actualText = typeof overrideText === "string" ? overrideText : input;
     const trimmedMessage = actualText.trim();
-    if (!trimmedMessage) return;
+    if (!isTaskStep && !trimmedMessage) return;
 
-    const userMessage: Message = {
-      id: Math.random().toString(36).substring(7),
-      sender: "user",
-      text: trimmedMessage,
-      timestamp: new Date(),
-    };
+    if (!isTaskStep) {
+      const userMessage: Message = {
+        id: Math.random().toString(36).substring(7),
+        sender: "user",
+        text: trimmedMessage,
+        timestamp: new Date(),
+      };
 
-    setMessages((prev) => [...prev, userMessage]);
-    if (!isEvent && typeof overrideText !== "string") setInput("");
-    if (typeof overrideText === "string") setInput(""); // always clear on click as well
+      setMessages((prev) => [...prev, userMessage]);
+    }
+    if (!isTaskStep && !isEvent && typeof overrideText !== "string") setInput("");
+    if (!isTaskStep && typeof overrideText === "string") setInput(""); // always clear on click as well
     setTyping(true);
 
     try {
-      const response = await fetch(`/api/chatbot/public/${id}/chat`, {
+      // Use AutoFlow if live DOM snapshot is available OR bot has flowMode enabled
+      const isAutoFlow =
+        isTaskStep || Boolean(pageSnapshotRef.current) || bot?.flowMode !== "disabled";
+      const apiUrl = isAutoFlow ? `/api/autoflow/chat` : `/api/chatbot/public/${id}/chat`;
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: trimmedMessage,
+          botId: id,
+          message: isTaskStep ? "" : trimmedMessage,
           sessionId,
           userId: visitorId,
           pageContext: pageSnapshotRef.current || undefined,
+          // For autoflow compatibility
+          domContext: pageSnapshotRef.current || undefined,
+          currentUrl: window.location.href,
+          // Autonomous task loop context (only for automated task steps)
+          autoTask: taskOpt
+            ? { goal: taskOpt.goal, plan: taskOpt.plan || [], done: taskOpt.done || [] }
+            : undefined,
         }),
       });
 
@@ -317,6 +543,10 @@ function EmbedChatWidget() {
         checkoutUrl?: string;
         clientSecret?: string;
         orderId?: string;
+        type?: string;
+        action?: string;
+        data?: any;
+        text?: string;
       } | null = null;
       const rawText = await response.text();
       try {
@@ -331,24 +561,229 @@ function EmbedChatWidget() {
         );
       }
 
+      let replyText = data.reply || data.text || bot.welcome || "Hello! How can I help you today?";
+      replyText = String(replyText)
+        .replace(/\[Actions:[^\]]*\]/g, "")
+        .replace(/\[Remaining steps:[^\]]*\]/g, "")
+        .replace(/\[Steps left:[^\]]*\]/g, "")
+        .replace(/\[Agla step:[^\]]*\]/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+      // If it's the Agentic Action format (single or multiple chained actions)
+      if (data.type === "action" && (data.action || (data as any).actions)) {
+        // Queue management for the multi-step workflow.
+        //   • user-initiated message  → replace the queue with the server's fresh steps
+        //   • automated step reply    → KEEP the remaining queue (this reply is for
+        //     one popped step; the server only describes THIS message's remainder),
+        //     and merge any new server steps to the front.
+        const userInitiated = !stepRunningRef.current;
+        const serverSteps: string[] = Array.isArray((data as any).pendingSteps)
+          ? (data as any).pendingSteps.map((s: any) => String(s)).filter(Boolean)
+          : [];
+        let nextQueue: string[] = [];
+        if (serverSteps.length > 0) {
+          nextQueue = [...serverSteps, ...pendingStepsRef.current];
+        } else if ((data as any).pendingWorkflow) {
+          nextQueue = [String((data as any).pendingWorkflow), ...pendingStepsRef.current];
+        } else if (userInitiated) {
+          nextQueue = [];
+        } else {
+          nextQueue = pendingStepsRef.current;
+        }
+        if (nextQueue.length > 0 || userInitiated) {
+          persistPendingSteps(nextQueue);
+        }
+
+        const actionList: Array<{ action?: string; type?: string; data?: any }> =
+          Array.isArray((data as any).actions) && (data as any).actions.length > 0
+            ? (data as any).actions
+            : [{ action: data.action, data: data.data }];
+
+        // Run actions in order but STOP after the first navigation. The server
+        // keeps same-page actions that come BEFORE a navigation, and re-expresses
+        // anything after it as queued steps (their DOM targets don't exist yet).
+        const actionsToExecute: typeof actionList = [];
+        for (const item of actionList) {
+          actionsToExecute.push(item);
+          if (item.action === "navigate" || item.type === "navigate") break;
+        }
+        const executedNav = actionsToExecute.some(
+          (a) => a.action === "navigate" || a.type === "navigate",
+        );
+
+        for (let i = 0; i < actionsToExecute.length; i++) {
+          const item = actionsToExecute[i];
+          const actionType = item.action === "fill_input" ? "fill" : item.type || item.action;
+          try {
+            window.parent?.postMessage(
+              {
+                type: "__rover_action",
+                __rover_action: true,
+                action: {
+                  type: actionType,
+                  route: item.data?.url || item.data?.route,
+                  url: item.data?.url || item.data?.route,
+                  selector: item.data?.selector,
+                  text: item.data?.text,
+                  value: item.data?.value !== undefined ? item.data.value : item.data?.text,
+                  fields: item.data?.fields,
+                  label: item.data?.label,
+                  name: item.data?.name,
+                  placeholder: item.data?.placeholder,
+                  currentValue: item.data?.currentValue,
+                  section: item.data?.section,
+                  cardContext: item.data?.section,
+                },
+              },
+              "*",
+            );
+          } catch (e) {
+            /* ignore */
+          }
+          if (i < actionsToExecute.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 650));
+          }
+        }
+
+        // Remember what we just ran so the step-queue knows whether to wait for
+        // a NEW page URL (navigation) or may continue shortly (same-page action).
+        lastActionRef.current = {
+          hasNav: executedNav,
+          url: String(pageSnapshotRef.current?.url || window.location.href).split("?")[0],
+        };
+
+        // Use AI's actual reply if available, otherwise show a friendly action message
+        if (!replyText || replyText === bot.welcome) {
+          replyText = data.reply || "On it!";
+        }
+      }
+
+      // ── AUTONOMOUS TASK BOOKKEEPING ────────────────────────────────────
+      const taskInfo = (data as any)?.task;
+      const actionsExecuted = data.type === "action" && (data.action || (data as any).actions);
+      if (taskInfo && taskOpt) {
+        const current = taskRef.current;
+        if (current) {
+          current.done = Array.isArray(taskInfo.done)
+            ? taskInfo.done.map((d: any) => String(d))
+            : current.done;
+          persistTask(current);
+        }
+        // End the loop when the agent says done / needs input / did nothing.
+        if (
+          taskInfo.status !== "continue" ||
+          (taskInfo.status === "continue" && !actionsExecuted)
+        ) {
+          completeTask();
+        } else {
+          // Loop guard: two consecutive autonomous steps that neither changed
+          // the page nor produced a different action mean the agent is spinning
+          // (e.g. re-clicking the same button that is not responding). Stop
+          // gracefully instead of hammering the same action until the 12 cap.
+          const stepActions: any[] = Array.isArray((data as any)?.actions)
+            ? (data as any).actions
+            : (data as any).action
+              ? [(data as any)]
+              : [];
+          const sig = getSnapshotSignature();
+          const actionSig = stepActions
+            .map(
+              (a: any) =>
+                `${a.action || a.type}:${a.data?.text || ""}:${a.data?.selector || ""}:${a.data?.url || a.data?.route || ""}`,
+            )
+            .join("||");
+          const samePage = !!sig && taskSigRef.current === sig;
+          const sameActions = !!actionSig && taskLastActionsRef.current === actionSig;
+          // A React wizard can keep the same snapshot briefly while its state
+          // is updating. Only treat an action as stalled when both the page
+          // and the exact action are unchanged; a different next action is
+          // valid progress even if the snapshot has not caught up yet.
+          taskStallRef.current = samePage && sameActions ? taskStallRef.current + 1 : 0;
+          taskSigRef.current = sig;
+          taskLastActionsRef.current = actionSig;
+          if (taskStallRef.current >= 3) {
+            completeTask();
+            replyText =
+              "I noticed this step is not responding on the page — I stopped here to avoid getting stuck in a loop. A small hint from you and I will retry.";
+          }
+        }
+      } else if (isTaskStep) {
+        completeTask();
+      }
+
+      // Autonomous goal: remember the task so the widget keeps continuing.
+      const userInitiated = !stepRunningRef.current;
+      if ((data as any).autoTask) {
+        beginTask(
+          String((data as any).autoTask.goal || trimmedMessage),
+          Array.isArray((data as any).autoTask.plan)
+            ? (data as any).autoTask.plan
+            : pendingStepsRef.current,
+        );
+      } else if (!isTaskStep && userInitiated) {
+        // A normal user-initiated message that produced no goal → stop any
+        // in-flight autonomous task (the user redirected the conversation).
+        completeTask();
+      }
+
       const botMessage: Message = {
         id: Math.random().toString(36).substring(7),
         sender: "bot",
-        text: data.reply || bot.welcome || "Hello! How can I help you today?",
+        text: replyText,
         timestamp: new Date(),
-        checkoutUrl:
-          typeof data.checkoutUrl === "string" ? data.checkoutUrl : undefined,
-        clientSecret:
-          typeof data.clientSecret === "string" ? data.clientSecret : undefined,
+        checkoutUrl: typeof data.checkoutUrl === "string" ? data.checkoutUrl : undefined,
+        clientSecret: typeof data.clientSecret === "string" ? data.clientSecret : undefined,
         orderId: typeof data.orderId === "string" ? data.orderId : undefined,
       };
 
-      setMessages((prev) => [...prev, botMessage]);
-      if (data.reply && voiceOnRef.current && voiceRef.current) {
-        voiceRef.current.speak(String(data.reply));
+      const hasActionResponse = data.type === "action" && (data.action || (data as any).actions);
+      const shouldRevealProgressively =
+        !hasActionResponse && replyText.length > 180 && !isTaskStep;
+      if (shouldRevealProgressively) {
+        setTyping(false);
+        setMessages((prev) => [...prev, { ...botMessage, text: "" }]);
+        let visibleText = "";
+        let cursor = 0;
+        while (cursor < replyText.length) {
+          const nextBreak = replyText.indexOf("\n", cursor);
+          const target = Math.min(replyText.length, cursor + 14);
+          const end = nextBreak >= cursor && nextBreak <= target ? nextBreak + 1 : target;
+          visibleText += replyText.slice(cursor, end);
+          cursor = end;
+          const chunk = visibleText;
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === botMessage.id ? { ...msg, text: chunk } : msg)),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 24));
+        }
+      } else {
+        setMessages((prev) => [...prev, botMessage]);
+      }
+
+      // Legacy fallback for string-based token actions
+      if (replyText && typeof replyText === "string" && !data.action) {
+        const navMatch = replyText.match(/\[\[NAVIGATE:([^\]]+)\]\]/);
+        if (navMatch && navMatch[1]) {
+          const route = navMatch[1].trim();
+          try {
+            window.parent?.postMessage(
+              { type: "__rover_action", __rover_action: true, action: { type: "navigate", route } },
+              "*",
+            );
+          } catch (e) {}
+          botMessage.text = botMessage.text.replace(/\[\[NAVIGATE:[^\]]+\]\]/g, "").trim();
+        }
+      }
+
+      const speechText = replyText;
+      if (!isTaskStep && speechText && voiceOnRef.current && voiceRef.current) {
+        voiceRef.current.speak(String(speechText));
       }
     } catch (error) {
       console.error("Chat request error:", error);
+      // If the autonomous loop fails mid-flight, stop it so it never loops forever.
+      if (isTaskStep) completeTask();
       // Never break the chat screen with raw technical errors — show a
       // friendly retry message and keep the input usable.
       const fallbackMessage =
@@ -363,6 +798,21 @@ function EmbedChatWidget() {
       setMessages((prev) => [...prev, botMessage]);
     } finally {
       setTyping(false);
+      // Auto-advance to the next queued step. After a NAVIGATION we wait for the
+      // new page snapshot (URL change) to trigger the next step; after same-page
+      // actions we continue right away once the DOM has settled.
+      stepRunningRef.current = false;
+      if (shouldAutoContinue()) {
+        const last = lastActionRef.current;
+        if (!last || !last.hasNav) {
+          scheduleStepAdvance(2200);
+        } else {
+          // Safety net: normally the post-navigation snapshot triggers the next
+          // step, but if the observer stalls or the snapshot is deduped we still
+          // continue after a longer delay so the chain never silently dies.
+          scheduleStepAdvance(5000);
+        }
+      }
     }
   };
 
@@ -442,9 +892,7 @@ function EmbedChatWidget() {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-        <p className="text-xs font-semibold text-slate-500 animate-pulse">
-          Loading assistant...
-        </p>
+        <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading assistant...</p>
       </div>
     );
   }
@@ -455,12 +903,9 @@ function EmbedChatWidget() {
         <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-red-500/10 text-red-500">
           <Bot className="h-6 w-6" />
         </div>
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-          Chatbot Inactive
-        </h3>
+        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Chatbot Inactive</h3>
         <p className="mt-1 max-w-[240px] text-xs text-slate-500">
-          This chatbot is either inactive or does not exist. Please check your
-          dashboard settings.
+          This chatbot is either inactive or does not exist. Please check your dashboard settings.
         </p>
       </div>
     );
@@ -505,22 +950,18 @@ function EmbedChatWidget() {
   const previewMode = bot.theme?.previewMode || bot.previewMode || "light";
   const isDarkMode = previewMode === "dark";
   const primaryBg = bot.theme?.primaryColor || bot.primaryColor || "#D94A2D";
-  const secondaryBg =
-    bot.theme?.secondaryColor || bot.secondaryColor || "#1C1C2E";
+  const secondaryBg = bot.theme?.secondaryColor || bot.secondaryColor || "#1C1C2E";
   const borderRadius = bot.theme?.borderRadius ?? bot.borderRadius ?? 16;
   const template = bot.theme?.template || bot.template || "Modern Glass UI";
 
   const headerStyle = bot.theme?.headerStyle || bot.headerStyle || "gradient";
   const textStyle = bot.theme?.textStyle || bot.textStyle || "default";
-  const botBubbleColor =
-    bot.theme?.botBubbleColor || bot.botBubbleColor || "#f1f5f9";
+  const botBubbleColor = bot.theme?.botBubbleColor || bot.botBubbleColor || "#f1f5f9";
   const botTextColor = bot.theme?.botTextColor || bot.botTextColor || "#0f172a";
   const showAvatar = bot.theme?.showAvatar ?? bot.showAvatar ?? true;
-  const messageFontSize =
-    bot.theme?.messageFontSize || bot.messageFontSize || "md";
+  const messageFontSize = bot.theme?.messageFontSize || bot.messageFontSize || "md";
   const inputStyle = bot.theme?.inputStyle || bot.inputStyle || "rounded";
-  const headerSubtitle =
-    bot.theme?.headerSubtitle || bot.headerSubtitle || "Online";
+  const headerSubtitle = bot.theme?.headerSubtitle || bot.headerSubtitle || "Online";
 
   const isNeon = template === "Neon AI Interface";
   const isGlass = template === "Modern Glass UI";
@@ -545,11 +986,7 @@ function EmbedChatWidget() {
           : `linear-gradient(135deg, ${primaryBg}, ${secondaryBg})`;
 
   const isLightHeader = isMinimal ? isDarkMode : isLightColor(primaryBg);
-  const headerTextColor = isMinimal
-    ? textCol
-    : isLightHeader
-      ? "#0f172a"
-      : "#ffffff";
+  const headerTextColor = isMinimal ? textCol : isLightHeader ? "#0f172a" : "#ffffff";
 
   const wrapperBg = isGlass
     ? `linear-gradient(135deg, ${primaryBg}22, ${secondaryBg}22), ${bg}`
@@ -563,11 +1000,7 @@ function EmbedChatWidget() {
       ? `linear-gradient(135deg, ${primaryBg}, ${secondaryBg})`
       : primaryBg;
 
-  const userBubbleText = isMinimal
-    ? textCol
-    : isLightColor(primaryBg)
-      ? "#0f172a"
-      : "#ffffff";
+  const userBubbleText = isMinimal ? textCol : isLightColor(primaryBg) ? "#0f172a" : "#ffffff";
 
   const sendBtnBg = isMinimal
     ? textCol
@@ -622,6 +1055,15 @@ function EmbedChatWidget() {
       return parts.length > 0 ? parts : rawText;
     };
 
+    const renderCodeBlock = (code: string, language: string, key: string) => (
+      <pre
+        key={key}
+        className="my-3 max-w-full overflow-x-auto whitespace-pre rounded-lg border border-slate-700/20 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-100"
+      >
+        <code className={language ? `language-${language}` : undefined}>{code.trim()}</code>
+      </pre>
+    );
+
     const flushList = (key: string) => {
       if (listItems.length > 0) {
         if (listType === "ul") {
@@ -659,15 +1101,10 @@ function EmbedChatWidget() {
                 style={{
                   borderColor: primaryBg,
                   color: isDarkMode ? "#e2e8f0" : primaryBg,
-                  background: isDarkMode
-                    ? "rgba(255,255,255,0.06)"
-                    : "rgba(0,0,0,0.02)",
+                  background: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.02)",
                 }}
               >
-                <ShoppingCart
-                  className="h-3 w-3 shrink-0"
-                  style={{ color: primaryBg }}
-                />
+                <ShoppingCart className="h-3 w-3 shrink-0" style={{ color: primaryBg }} />
                 <span className="truncate">{p.name}</span>
                 {p.price ? (
                   <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-px text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -682,9 +1119,47 @@ function EmbedChatWidget() {
       }
     };
 
+    let inCodeBlock = false;
+    let codeLanguage = "";
+    let codeLines: string[] = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmedLine = line.trim();
+
+      if (trimmedLine.startsWith("```")) {
+        flushList(`code-flush-${i}`);
+        if (inCodeBlock) {
+          elements.push(renderCodeBlock(codeLines.join("\n"), codeLanguage, `code-${i}`));
+          inCodeBlock = false;
+          codeLanguage = "";
+          codeLines = [];
+        } else {
+          inCodeBlock = true;
+          codeLanguage = trimmedLine.slice(3).trim();
+        }
+        continue;
+      }
+      if (inCodeBlock) {
+        codeLines.push(line);
+        continue;
+      }
+
+      const headingMatch = trimmedLine.match(/^(#{1,3})\s+(.+)$/);
+      if (headingMatch) {
+        flushList(`heading-flush-${i}`);
+        const headingClass =
+          headingMatch[1].length === 1
+            ? "mt-4 mb-2 text-base font-bold"
+            : headingMatch[1].length === 2
+              ? "mt-3 mb-1.5 text-sm font-bold"
+              : "mt-2 mb-1 text-xs font-bold";
+        elements.push(
+          <div key={`heading-${i}`} className={headingClass}>
+            {parseInlineStyles(headingMatch[2], `heading-${i}`)}
+          </div>,
+        );
+        continue;
+      }
       const productMatch = trimmedLine.match(/^-\s*PRODUCT:\s*(.*)$/i);
       const optionMatch = trimmedLine.match(/^-\s*OPTION:\s*(.*)$/i);
       const pickMatch = trimmedLine.match(/^-\s*PICK:\s*(.*)$/i);
@@ -784,9 +1259,7 @@ function EmbedChatWidget() {
             style={{
               borderColor: primaryBg,
               color: isDarkMode ? "#e2e8f0" : primaryBg,
-              background: isDarkMode
-                ? "rgba(255,255,255,0.05)"
-                : "rgba(0,0,0,0.02)",
+              background: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)",
             }}
           >
             {optionMatch[1]}
@@ -825,17 +1298,13 @@ function EmbedChatWidget() {
           }
           const hasInlineProduct = /-\s*PRODUCT:\s*\{/i.test(trimmedLine);
           if (hasInlineProduct) {
-            const productRegex =
-              /-\s*PRODUCT:\s*(\{.*?\})(?=\s*-\s*PRODUCT:|\s*$)/gi;
+            const productRegex = /-\s*PRODUCT:\s*(\{.*?\})(?=\s*-\s*PRODUCT:|\s*$)/gi;
             let lastIdx = 0;
             let m;
             while ((m = productRegex.exec(trimmedLine)) !== null) {
               if (m.index > lastIdx) {
                 elements.push(
-                  <p
-                    key={`p-${i}-t-${lastIdx}`}
-                    className="mb-1 last:mb-0 leading-relaxed"
-                  >
+                  <p key={`p-${i}-t-${lastIdx}`} className="mb-1 last:mb-0 leading-relaxed">
                     {parseInlineStyles(
                       trimmedLine.substring(lastIdx, m.index),
                       `line-${i}-${lastIdx}`,
@@ -897,14 +1366,8 @@ function EmbedChatWidget() {
             }
             if (lastIdx < trimmedLine.length) {
               elements.push(
-                <p
-                  key={`p-${i}-t-${lastIdx}`}
-                  className="mb-1 last:mb-0 leading-relaxed"
-                >
-                  {parseInlineStyles(
-                    trimmedLine.substring(lastIdx),
-                    `line-${i}-${lastIdx}`,
-                  )}
+                <p key={`p-${i}-t-${lastIdx}`} className="mb-1 last:mb-0 leading-relaxed">
+                  {parseInlineStyles(trimmedLine.substring(lastIdx), `line-${i}-${lastIdx}`)}
                 </p>,
               );
             }
@@ -921,6 +1384,9 @@ function EmbedChatWidget() {
       }
     }
 
+    if (inCodeBlock) {
+      elements.push(renderCodeBlock(codeLines.join("\n"), codeLanguage, "code-final"));
+    }
     flushList("final");
     flushPicks("final");
 
@@ -953,10 +1419,7 @@ function EmbedChatWidget() {
 
     if (hasOptions && isLatest && customInputMsgId === msgId) {
       elements.push(
-        <div
-          key="custom-input-form"
-          className="flex items-center gap-2 mt-2 max-w-xs z-20"
-        >
+        <div key="custom-input-form" className="flex items-center gap-2 mt-2 max-w-xs z-20">
           <input
             type="text"
             placeholder="Enter manually..."
@@ -1073,19 +1536,11 @@ function EmbedChatWidget() {
                     : "rounded-xl bg-white/20 backdrop-blur border border-white/10"
                 }`}
                 style={{
-                  background: isMinimal
-                    ? isDarkMode
-                      ? "#334155"
-                      : "#e2e8f0"
-                    : undefined,
+                  background: isMinimal ? (isDarkMode ? "#334155" : "#e2e8f0") : undefined,
                 }}
               >
                 {bot.logo ? (
-                  <img
-                    src={bot.logo}
-                    alt={bot.name}
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={bot.logo} alt={bot.name} className="h-full w-full object-cover" />
                 ) : (
                   <Bot
                     className={`h-6 w-6 ${isMinimal ? (isDarkMode ? "text-slate-400" : "text-slate-500") : "text-white"}`}
@@ -1095,12 +1550,9 @@ function EmbedChatWidget() {
               <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-wide leading-none">
-                {bot.name}
-              </h2>
+              <h2 className="text-sm font-bold tracking-wide leading-none">{bot.name}</h2>
               <div className="flex items-center gap-1.5 mt-1 text-[10px] opacity-90">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{" "}
-                {headerSubtitle}
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> {headerSubtitle}
               </div>
             </div>
           </div>
@@ -1139,12 +1591,9 @@ function EmbedChatWidget() {
         {messages.map((m) => {
           const isUser = m.sender === "user";
           return (
-            <div
-              key={m.id}
-              className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
-            >
+            <div key={m.id} className={`flex w-full min-w-0 ${isUser ? "justify-end" : "justify-start"}`}>
               <div
-                className={`flex gap-2 max-w-[85%] ${isUser ? "flex-row-reverse" : "flex-row"}`}
+                className={`flex min-w-0 max-w-[85%] gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}
               >
                 {/* Avatar Icon */}
                 {!isUser && showAvatar ? (
@@ -1155,11 +1604,7 @@ function EmbedChatWidget() {
                     }}
                   >
                     {bot.logo ? (
-                      <img
-                        src={bot.logo}
-                        alt=""
-                        className="h-8 w-8 rounded-lg object-cover"
-                      />
+                      <img src={bot.logo} alt="" className="h-8 w-8 rounded-lg object-cover" />
                     ) : (
                       <Bot className="h-4 w-4" />
                     )}
@@ -1172,16 +1617,14 @@ function EmbedChatWidget() {
 
                 {/* Message Bubble */}
                 <div
-                  className={`flex flex-col ${!isUser && !showAvatar ? "ml-0" : ""}`}
+                  className={`flex min-w-0 max-w-full flex-col ${!isUser && !showAvatar ? "ml-0" : ""}`}
                 >
                   <div
-                    className="px-4 py-2.5 shadow-sm transition-all duration-300 whitespace-pre-wrap break-words"
+                    className="min-w-0 max-w-full overflow-hidden px-4 py-2.5 shadow-sm transition-all duration-300 whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                     style={{
                       borderRadius: isMinimal ? "6px" : `${actualRadius}px`,
-                      borderTopRightRadius:
-                        isUser && !isMinimal ? "4px" : undefined,
-                      borderTopLeftRadius:
-                        !isUser && !isMinimal ? "4px" : undefined,
+                      borderTopRightRadius: isUser && !isMinimal ? "4px" : undefined,
+                      borderTopLeftRadius: !isUser && !isMinimal ? "4px" : undefined,
                       background: isUser ? userBubbleBg : botBubbleColor,
                       color: isUser ? userBubbleText : botTextColor,
                       fontSize:
@@ -1206,9 +1649,7 @@ function EmbedChatWidget() {
                               ? "'Georgia', serif"
                               : undefined,
                       letterSpacing:
-                        textStyle === "romantic" || textStyle === "elegant"
-                          ? "0.05em"
-                          : undefined,
+                        textStyle === "romantic" || textStyle === "elegant" ? "0.05em" : undefined,
                     }}
                   >
                     {renderMessageText(m.text, m.id)}
@@ -1221,9 +1662,7 @@ function EmbedChatWidget() {
                         clientSecret={m.clientSecret}
                         publishableKey={publishableKey}
                         onSuccess={() => {
-                          setProcessedPaymentIds((prev) =>
-                            new Set(prev).add(m.clientSecret!),
-                          );
+                          setProcessedPaymentIds((prev) => new Set(prev).add(m.clientSecret!));
                           (async () => {
                             if (m.orderId) {
                               try {
@@ -1269,10 +1708,7 @@ function EmbedChatWidget() {
                     messages.length === 1 &&
                     [
                       ...new Set(
-                        [
-                          ...(bot.extractedServices || []),
-                          ...(bot.trainingSheetServices || []),
-                        ]
+                        [...(bot.extractedServices || []), ...(bot.trainingSheetServices || [])]
                           .map((s: string) => s?.trim())
                           .filter(Boolean),
                       ),
@@ -1280,10 +1716,7 @@ function EmbedChatWidget() {
                       <div className="flex flex-col gap-2 mt-3 max-w-[240px]">
                         {[
                           ...new Set(
-                            [
-                              ...(bot.extractedServices || []),
-                              ...(bot.trainingSheetServices || []),
-                            ]
+                            [...(bot.extractedServices || []), ...(bot.trainingSheetServices || [])]
                               .map((s: string) => s?.trim())
                               .filter(Boolean),
                           ),
@@ -1300,9 +1733,7 @@ function EmbedChatWidget() {
                             onMouseEnter={(e) =>
                               (e.currentTarget.style.background = `${primaryBg}15`)
                             }
-                            onMouseLeave={(e) =>
-                              (e.currentTarget.style.background = "transparent")
-                            }
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                           >
                             {service}
                           </button>
@@ -1326,11 +1757,7 @@ function EmbedChatWidget() {
                 }}
               >
                 {bot.logo ? (
-                  <img
-                    src={bot.logo}
-                    alt=""
-                    className="h-8 w-8 rounded-lg object-cover"
-                  />
+                  <img src={bot.logo} alt="" className="h-8 w-8 rounded-lg object-cover" />
                 ) : (
                   <Bot className="h-4 w-4" />
                 )}
@@ -1445,9 +1872,7 @@ function EmbedChatWidget() {
             >
               <ArrowLeft className="h-4 w-4" /> Back to Chat
             </button>
-            <span className="text-xs font-extrabold text-foreground">
-              Product Preview
-            </span>
+            <span className="text-xs font-extrabold text-foreground">Product Preview</span>
             <button
               type="button"
               onClick={() => setSelectedProduct(null)}
@@ -1461,8 +1886,7 @@ function EmbedChatWidget() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {(() => {
               const imageList =
-                Array.isArray(selectedProduct.images) &&
-                selectedProduct.images.length > 0
+                Array.isArray(selectedProduct.images) && selectedProduct.images.length > 0
                   ? selectedProduct.images
                   : [selectedProduct.image].filter(Boolean);
               return (
@@ -1530,11 +1954,7 @@ function EmbedChatWidget() {
                               : "border-transparent opacity-60 hover:opacity-100",
                           )}
                         >
-                          <img
-                            src={imgUrl}
-                            alt="Thumb"
-                            className="h-full w-full object-cover"
-                          />
+                          <img src={imgUrl} alt="Thumb" className="h-full w-full object-cover" />
                         </button>
                       ))}
                     </div>
@@ -1545,9 +1965,7 @@ function EmbedChatWidget() {
 
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-bold text-foreground">
-                  {selectedProduct.name}
-                </h3>
+                <h3 className="text-sm font-bold text-foreground">{selectedProduct.name}</h3>
                 <span className="shrink-0 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
                   {selectedProduct.price}
                 </span>

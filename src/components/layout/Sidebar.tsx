@@ -25,7 +25,6 @@ type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?
 export const navItems: NavItem[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/dashboard/inbox", label: "Installer", icon: MessageSquareText },
-  { to: "/dashboard/faq", label: "FAQ Manager", icon: MessageSquareText },
   { to: "/dashboard/create", label: "Create Chatbot", icon: PlusCircle },
   { to: "/dashboard/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/dashboard/storage", label: "Storage", icon: HardDrive },
@@ -115,7 +114,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-2">
-        {navItems.slice(0, 6).map(renderLink)}
+        {navItems.slice(0, 5).map(renderLink)}
 
         <div>
           <button
@@ -174,7 +173,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </div>
 
-        {navItems.slice(6).map(renderLink)}
+        {navItems.slice(5).map(renderLink)}
       </nav>
 
       <Link

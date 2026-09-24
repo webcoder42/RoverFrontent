@@ -52,6 +52,8 @@ interface Draft {
   databaseType: "mysql" | "mongodb" | "postgresql" | "";
   databaseMode: "full" | "collection" | "";
   trainingFlow: string;
+  activationCommands: string[];
+  aiIconShow: boolean;
   category: string;
   useOwnDb: boolean;
   bookingEnabled: boolean;
@@ -173,6 +175,8 @@ const initial = {
   databaseType: "" as "" | "mysql" | "mongodb" | "postgresql",
   databaseMode: "" as "" | "full" | "collection",
   trainingFlow: "",
+  activationCommands: ["hello {botName}", "shutdown {botName}"],
+  aiIconShow: true,
 };
 
 export const useDraftBotStore = create<Draft>((set) => ({

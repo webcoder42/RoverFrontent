@@ -27,6 +27,7 @@ import {
   MapPin,
   CreditCard,
   ArrowRight,
+  ArrowUpRight,
   EyeOff,
   Braces,
   ChevronUp,
@@ -43,6 +44,7 @@ import {
   ShoppingBag,
   Zap,
   Tag,
+  Scan,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -586,28 +588,70 @@ function syncCategoriesWithFlow(updatedCategories: string[], flowStr?: string): 
               id: "platform",
               title: `Target Platform for ${cat}`,
               type: "selection",
-              fields: [{ name: "platform", label: "Target Platform", type: "text", options: ["iOS (iPhone/iPad)", "Android", "Cross-Platform (Both)"], required: true }]
+              fields: [
+                {
+                  name: "platform",
+                  label: "Target Platform",
+                  type: "text",
+                  options: ["iOS (iPhone/iPad)", "Android", "Cross-Platform (Both)"],
+                  required: true,
+                },
+              ],
             };
           } else if (isWeb) {
             specificStep = {
               id: "type",
               title: `Website Type for ${cat}`,
               type: "selection",
-              fields: [{ name: "websiteType", label: "Website Type", type: "text", options: ["E-Commerce Store", "Business Landing Page", "Custom Web App", "Portfolio"], required: true }]
+              fields: [
+                {
+                  name: "websiteType",
+                  label: "Website Type",
+                  type: "text",
+                  options: [
+                    "E-Commerce Store",
+                    "Business Landing Page",
+                    "Custom Web App",
+                    "Portfolio",
+                  ],
+                  required: true,
+                },
+              ],
             };
           } else if (isBot) {
             specificStep = {
               id: "channel",
               title: `Integration Channel for ${cat}`,
               type: "selection",
-              fields: [{ name: "channel", label: "Integration Channel", type: "text", options: ["Website Widget", "WhatsApp Business", "Instagram / Facebook", "Custom API"], required: true }]
+              fields: [
+                {
+                  name: "channel",
+                  label: "Integration Channel",
+                  type: "text",
+                  options: [
+                    "Website Widget",
+                    "WhatsApp Business",
+                    "Instagram / Facebook",
+                    "Custom API",
+                  ],
+                  required: true,
+                },
+              ],
             };
           } else {
             specificStep = {
               id: "package",
               title: `Select Package for ${cat}`,
               type: "selection",
-              fields: [{ name: "package", label: "Service Package", type: "text", options: ["Basic Package", "Standard Package", "Premium Custom"], required: true }]
+              fields: [
+                {
+                  name: "package",
+                  label: "Service Package",
+                  type: "text",
+                  options: ["Basic Package", "Standard Package", "Premium Custom"],
+                  required: true,
+                },
+              ],
             };
           }
 
@@ -618,7 +662,15 @@ function syncCategoriesWithFlow(updatedCategories: string[], flowStr?: string): 
                 id: "budget",
                 title: `Budget & Scope for ${cat}`,
                 type: "selection",
-                fields: [{ name: "budget", label: "Estimated Budget", type: "text", options: ["$500 - $1,500", "$1,500 - $3,500", "$3,500 - $7,500", "$7,500+"], required: true }]
+                fields: [
+                  {
+                    name: "budget",
+                    label: "Estimated Budget",
+                    type: "text",
+                    options: ["$500 - $1,500", "$1,500 - $3,500", "$3,500 - $7,500", "$7,500+"],
+                    required: true,
+                  },
+                ],
               },
               {
                 id: "contact",
@@ -627,45 +679,54 @@ function syncCategoriesWithFlow(updatedCategories: string[], flowStr?: string): 
                 fields: [
                   { name: "fullName", label: "Full Name", type: "text", required: true },
                   { name: "phone", label: "Phone Number", type: "tel", required: true },
-                  { name: "email", label: "Email Address", type: "email", required: false }
-                ]
+                  { name: "email", label: "Email Address", type: "email", required: false },
+                ],
               },
               {
                 id: "payment",
                 title: "Payment Preference",
                 type: "selection",
-                fields: [{ name: "paymentMethod", label: "Payment Method", type: "text", options: ["Cash / Direct Bank Transfer", "Pay Online"], required: true, allowSkip: true }]
+                fields: [
+                  {
+                    name: "paymentMethod",
+                    label: "Payment Method",
+                    type: "text",
+                    options: ["Cash / Direct Bank Transfer", "Pay Online"],
+                    required: true,
+                    allowSkip: true,
+                  },
+                ],
               },
-              { id: "confirm", title: `Confirm ${cat} Request`, type: "confirmation", fields: [] }
-            ]
+              { id: "confirm", title: `Confirm ${cat} Request`, type: "confirmation", fields: [] },
+            ],
           };
         }
       }
       return JSON.stringify(updatedObj, null, 2);
     } else if (flowObj.steps.length > 0) {
-      const serviceStep = flowObj.steps.find(
-        (s: any) =>
-          s.type === "selection" &&
-          s.fields?.some(
-            (f: any) =>
-              f.name === "service" ||
-              f.name === "category" ||
-              f.name === "serviceType" ||
-              f.label?.toLowerCase().includes("service") ||
-              f.label?.toLowerCase().includes("category")
-          )
-      ) || flowObj.steps[0];
+      const serviceStep =
+        flowObj.steps.find(
+          (s: any) =>
+            s.type === "selection" &&
+            s.fields?.some(
+              (f: any) =>
+                f.name === "service" ||
+                f.name === "category" ||
+                f.name === "serviceType" ||
+                f.label?.toLowerCase().includes("service") ||
+                f.label?.toLowerCase().includes("category"),
+            ),
+        ) || flowObj.steps[0];
 
       if (serviceStep && serviceStep.type === "selection" && serviceStep.fields?.length > 0) {
-        serviceStep.fields[0].options = updatedCategories.length > 0 ? updatedCategories : ["Service 1"];
+        serviceStep.fields[0].options =
+          updatedCategories.length > 0 ? updatedCategories : ["Service 1"];
         return JSON.stringify(flowObj, null, 2);
       }
     }
   } catch {}
   return flowStr;
 }
-
-
 
 const isTemplateBotCheck = (bot: Chatbot): boolean => {
   if (bot.fromTemplate) return true;
@@ -705,6 +766,7 @@ function ScriptsPage() {
   const [editingBot, setEditingBot] = useState<Chatbot | null>(null);
   const [isTemplateBot, setIsTemplateBot] = useState(false);
   const [editStep, setEditStep] = useState(1);
+  const [autoFlowScan, setAutoFlowScan] = useState<any>(null);
   const [tourStep, setTourStep] = useState(0);
   const [tourRect, setTourRect] = useState<DOMRect | null>(null);
   const tourElRef = useRef<Element | null>(null);
@@ -740,6 +802,28 @@ function ScriptsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState("");
+  const editSteps =
+    draft.type === "agency"
+      ? draft.flowMode === "auto"
+        ? [
+            { n: 1, label: "Identity" },
+            { n: 4, label: "Training & Flow" },
+            { n: 5, label: "Bot Details" },
+            { n: 6, label: "Knowledge" },
+            { n: 7, label: "Email Setup" },
+          ]
+        : [
+            { n: 1, label: "Identity" },
+            { n: 2, label: "Data Collection" },
+            { n: 3, label: "Orders & Storage" },
+            { n: 4, label: "Training & Flow" },
+            { n: 5, label: "Bot Details" },
+            { n: 6, label: "Knowledge" },
+            { n: 7, label: "Email Setup" },
+          ]
+      : [];
+  const editStepIndex = editSteps.findIndex((step) => step.n === editStep);
+  const isLastEditStep = editStepIndex === editSteps.length - 1;
 
   useEffect(() => {
     const user = getUserContext();
@@ -904,8 +988,8 @@ function ScriptsPage() {
 
 <!-- ================================================================
   Webotme Widget Custom CSS
-  Is block me CSS likh kar apne widget ko apne hisab se position,
-  size aur style dein — ye styles automatic apply ho jayengi.
+  Add CSS in this block to position, resize and style your widget —
+  these styles apply automatically.
 
   Selectors:
     #rover-chatbot-bubble  → launcher button / icon
@@ -918,7 +1002,7 @@ function ScriptsPage() {
   data-widget-launcher-style="pill"
 ================================================================= -->
 <style data-rover-custom-css="true">
-  /* Apni CSS yahan lagayen — e.g. widget ko upar le jayen ya bada karen */
+  /* Add your own CSS here — e.g. move the widget up or make it bigger */
   /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
   /* #rover-chatbot-frame { width: 480px; height: 640px; } */
 ${
@@ -1312,7 +1396,39 @@ ${
     setDbSchemaMeta(null);
     setSyncingDB(false);
     setSelectedFlowSlug(null);
+    setAutoFlowScan(null);
   };
+
+  useEffect(() => {
+    let alive = true;
+    if (editingBot?.id) {
+      fetch(`/api/autoflow/${editingBot.id}/scan-status`, { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!alive) return;
+          setAutoFlowScan(d?.scanStatus ?? null);
+
+          const hasAutoFlow =
+            d?.flowMode === "auto" ||
+            d?.autoFlowEnabled === true ||
+            d?.scanStatus?.status === "complete" ||
+            (Array.isArray(d?.scanStatus?.flowsDetected) && d.scanStatus.flowsDetected.length > 0);
+          if (hasAutoFlow) {
+            setDraft((prev) =>
+              prev.flowMode === "auto" ? prev : { ...prev, flowMode: "auto" },
+            );
+          }
+        })
+        .catch(() => {
+          if (alive) setAutoFlowScan(null);
+        });
+    } else {
+      setAutoFlowScan(null);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [editingBot?.id]);
 
   const selectFlow = (f: DefaultFlowOption | null) => {
     setSelectedFlowSlug(f ? f.slug : null);
@@ -1573,10 +1689,7 @@ ${
           : "Generating journey flow with Groq / Gemini AI…",
       );
       const cats = [
-        ...new Set([
-          ...(draft.trainingSheetServices || []),
-          ...(draft.extractedServices || []),
-        ]),
+        ...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])]),
       ].filter(Boolean);
 
       const res = await fetch("/api/chatbot/generate-flow", {
@@ -1588,7 +1701,7 @@ ${
           // for multi-category types pass whatever the user configured.
           categories: cats.length > 0 ? cats : ["Web Dev", "App Dev", "ChatBot"],
           description: draft.description || draft.welcome,
-          flowSlug: currentSlug,          // ← tell the server which journey to build
+          flowSlug: currentSlug, // ← tell the server which journey to build
           preferredProvider: "groq",
         }),
       });
@@ -1630,7 +1743,6 @@ ${
     }
   };
 
-
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -1644,11 +1756,17 @@ ${
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(extension);
     const signRes = await fetch("/api/chatbot/upload/cloudinary", {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ resourceType: isImage ? "image" : "raw" }),
     });
     const signData = await signRes.json();
-    if (!signRes.ok) throw new Error(signData.message || "Failed to get upload signature");
+    if (!signRes.ok) {
+      throw new Error(
+        signRes.status === 401
+          ? "Your session has expired. Please sign in again before uploading files."
+          : signData.message || "Failed to get upload signature",
+      );
+    }
     const formData = new FormData();
     formData.append("file", file);
     formData.append("api_key", signData.apiKey);
@@ -1957,7 +2075,7 @@ ${
           trainingSheet: draft.trainingSheet,
           extractedServices: draft.extractedServices,
           trainingSheetServices: draft.trainingSheetServices,
-          trainingFlow: draft.trainingFlow,
+          trainingFlow: draft.flowMode === "auto" ? "" : draft.trainingFlow,
         },
       };
 
@@ -2151,6 +2269,14 @@ ${
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {formatDate(b.createdAt)}
                         </span>
+                        <Link
+                          to="/dashboard/api-keys/$botId"
+                          params={{ botId: b.id }}
+                          title="API keys for this chatbot"
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border/60 bg-muted/40 text-muted-foreground transition hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                        >
+                          <ArrowUpRight className="h-4 w-4" />
+                        </Link>
                       </div>
 
                       {b.planRestricted && (
@@ -2270,6 +2396,16 @@ ${
                             {b.embedScript ? "Regenerate" : "Generate"}
                           </button>
                         )}
+                        {!b.planRestricted && (
+                          <Link
+                            to="/admin/scan-status/$botId"
+                            params={{ botId: b.id }}
+                            title="Live scan progress, detected pages & flows"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-500/20"
+                          >
+                            <Scan className="h-3.5 w-3.5" /> Scan Status
+                          </Link>
+                        )}
                         {b.type === "agency" && (
                           <>
                             <a
@@ -2364,7 +2500,7 @@ ${
                           <div>
                             <h3 className="text-lg font-bold text-white">{t.name}</h3>
                             <p className="text-xs text-white/80">
-                              {t.knowledge.fileCount} knowledge files
+                              {t.knowledge?.fileCount ?? 0} knowledge files
                             </p>
                           </div>
                         </div>
@@ -2374,7 +2510,7 @@ ${
                           {t.description}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {t.knowledge.files.map((f) => (
+                          {(t.knowledge?.files ?? []).map((f) => (
                             <span
                               key={f.name}
                               className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
@@ -2467,17 +2603,9 @@ ${
           {draft.type === "agency" && (
             <div className="mb-4 -mx-1 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max items-center gap-1">
-                {[
-                  { n: 1, label: "Identity" },
-                  { n: 2, label: "Data Collection" },
-                  { n: 3, label: "Orders & Storage" },
-                  { n: 4, label: "Training & Flow" },
-                  { n: 5, label: "Bot Details" },
-                  { n: 6, label: "Knowledge" },
-                  { n: 7, label: "Email Setup" },
-                ].map((s, i) => {
+                {editSteps.map((s, i) => {
                   const active = editStep === s.n;
-                  const done = editStep > s.n;
+                  const done = editStepIndex > i;
                   return (
                     <div key={s.n} className="flex items-center gap-1">
                       <button
@@ -2506,7 +2634,7 @@ ${
                         </span>
                         {s.label}
                       </button>
-                      {i < 6 && (
+                      {i < editSteps.length - 1 && (
                         <div className={cn("h-px w-3", done ? "bg-emerald-500/50" : "bg-border")} />
                       )}
                     </div>
@@ -3606,27 +3734,28 @@ ${
 
                       {/* ── Flow Mode Toggle (Custom vs Auto) ── */}
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDraft((p) => ({ ...p, flowMode: "custom" }))
-                          }
-                          className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
-                            draft.flowMode === "custom"
-                              ? "border-primary bg-primary/10 ring-1 ring-primary"
-                              : "border-border/60 bg-card hover:bg-accent"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2 text-sm font-semibold">
-                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                              <Layers className="h-4 w-4" />
+                        {draft.flowMode !== "auto" && (
+                          <button
+                            type="button"
+                            onClick={() => setDraft((p) => ({ ...p, flowMode: "custom" }))}
+                            className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition ${
+                              draft.flowMode === "custom"
+                                ? "border-primary bg-primary/10 ring-1 ring-primary"
+                                : "border-border/60 bg-card hover:bg-accent"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 text-sm font-semibold">
+                              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                                <Layers className="h-4 w-4" />
+                              </span>
+                              Custom Flow
                             </span>
-                            Custom Flow
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Pick a built-in journey — E-Commerce, Service Booking, Book a Table, etc.
-                          </span>
-                        </button>
+                            <span className="text-xs text-muted-foreground">
+                              Pick a built-in journey — E-Commerce, Service Booking, Book a Table,
+                              etc.
+                            </span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -3650,7 +3779,8 @@ ${
                             Auto Flow
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            AI analyzes your website live — reads slots, alerts, buttons and fills forms itself.
+                            AI analyzes your website live — reads slots, alerts, buttons and fills
+                            forms itself.
                           </span>
                         </button>
                       </div>
@@ -3685,588 +3815,686 @@ ${
                         </div>
                       )}
 
-                      {/* ── Default Flow Library Section ── */}
-                      <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                            <Layers className="h-4 w-4" />
+                      {/* ── Auto Flow Summary (detected live website data) ── */}
+                      {draft.flowMode === "auto" && (
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-600">
+                              <Zap className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                  Auto Flow is Active
+                                </h3>
+                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                                  {autoFlowScan?.status || "scanning"}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                This bot does <b>not</b> use a fixed chat flow. It reads your live
+                                website (pages, buttons, forms, wizard steps) and drives visitors
+                                through the real steps on the page. Below is the data detected for
+                                this bot.
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold">Default Flow Library</h3>
-                            <p className="text-[11px] text-muted-foreground">
-                              Pick a built-in journey (saved as knowledge.trainingFlow) — the widget
-                              runs it end-to-end in chat. Selecting a flow overwrites the flow
-                              below.
-                            </p>
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-xl border border-border/60 bg-card/70 p-2.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Pages Detected
+                              </span>
+                              <p className="mt-0.5 text-sm font-bold">
+                                {autoFlowScan?.totalPagesFound ?? autoFlowScan?.pages ?? 0}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-border/60 bg-card/70 p-2.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Flows Detected
+                              </span>
+                              <p className="mt-0.5 text-sm font-bold">
+                                {autoFlowScan?.flowsDetected?.length ?? 0}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-border/60 bg-card/70 p-2.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Pages Active On
+                              </span>
+                              <p className="mt-0.5 text-sm font-bold truncate">
+                                {draft.allowedPages.length > 0
+                                  ? draft.allowedPages.join(", ")
+                                  : "All pages"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {autoFlowScan?.flowsDetected?.length > 0 && (
+                            <div className="mt-3 space-y-1.5">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                Auto-flow steps this bot follows
+                              </span>
+                              {autoFlowScan.flowsDetected
+                                .slice(0, 8)
+                                .map((f: string, i: number) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2"
+                                  >
+                                    <Zap className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                    <span className="text-xs font-medium">{f}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3">
+                            <Link
+                              to="/admin/scan-status/$botId"
+                              params={{ botId: editingBot?.id || "" }}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline"
+                            >
+                              View full scan status <ArrowRight className="h-3 w-3" />
+                            </Link>
                           </div>
                         </div>
+                      )}
 
-                        {flowsLoading ? (
-                          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3 text-xs text-muted-foreground">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading default flows…
-                          </div>
-                        ) : (
-                          <>
-                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                              <button
-                                type="button"
-                                onClick={() => selectFlow(null)}
-                                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${activeFlowSlug === null && !draft.trainingFlow ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
-                              >
-                                <span className="text-sm font-semibold flex items-center gap-2">
-                                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-muted text-muted-foreground">
-                                    <Layers className="h-3.5 w-3.5" />
-                                  </span>
-                                  No Flow
-                                </span>
-                                <span className="text-[11px] text-muted-foreground">
-                                  Knowledge-only answers
-                                </span>
-                              </button>
+                      {draft.flowMode === "custom" && (
+                        <>
+                          {/* ── Default Flow Library Section ── */}
+                          <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                                <Layers className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-semibold">Default Flow Library</h3>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Pick a built-in journey (saved as knowledge.trainingFlow) — the
+                                  widget runs it end-to-end in chat. Selecting a flow overwrites the
+                                  flow below.
+                                </p>
+                              </div>
+                            </div>
 
-                              {defaultFlows.map((f) => {
-                                const active = activeFlowSlug === f.slug;
-                                return (
+                            {flowsLoading ? (
+                              <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3 text-xs text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading default
+                                flows…
+                              </div>
+                            ) : (
+                              <>
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                   <button
-                                    key={f.slug}
                                     type="button"
-                                    onClick={() => selectFlow(f)}
-                                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
+                                    onClick={() => selectFlow(null)}
+                                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${activeFlowSlug === null && !draft.trainingFlow ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
                                   >
                                     <span className="text-sm font-semibold flex items-center gap-2">
-                                      <span
-                                        className={`grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br ${f.tone || "from-violet-500 to-indigo-500"} text-white`}
-                                      >
-                                        <Sparkles className="h-3.5 w-3.5" />
+                                      <span className="grid h-7 w-7 place-items-center rounded-lg bg-muted text-muted-foreground">
+                                        <Layers className="h-3.5 w-3.5" />
                                       </span>
-                                      {f.name}
+                                      No Flow
                                     </span>
                                     <span className="text-[11px] text-muted-foreground">
-                                      {f.tagline}
-                                    </span>
-                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                      {f.stepsCount ?? "?"} steps
-                                      {f.flowKind === "multi-category" ? " · multi-category" : ""}
+                                      Knowledge-only answers
                                     </span>
                                   </button>
-                                );
-                              })}
+
+                                  {defaultFlows.map((f) => {
+                                    const active = activeFlowSlug === f.slug;
+                                    return (
+                                      <button
+                                        key={f.slug}
+                                        type="button"
+                                        onClick={() => selectFlow(f)}
+                                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${active ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border/70 bg-card hover:bg-accent"}`}
+                                      >
+                                        <span className="text-sm font-semibold flex items-center gap-2">
+                                          <span
+                                            className={`grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br ${f.tone || "from-violet-500 to-indigo-500"} text-white`}
+                                          >
+                                            <Sparkles className="h-3.5 w-3.5" />
+                                          </span>
+                                          {f.name}
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {f.tagline}
+                                        </span>
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                          {f.stepsCount ?? "?"} steps
+                                          {f.flowKind === "multi-category"
+                                            ? " · multi-category"
+                                            : ""}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {selectedFlow && flowPreview && (
+                                  <div className="mt-4 rounded-xl border border-primary/25 bg-card p-4">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4 text-primary" />
+                                        {selectedFlow.name} — Flow Preview
+                                      </h4>
+                                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                        {flowPreview.categories.length > 0
+                                          ? `categories: ${flowPreview.categories.join(" · ")}`
+                                          : `${flowPreview.steps.length} steps`}
+                                      </span>
+                                    </div>
+                                    {diagramFlow ? (
+                                      <div className="mt-4">
+                                        <FlowDiagram flow={diagramFlow} height={420} />
+                                      </div>
+                                    ) : (
+                                      <ol className="mt-3 space-y-2">
+                                        {flowPreview.steps.map((s, i) => (
+                                          <li
+                                            key={s.id ?? i}
+                                            className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 px-3 py-2"
+                                          >
+                                            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                                              {i + 1}
+                                            </span>
+                                            <span className="flex-1">
+                                              <span className="block text-sm font-medium">
+                                                {s.title}
+                                              </span>
+                                              <span className="block text-[11px] text-muted-foreground">
+                                                {s.type === "selection"
+                                                  ? "Choose an option"
+                                                  : s.type === "form"
+                                                    ? `Ask: ${(s.fields || []).map((fd) => fd.label).join(", ") || "enter details"}`
+                                                    : "Confirm"}
+                                              </span>
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ol>
+                                    )}
+                                    {selectedFlow.welcome ? (
+                                      <p className="mt-3 text-[11px] text-muted-foreground">
+                                        Welcome: {selectedFlow.welcome}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {/* ── Training Sheet Files & File Categories Section ── */}
+                          <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
+                            <div className="flex items-center gap-2">
+                              <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                                  Training Data & Categories
+                                </p>
+                                <h3 className="text-sm font-semibold text-foreground">
+                                  Training Sheet Files & File Categories
+                                </h3>
+                              </div>
                             </div>
 
-                            {selectedFlow && flowPreview && (
-                              <div className="mt-4 rounded-xl border border-primary/25 bg-card p-4">
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4 text-primary" />
-                                    {selectedFlow.name} — Flow Preview
-                                  </h4>
-                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                                    {flowPreview.categories.length > 0
-                                      ? `categories: ${flowPreview.categories.join(" · ")}`
-                                      : `${flowPreview.steps.length} steps`}
-                                  </span>
+                            {/* Uploaded Training Files List */}
+                            {((draft.trainingSheet && draft.trainingSheet.length > 0) ||
+                              (draft.knowledgeFiles && draft.knowledgeFiles.length > 0)) && (
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-foreground/80">
+                                  Uploaded Training Files
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                  {[
+                                    ...(draft.trainingSheet || []),
+                                    ...(draft.knowledgeFiles || []),
+                                  ].map((file, fIdx) => (
+                                    <div
+                                      key={fIdx}
+                                      className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground shadow-xs"
+                                    >
+                                      <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                                      <span className="font-medium truncate max-w-[220px]">
+                                        {file.name}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
-                                {diagramFlow ? (
-                                  <div className="mt-4">
-                                    <FlowDiagram flow={diagramFlow} height={420} />
-                                  </div>
-                                ) : (
-                                  <ol className="mt-3 space-y-2">
-                                    {flowPreview.steps.map((s, i) => (
-                                      <li
-                                        key={s.id ?? i}
-                                        className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 px-3 py-2"
-                                      >
-                                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-                                          {i + 1}
-                                        </span>
-                                        <span className="flex-1">
-                                          <span className="block text-sm font-medium">
-                                            {s.title}
-                                          </span>
-                                          <span className="block text-[11px] text-muted-foreground">
-                                            {s.type === "selection"
-                                              ? "Choose an option"
-                                              : s.type === "form"
-                                                ? `Ask: ${(s.fields || []).map((fd) => fd.label).join(", ") || "enter details"}`
-                                                : "Confirm"}
-                                          </span>
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ol>
-                                )}
-                                {selectedFlow.welcome ? (
-                                  <p className="mt-3 text-[11px] text-muted-foreground">
-                                    Welcome: {selectedFlow.welcome}
-                                  </p>
-                                ) : null}
                               </div>
                             )}
-                          </>
-                        )}
-                      </div>
 
-                      {/* ── Training Sheet Files & File Categories Section ── */}
-                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
-                        <div className="flex items-center gap-2">
-                          <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
-                            <FileText className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                              Training Data & Categories
-                            </p>
-                            <h3 className="text-sm font-semibold text-foreground">
-                              Training Sheet Files & File Categories
-                            </h3>
-                          </div>
-                        </div>
-
-                        {/* Uploaded Training Files List */}
-                        {((draft.trainingSheet && draft.trainingSheet.length > 0) ||
-                          (draft.knowledgeFiles && draft.knowledgeFiles.length > 0)) && (
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-foreground/80">
-                              Uploaded Training Files
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {[
-                                ...(draft.trainingSheet || []),
-                                ...(draft.knowledgeFiles || []),
-                              ].map((file, fIdx) => (
-                                <div
-                                  key={fIdx}
-                                  className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-foreground shadow-xs"
-                                >
-                                  <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                                  <span className="font-medium truncate max-w-[220px]">
-                                    {file.name}
-                                  </span>
+                            {/* File Categories List */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-foreground/80">
+                                  File Categories (
+                                  {
+                                    [
+                                      ...new Set([
+                                        ...(draft.trainingSheetServices || []),
+                                        ...(draft.extractedServices || []),
+                                      ]),
+                                    ].length
+                                  }
+                                  )
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  {(draft.collectionConnected ||
+                                    draft.collectionTable ||
+                                    draft.collectionUri) && (
+                                    <button
+                                      type="button"
+                                      disabled={syncingDB}
+                                      onClick={syncCategoriesAndFlowFromDB}
+                                      className="inline-flex items-center gap-1 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer shadow-xs"
+                                      title="Fetch categories from your database"
+                                    >
+                                      <Sparkles className="h-3 w-3" />
+                                      {syncingDB ? "Syncing..." : "Sync from DB"}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const newCatName = "New Category";
+                                      const isServiceBooking = isServiceBookingFlowJson(
+                                        draft.trainingFlow,
+                                      );
+                                      setDraft((prev) => {
+                                        const currentList = [
+                                          ...new Set([
+                                            ...(prev.trainingSheetServices || []),
+                                            ...(prev.extractedServices || []),
+                                          ]),
+                                        ];
+                                        const updated = [...currentList, newCatName];
+                                        const flowStr = prev.trainingFlow || "{}";
+                                        let flowObj: any = {};
+                                        try {
+                                          flowObj = JSON.parse(flowStr);
+                                        } catch {}
+                                        // Service-booking bots get a service-style placeholder
+                                        // (the runtime AI expands each chosen service anyway);
+                                        // e-commerce bots keep the product/quantity flow.
+                                        // Build category-specific flow
+                                        const catFlow = isServiceBooking
+                                          ? {
+                                              steps: [
+                                                {
+                                                  id: "step_1",
+                                                  title: "Choose a Service",
+                                                  type: "selection",
+                                                  fields: [
+                                                    {
+                                                      name: "service",
+                                                      label: "Service",
+                                                      type: "text",
+                                                      options: ["Basic", "Standard", "Premium"],
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_2",
+                                                  title: "Pick a Slot",
+                                                  type: "selection",
+                                                  fields: [
+                                                    {
+                                                      name: "slot",
+                                                      label: "Slot",
+                                                      type: "text",
+                                                      options: [
+                                                        "Today 3:00 PM",
+                                                        "Tomorrow 10:00 AM",
+                                                        "Friday 4:30 PM",
+                                                      ],
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_3",
+                                                  title: "Your Name",
+                                                  type: "form",
+                                                  fields: [
+                                                    {
+                                                      name: "fullName",
+                                                      label: "Full Name",
+                                                      type: "text",
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_4",
+                                                  title: "Phone Number",
+                                                  type: "form",
+                                                  fields: [
+                                                    {
+                                                      name: "phone",
+                                                      label: "Phone Number",
+                                                      type: "tel",
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_5",
+                                                  title: "Payment Method",
+                                                  type: "selection",
+                                                  fields: [
+                                                    {
+                                                      name: "paymentMethod",
+                                                      label: "Payment Method",
+                                                      type: "checkbox",
+                                                      options: [
+                                                        "Cash on Delivery",
+                                                        "Online Payment",
+                                                      ],
+                                                      required: true,
+                                                      allowSkip: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_6",
+                                                  title: "Confirmation",
+                                                  type: "confirmation",
+                                                  fields: [],
+                                                },
+                                              ],
+                                            }
+                                          : {
+                                              steps: [
+                                                {
+                                                  id: "step_1",
+                                                  title: "Order Details",
+                                                  type: "form",
+                                                  fields: [
+                                                    {
+                                                      name: "product",
+                                                      label: "Product Name",
+                                                      type: "text",
+                                                      required: true,
+                                                    },
+                                                    {
+                                                      name: "quantity",
+                                                      label: "Quantity",
+                                                      type: "number",
+                                                      required: true,
+                                                    },
+                                                    {
+                                                      name: "price",
+                                                      label: "Price",
+                                                      type: "number",
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_2",
+                                                  title: "Customer Details",
+                                                  type: "form",
+                                                  fields: [
+                                                    {
+                                                      name: "fullName",
+                                                      label: "Full Name",
+                                                      type: "text",
+                                                      required: true,
+                                                    },
+                                                    {
+                                                      name: "phone",
+                                                      label: "Phone Number",
+                                                      type: "tel",
+                                                      required: true,
+                                                    },
+                                                    {
+                                                      name: "email",
+                                                      label: "Email Address",
+                                                      type: "email",
+                                                      required: true,
+                                                    },
+                                                    {
+                                                      name: "address",
+                                                      label: "Full Address",
+                                                      type: "text",
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_3",
+                                                  title: "Payment Method",
+                                                  type: "selection",
+                                                  fields: [
+                                                    {
+                                                      name: "paymentMethod",
+                                                      label: "Payment Method",
+                                                      type: "checkbox",
+                                                      options: [
+                                                        "Cash on Delivery",
+                                                        "Online Payment",
+                                                      ],
+                                                      required: true,
+                                                    },
+                                                  ],
+                                                },
+                                                {
+                                                  id: "step_4",
+                                                  title: "Confirmation",
+                                                  type: "confirmation",
+                                                  fields: [],
+                                                },
+                                              ],
+                                            };
+                                        // Add to multi-category flows or convert legacy format
+                                        if (flowObj.steps) {
+                                          // Legacy single flow → convert to multi-flow
+                                          flowObj = {};
+                                        }
+                                        flowObj[newCatName] = catFlow;
+                                        return {
+                                          ...prev,
+                                          trainingSheetServices: updated,
+                                          extractedServices: updated,
+                                          trainingFlow: JSON.stringify(flowObj, null, 2),
+                                        };
+                                      });
+                                      // Try to auto-generate via API for better flow
+                                      try {
+                                        const res = await fetch("/api/orders/generate-flow", {
+                                          method: "POST",
+                                          headers: getAuthHeaders(),
+                                          body: JSON.stringify({
+                                            category: newCatName,
+                                            services: [newCatName],
+                                            flowHint: isServiceBooking ? "service" : undefined,
+                                          }),
+                                        });
+                                        if (res.ok) {
+                                          const data = await res.json();
+                                          if (data.flow) {
+                                            setDraft((prev) => {
+                                              let flowObj: any = {};
+                                              try {
+                                                flowObj = JSON.parse(prev.trainingFlow || "{}");
+                                              } catch {}
+                                              flowObj[newCatName] = data.flow;
+                                              return {
+                                                ...prev,
+                                                trainingFlow: JSON.stringify(flowObj, null, 2),
+                                              };
+                                            });
+                                          }
+                                        }
+                                      } catch {}
+                                      toast.success(`Flow auto-generated for "${newCatName}"`);
+                                    }}
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
+                                  >
+                                    + Add Category
+                                  </button>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                              </div>
 
-                        {/* File Categories List */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-semibold text-foreground/80">
-                              File Categories (
-                              {
-                                [
+                              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                {[
                                   ...new Set([
                                     ...(draft.trainingSheetServices || []),
                                     ...(draft.extractedServices || []),
                                   ]),
-                                ].length
-                              }
-                              )
-                            </label>
-                            <div className="flex items-center gap-2">
-                              {(draft.collectionConnected ||
-                                draft.collectionTable ||
-                                draft.collectionUri) && (
-                                <button
-                                  type="button"
-                                  disabled={syncingDB}
-                                  onClick={syncCategoriesAndFlowFromDB}
-                                  className="inline-flex items-center gap-1 rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer shadow-xs"
-                                  title="Fetch categories from your database"
-                                >
-                                  <Sparkles className="h-3 w-3" />
-                                  {syncingDB ? "Syncing..." : "Sync from DB"}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const newCatName = "New Category";
-                                  const isServiceBooking = isServiceBookingFlowJson(
-                                    draft.trainingFlow,
-                                  );
-                                  setDraft((prev) => {
-                                    const currentList = [
-                                      ...new Set([
-                                        ...(prev.trainingSheetServices || []),
-                                        ...(prev.extractedServices || []),
-                                      ]),
-                                    ];
-                                    const updated = [...currentList, newCatName];
-                                    const flowStr = prev.trainingFlow || "{}";
-                                    let flowObj: any = {};
-                                    try {
-                                      flowObj = JSON.parse(flowStr);
-                                    } catch {}
-                                    // Service-booking bots get a service-style placeholder
-                                    // (the runtime AI expands each chosen service anyway);
-                                    // e-commerce bots keep the product/quantity flow.
-                                    // Build category-specific flow
-                                    const catFlow = isServiceBooking
-                                      ? {
-                                          steps: [
-                                            {
-                                              id: "step_1",
-                                              title: "Choose a Service",
-                                              type: "selection",
-                                              fields: [
-                                                {
-                                                  name: "service",
-                                                  label: "Service",
-                                                  type: "text",
-                                                  options: ["Basic", "Standard", "Premium"],
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_2",
-                                              title: "Pick a Slot",
-                                              type: "selection",
-                                              fields: [
-                                                {
-                                                  name: "slot",
-                                                  label: "Slot",
-                                                  type: "text",
-                                                  options: [
-                                                    "Today 3:00 PM",
-                                                    "Tomorrow 10:00 AM",
-                                                    "Friday 4:30 PM",
-                                                  ],
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_3",
-                                              title: "Your Name",
-                                              type: "form",
-                                              fields: [
-                                                {
-                                                  name: "fullName",
-                                                  label: "Full Name",
-                                                  type: "text",
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_4",
-                                              title: "Phone Number",
-                                              type: "form",
-                                              fields: [
-                                                {
-                                                  name: "phone",
-                                                  label: "Phone Number",
-                                                  type: "tel",
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_5",
-                                              title: "Payment Method",
-                                              type: "selection",
-                                              fields: [
-                                                {
-                                                  name: "paymentMethod",
-                                                  label: "Payment Method",
-                                                  type: "checkbox",
-                                                  options: ["Cash on Delivery", "Online Payment"],
-                                                  required: true,
-                                                  allowSkip: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_6",
-                                              title: "Confirmation",
-                                              type: "confirmation",
-                                              fields: [],
-                                            },
-                                          ],
-                                        }
-                                      : {
-                                          steps: [
-                                            {
-                                              id: "step_1",
-                                              title: "Order Details",
-                                              type: "form",
-                                              fields: [
-                                                {
-                                                  name: "product",
-                                                  label: "Product Name",
-                                                  type: "text",
-                                                  required: true,
-                                                },
-                                                {
-                                                  name: "quantity",
-                                                  label: "Quantity",
-                                                  type: "number",
-                                                  required: true,
-                                                },
-                                                {
-                                                  name: "price",
-                                                  label: "Price",
-                                                  type: "number",
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_2",
-                                              title: "Customer Details",
-                                              type: "form",
-                                              fields: [
-                                                {
-                                                  name: "fullName",
-                                                  label: "Full Name",
-                                                  type: "text",
-                                                  required: true,
-                                                },
-                                                {
-                                                  name: "phone",
-                                                  label: "Phone Number",
-                                                  type: "tel",
-                                                  required: true,
-                                                },
-                                                {
-                                                  name: "email",
-                                                  label: "Email Address",
-                                                  type: "email",
-                                                  required: true,
-                                                },
-                                                {
-                                                  name: "address",
-                                                  label: "Full Address",
-                                                  type: "text",
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_3",
-                                              title: "Payment Method",
-                                              type: "selection",
-                                              fields: [
-                                                {
-                                                  name: "paymentMethod",
-                                                  label: "Payment Method",
-                                                  type: "checkbox",
-                                                  options: ["Cash on Delivery", "Online Payment"],
-                                                  required: true,
-                                                },
-                                              ],
-                                            },
-                                            {
-                                              id: "step_4",
-                                              title: "Confirmation",
-                                              type: "confirmation",
-                                              fields: [],
-                                            },
-                                          ],
-                                        };
-                                    // Add to multi-category flows or convert legacy format
-                                    if (flowObj.steps) {
-                                      // Legacy single flow → convert to multi-flow
-                                      flowObj = {};
-                                    }
-                                    flowObj[newCatName] = catFlow;
-                                    return {
-                                      ...prev,
-                                      trainingSheetServices: updated,
-                                      extractedServices: updated,
-                                      trainingFlow: JSON.stringify(flowObj, null, 2),
-                                    };
-                                  });
-                                  // Try to auto-generate via API for better flow
-                                  try {
-                                    const res = await fetch("/api/orders/generate-flow", {
-                                      method: "POST",
-                                      headers: getAuthHeaders(),
-                                      body: JSON.stringify({
-                                        category: newCatName,
-                                        services: [newCatName],
-                                        flowHint: isServiceBooking ? "service" : undefined,
-                                      }),
-                                    });
-                                    if (res.ok) {
-                                      const data = await res.json();
-                                      if (data.flow) {
+                                ].map((catName, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-xs font-extrabold text-muted-foreground border">
+                                      {idx + 1}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={catName}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const oldName = catName;
                                         setDraft((prev) => {
+                                          const currentList = [
+                                            ...new Set([
+                                              ...(prev.trainingSheetServices || []),
+                                              ...(prev.extractedServices || []),
+                                            ]),
+                                          ];
+                                          currentList[idx] = val;
+                                          // Also rename the flow key
                                           let flowObj: any = {};
                                           try {
                                             flowObj = JSON.parse(prev.trainingFlow || "{}");
                                           } catch {}
-                                          flowObj[newCatName] = data.flow;
+                                          if (flowObj[oldName] && oldName !== val) {
+                                            flowObj[val] = flowObj[oldName];
+                                            delete flowObj[oldName];
+                                          }
                                           return {
                                             ...prev,
+                                            trainingSheetServices: currentList,
+                                            extractedServices: currentList,
                                             trainingFlow: JSON.stringify(flowObj, null, 2),
                                           };
                                         });
-                                      }
-                                    }
-                                  } catch {}
-                                  toast.success(`Flow auto-generated for "${newCatName}"`);
-                                }}
-                                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
-                              >
-                                + Add Category
-                              </button>
+                                      }}
+                                      className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDraft((prev) => {
+                                          const currentList = [
+                                            ...new Set([
+                                              ...(prev.trainingSheetServices || []),
+                                              ...(prev.extractedServices || []),
+                                            ]),
+                                          ];
+                                          const removedCat = currentList[idx];
+                                          currentList.splice(idx, 1);
+                                          // Also remove its flow from trainingFlow
+                                          let flowObj: any = {};
+                                          try {
+                                            flowObj = JSON.parse(prev.trainingFlow || "{}");
+                                          } catch {}
+                                          if (flowObj[removedCat]) {
+                                            delete flowObj[removedCat];
+                                          }
+                                          return {
+                                            ...prev,
+                                            trainingSheetServices: currentList,
+                                            extractedServices: currentList,
+                                            trainingFlow: JSON.stringify(flowObj, null, 2),
+                                          };
+                                        });
+                                      }}
+                                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
+                                      title="Remove Category"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+
+                                {[
+                                  ...new Set([
+                                    ...(draft.trainingSheetServices || []),
+                                    ...(draft.extractedServices || []),
+                                  ]),
+                                ].length === 0 && (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    No file categories found. Click "+ Add Category" to create one.
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                            {[
-                              ...new Set([
-                                ...(draft.trainingSheetServices || []),
-                                ...(draft.extractedServices || []),
-                              ]),
-                            ].map((catName, idx) => (
-                              <div key={idx} className="flex items-center gap-2">
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-xs font-extrabold text-muted-foreground border">
-                                  {idx + 1}
-                                </span>
-                                <input
-                                  type="text"
-                                  value={catName}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const oldName = catName;
-                                    setDraft((prev) => {
-                                      const currentList = [
-                                        ...new Set([
-                                          ...(prev.trainingSheetServices || []),
-                                          ...(prev.extractedServices || []),
-                                        ]),
-                                      ];
-                                      currentList[idx] = val;
-                                      // Also rename the flow key
-                                      let flowObj: any = {};
-                                      try {
-                                        flowObj = JSON.parse(prev.trainingFlow || "{}");
-                                      } catch {}
-                                      if (flowObj[oldName] && oldName !== val) {
-                                        flowObj[val] = flowObj[oldName];
-                                        delete flowObj[oldName];
-                                      }
-                                      return {
-                                        ...prev,
-                                        trainingSheetServices: currentList,
-                                        extractedServices: currentList,
-                                        trainingFlow: JSON.stringify(flowObj, null, 2),
-                                      };
-                                    });
-                                  }}
-                                  className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDraft((prev) => {
-                                      const currentList = [
-                                        ...new Set([
-                                          ...(prev.trainingSheetServices || []),
-                                          ...(prev.extractedServices || []),
-                                        ]),
-                                      ];
-                                      const removedCat = currentList[idx];
-                                      currentList.splice(idx, 1);
-                                      // Also remove its flow from trainingFlow
-                                      let flowObj: any = {};
-                                      try {
-                                        flowObj = JSON.parse(prev.trainingFlow || "{}");
-                                      } catch {}
-                                      if (flowObj[removedCat]) {
-                                        delete flowObj[removedCat];
-                                      }
-                                      return {
-                                        ...prev,
-                                        trainingSheetServices: currentList,
-                                        extractedServices: currentList,
-                                        trainingFlow: JSON.stringify(flowObj, null, 2),
-                                      };
-                                    });
-                                  }}
-                                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer"
-                                  title="Remove Category"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                          {/* ── Flow Builder ── */}
+                          <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div>
+                                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                  <Sparkles className="h-4 w-4 text-primary" /> Visual Flow Builder
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                  Customize journey steps or auto-generate with Groq / Gemini AI
+                                </p>
                               </div>
-                            ))}
+                              <button
+                                type="button"
+                                disabled={generatingFlow}
+                                onClick={generateAIFlowWithGroqGemini}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft hover:brightness-110 transition cursor-pointer disabled:opacity-50"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                {generatingFlow ? "Generating Flow..." : "AI Auto-Generate Flow"}
+                              </button>
+                            </div>
+                            <FlowBuilder
+                              trainingFlow={draft.trainingFlow}
+                              onChange={(json) => setDraft((p) => ({ ...p, trainingFlow: json }))}
+                              onServiceOptionsChange={(opts) =>
+                                setDraft((p) => ({
+                                  ...p,
+                                  trainingSheetServices: opts,
+                                  extractedServices: opts,
+                                }))
+                              }
+                            />
+                          </div>
 
-                            {[
-                              ...new Set([
-                                ...(draft.trainingSheetServices || []),
-                                ...(draft.extractedServices || []),
-                              ]),
-                            ].length === 0 && (
-                              <p className="text-xs text-muted-foreground italic">
-                                No file categories found. Click "+ Add Category" to create one.
+                          <details className="group rounded-xl border border-border/60 bg-card/40 p-3">
+                            <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition list-none">
+                              <Braces className="h-4 w-4" />
+                              <span>Advanced Flow JSON &amp; Raw Schema</span>
+                              <ChevronRight className="h-3.5 w-3.5 ml-auto transition-transform group-open:rotate-90" />
+                            </summary>
+                            <div className="mt-3 space-y-2">
+                              <textarea
+                                value={draft.trainingFlow}
+                                onChange={(e) =>
+                                  setDraft((p) => ({ ...p, trainingFlow: e.target.value }))
+                                }
+                                placeholder="Paste or edit flow JSON here..."
+                                rows={6}
+                                className="min-h-[140px] w-full rounded-xl border border-border bg-card p-3 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+                              />
+                              <p className="text-[11px] text-muted-foreground">
+                                Direct edits to this JSON are synced instantly to the visual
+                                builder.
                               </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ── Flow Builder ── */}
-                      <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div>
-                            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                              <Sparkles className="h-4 w-4 text-primary" /> Visual Flow Builder
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              Customize journey steps or auto-generate with Groq / Gemini AI
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={generatingFlow}
-                            onClick={generateAIFlowWithGroqGemini}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft hover:brightness-110 transition cursor-pointer disabled:opacity-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            {generatingFlow ? "Generating Flow..." : "AI Auto-Generate Flow"}
-                          </button>
-                        </div>
-                        <FlowBuilder
-                          trainingFlow={draft.trainingFlow}
-                          onChange={(json) => setDraft((p) => ({ ...p, trainingFlow: json }))}
-                          onServiceOptionsChange={(opts) =>
-                            setDraft((p) => ({
-                              ...p,
-                              trainingSheetServices: opts,
-                              extractedServices: opts,
-                            }))
-                          }
-                        />
-                      </div>
-
-
-                      <details className="group rounded-xl border border-border/60 bg-card/40 p-3">
-                        <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition list-none">
-                          <Braces className="h-4 w-4" />
-                          <span>Advanced Flow JSON &amp; Raw Schema</span>
-                          <ChevronRight className="h-3.5 w-3.5 ml-auto transition-transform group-open:rotate-90" />
-                        </summary>
-                        <div className="mt-3 space-y-2">
-                          <textarea
-                            value={draft.trainingFlow}
-                            onChange={(e) =>
-                              setDraft((p) => ({ ...p, trainingFlow: e.target.value }))
-                            }
-                            placeholder="Paste or edit flow JSON here..."
-                            rows={6}
-                            className="min-h-[140px] w-full rounded-xl border border-border bg-card p-3 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
-                          />
-                          <p className="text-[11px] text-muted-foreground">
-                            Direct edits to this JSON are synced instantly to the visual builder.
-                          </p>
-                        </div>
-                      </details>
+                            </div>
+                          </details>
+                        </>
+                      )}
                     </>
                   )}
                   {editStep === 5 && (
@@ -5493,6 +5721,15 @@ ${
             <div className="space-y-5">
               <h2 className="text-lg font-semibold">Live Preview</h2>
               <div className="sticky top-8">
+                {draft.flowMode === "auto" && (
+                  <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-600 dark:text-emerald-400">
+                    <Zap className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Auto Flow bot — design &amp; theme preview only. The conversation runs live on
+                      your website.
+                    </span>
+                  </div>
+                )}
                 <LiveBotPreview
                   name={draft.name || "Your Bot"}
                   welcome={draft.welcome}
@@ -5511,8 +5748,10 @@ ${
                   messageFontSize={draft.messageFontSize}
                   inputStyle={draft.inputStyle}
                   headerSubtitle={draft.headerSubtitle}
-                  extractedServices={draft.extractedServices}
-                  trainingSheetServices={draft.trainingSheetServices}
+                  extractedServices={draft.flowMode === "auto" ? [] : draft.extractedServices}
+                  trainingSheetServices={
+                    draft.flowMode === "auto" ? [] : draft.trainingSheetServices
+                  }
                   currency={draft.currency}
                   currencySymbol={draft.currencySymbol}
                   widgetLauncher={draft.widgetLauncher}
@@ -5522,7 +5761,7 @@ ${
                   widgetOpenMode={draft.widgetOpenMode}
                   widgetWidth={draft.widgetWidth}
                   widgetHeight={draft.widgetHeight}
-                  trainingFlow={draft.trainingFlow}
+                  trainingFlow={draft.flowMode === "auto" ? undefined : draft.trainingFlow}
                   orderSystemEnabled={draft.orderSystemEnabled}
                   catalogConnected={Boolean(draft.productConnected || draft.collectionConnected)}
                 />
@@ -5540,16 +5779,22 @@ ${
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditStep(Math.max(1, editStep - 1))}
-                  disabled={editStep <= 1}
+                  onClick={() => {
+                    if (editStepIndex > 0) setEditStep(editSteps[editStepIndex - 1].n);
+                  }}
+                  disabled={editStepIndex <= 0}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
                 >
                   <ChevronLeft className="h-4 w-4" /> Back
                 </button>
-                {editStep < 6 ? (
+                {!isLastEditStep ? (
                   <button
                     type="button"
-                    onClick={() => setEditStep(Math.min(6, editStep + 1))}
+                    onClick={() => {
+                      if (editStepIndex >= 0 && editStepIndex < editSteps.length - 1) {
+                        setEditStep(editSteps[editStepIndex + 1].n);
+                      }
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
                   >
                     Continue <ChevronRight className="h-4 w-4" />

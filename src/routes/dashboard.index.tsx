@@ -1,11 +1,10 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
-import { Bot, Code2, LayoutTemplate, MessageSquareText, TrendingUp, Activity, Sparkles, DollarSign } from "lucide-react";
+import { Bot, Code2, LayoutTemplate, TrendingUp, Activity, Sparkles, DollarSign } from "lucide-react";
 import { motion } from "motion/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageTransition } from "@/components/common/PageTransition";
 import { AnimatedCounter } from "@/components/common/AnimatedCounter";
 import { useChatbotsStore } from "@/store/chatbots";
-import { useFaqStore } from "@/store/faq";
 import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import CouponBanner from "@/components/dashboard/CouponBanner";
 import { formatDate } from "@/lib/format";
@@ -28,12 +27,10 @@ function Overview() {
   const user = getStoredUser();
   const userName = typeof user?.username === "string" ? user.username : "Alex";
   const bots = useChatbotsStore((s) => s.chatbots);
-  const faqs = useFaqStore((s) => s.faqs);
   const totalInstalls = bots.reduce((a, b) => a + b.installs, 0);
 
   const stats = [
     { label: "Total Chatbots", value: bots.length, icon: Bot, hint: "+2 this week", tone: "from-violet-500 to-indigo-500" },
-    { label: "FAQ Questions", value: faqs.length, icon: MessageSquareText, hint: "Curated answers", tone: "from-sky-500 to-cyan-500" },
     { label: "Active Templates", value: 5, icon: LayoutTemplate, hint: "All published", tone: "from-emerald-500 to-teal-500" },
     { label: "Script Installs", value: totalInstalls, icon: Code2, hint: "+18% MoM", tone: "from-fuchsia-500 to-pink-500" },
   ];

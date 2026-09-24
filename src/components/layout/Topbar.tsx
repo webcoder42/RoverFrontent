@@ -55,7 +55,7 @@ export function Topbar() {
       <div className="relative hidden flex-1 max-w-md md:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
-          placeholder="Search chatbots, templates, FAQs..."
+          placeholder="Search chatbots, templates..."
           className="h-10 w-full rounded-xl border border-border/60 bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>

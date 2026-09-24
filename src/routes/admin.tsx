@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { LayoutDashboard, Bot, Users, Settings, Sparkles, Menu, DollarSign, Package, HardDrive, CreditCard, Ticket, Workflow } from "lucide-react";
+import { LayoutDashboard, Bot, Users, Settings, Sparkles, Menu, DollarSign, HardDrive, CreditCard, Ticket, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredUser, clearAuth } from "@/lib/auth";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -27,7 +27,6 @@ const adminNavItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/chatbots", label: "All Chatbots", icon: Bot },
   { to: "/admin/flows", label: "Flow", icon: Workflow },
-  { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/storage", label: "Storage", icon: HardDrive },
   { to: "/admin/users", label: "All Users", icon: Users },
   { to: "/admin/plans", label: "Plans", icon: DollarSign },

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths()
     ],
     server: {
-      port: 5173,
+      port: 5174,
       host: true,
       proxy: {
         '/api': {

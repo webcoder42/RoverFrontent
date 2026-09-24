@@ -44,7 +44,7 @@ export function VoiceControl({
   const listening = state === "listening";
   const speaking = state === "speaking";
   const background = state === "background";
-  const blocked = state === "unsupported" || state === "denied";
+  const blocked = state === "unsupported" || state === "denied" || state === "brave_blocked";
   const active = listening || background || speaking;
 
   const statusText =
@@ -54,13 +54,26 @@ export function VoiceControl({
         ? "Listening… speak now"
         : state === "speaking"
           ? "Speaking…"
-          : state === "unsupported"
-            ? "Voice isn't supported in this browser"
-            : state === "denied"
-              ? "Microphone is blocked — tap mic to allow"
-              : `Mic ready — tap to speak, or say "${botName}"`;
+          : state === "brave_blocked"
+            ? "Brave blocked speech API. Enable 'Google services' in brave://settings/privacy or use Chrome."
+            : state === "unsupported"
+              ? "Voice isn't supported in this browser"
+              : state === "denied"
+                ? "Microphone is blocked — tap the mic to allow access"
+                : `Mic ready — tap to speak, or say "${botName}"`;
 
   const ringColor = listening ? "#ef4444" : background ? "#8b5cf6" : "#8b5cf6";
+
+  const handleMicClick = () => {
+    if (state === "brave_blocked") {
+      alert(
+        "Brave Browser blocks the Web Speech API by default to protect privacy.\n\nTo enable speech in Brave:\n1. Open brave://settings/privacy in a new tab\n2. Turn ON 'Use Google services for push messaging and speech recognition'\n3. Reload this page\n\nOr open this link in Google Chrome or Microsoft Edge."
+      );
+      onTapToTalk();
+      return;
+    }
+    onTapToTalk();
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-3 pb-1.5">
@@ -68,8 +81,8 @@ export function VoiceControl({
 
       <button
         type="button"
-        onClick={onTapToTalk}
-        disabled={blocked && state !== "denied"}
+        onClick={handleMicClick}
+        disabled={blocked && state !== "denied" && state !== "brave_blocked"}
         aria-label="Talk to chatbot"
         className="relative shrink-0"
       >
