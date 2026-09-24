@@ -35,6 +35,7 @@ import {
   type BillingInterval,
 } from "@/lib/paddle";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs";
 import { SiteFooter } from "@/components/common/SiteFooter";
 import logo from "@/asset/logo.png";
@@ -315,6 +316,36 @@ function PlansPage() {
             const vdata = await vres.json();
             if (vres.ok && vdata?.ok && vdata.discountId) {
               const discountedCents = Math.round(plan.price * (1 - activeCoupon.percentOff / 100) * 100);
+              if (discountedCents <= 0) {
+                // 100% off → redeem for free (Paddle can't charge $0, so we activate directly).
+                paddleCheckoutOpening.current = false;
+                setActivatingId(plan._id);
+                try {
+                  const token = getStoredToken();
+                  const rres = await fetch("/api/coupons/redeem-free", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ code: activeCoupon.code, planId: plan._id }),
+                  });
+                  const rdata = await rres.json();
+                  if (!rres.ok || !rdata?.ok) {
+                    throw new Error(rdata?.message || "Failed to redeem 100% coupon");
+                  }
+                  toast.success(`You're now on the ${plan.name} plan — 100% off!`);
+                  setActivePlanId(plan._id);
+                  navigate({ to: "/dashboard" });
+                } catch (redeemErr) {
+                  setPaddleError(
+                    redeemErr instanceof Error ? redeemErr.message : "Unable to redeem coupon",
+                  );
+                } finally {
+                  setActivatingId(null);
+                }
+                return;
+              }
               if (discountedCents < 70) {
                 throw new Error(
                   "This discount makes the payment lower than Paddle's minimum charge of $0.70. Please contact support for a smaller discount.",

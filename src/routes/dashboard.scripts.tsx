@@ -1738,7 +1738,7 @@ ${
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(extension);
     const signRes = await fetch("/api/chatbot/upload/cloudinary", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ resourceType: isImage ? "image" : "raw" }),
     });
     const signData = await signRes.json();
