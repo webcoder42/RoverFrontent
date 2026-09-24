@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Check,
   CheckCircle2,
@@ -14,7 +13,6 @@ import {
   MoreVertical,
   Plus,
   RefreshCw,
-  Shield,
   Sparkles,
   Terminal,
   Trash2,
@@ -27,13 +25,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { config } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/auth";
 import { toast } from "sonner";
 import { useChatbotsStore } from "@/store/chatbots";
 import { formatDate } from "@/lib/format";
 
-export const Route = createFileRoute("/dashboard/api-keys/$botId")({
+export const Route = createFileRoute("/api-keys/$botId")({
   head: () => ({ meta: [{ title: "API Keys — Webotme" }] }),
   component: ApiKeysPage,
 });
@@ -61,9 +58,7 @@ const apiUrl = (botId: string) => `/api/chatbot/${botId}/api-key`;
 
 function ApiKeysPage() {
   const { botId } = Route.useParams();
-  const bot = useChatbotsStore((s) =>
-    s.chatbots.find((c) => c.id === botId),
-  );
+  const bot = useChatbotsStore((s) => s.chatbots.find((c) => c.id === botId));
 
   const [keyInfo, setKeyInfo] = useState<KeyInfo>(EMPTY_KEY);
   const [loading, setLoading] = useState(true);
@@ -204,48 +199,32 @@ function ApiKeysPage() {
     }
   };
 
-  const dashboardScript = `<script async src="${config.apiBaseUrl}/static/widget.js" data-bot-id="${botId}" data-api-host="${config.apiBaseUrl}" data-chat-host="${config.chatBaseUrl}"></script>`;
-
-  const backendExample = `// Your backend (Node.js / any server) — NEVER expose this key in the browser
-const res = await fetch("${config.apiBaseUrl}/api/sdk/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer YOUR_API_KEY_HERE"
-  },
-  body: JSON.stringify({ botId: "${botId}", message, sessionId })
-});
-const data = await res.json();
-console.log(data.reply);`;
-
   const hasKey = keyInfo.hasKey || Boolean(keyInfo.maskedKey);
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-5xl p-4 sm:p-6">
+      <div className="mx-auto max-w-5xl p-0 sm:p-2">
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <Link
-            to="/dashboard/scripts"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
-            title="Back to Generated Scripts"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold text-foreground">
-              API Keys
-            </h1>
-            <p className="truncate text-xs text-muted-foreground">
+            <h1 className="text-2xl font-bold text-foreground">API Keys</h1>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
               {keyInfo.botName || bot?.name || botId} · {bot?.template || "Chatbot"}
             </p>
           </div>
-          <Button
-            onClick={() => setTab("create")}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
-          >
-            <Plus className="h-4 w-4" /> Create Key
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="rounded-xl text-sm">
+              <Link to="/api-keys/docs" className="inline-flex items-center gap-1.5">
+                <Terminal className="h-4 w-4" /> Docs
+              </Link>
+            </Button>
+            <Button
+              onClick={() => setTab("create")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+            >
+              <Plus className="h-4 w-4" /> Create Key
+            </Button>
+          </div>
         </div>
 
         {/* Status strip */}
@@ -302,8 +281,8 @@ console.log(data.reply);`;
                       Create your chatbot's API key
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Give it a meaningful name — it becomes part of the key and
-                      lets another website / app talk to{" "}
+                      Give it a meaningful name so you can recognize this key later —
+                      it lets another website / app talk to{" "}
                       {keyInfo.botName || bot?.name || "this chatbot"} via the
                       backend. Creating a new key replaces the previous one.
                     </p>
@@ -478,17 +457,9 @@ console.log(data.reply);`;
                       </Button>
                     </div>
                   ) : (
-                    <div
-                      className={cn(
-                        "rounded-xl border border-border/60 bg-muted/20 p-4",
-                      )}
-                    >
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <div
-                          className={cn(
-                            "grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary",
-                          )}
-                        >
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                           <KeyRound className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -620,77 +591,22 @@ console.log(data.reply);`;
                       </div>
                     </div>
                   )}
+
+                  {/* Docs link */}
+                  <div className="mt-4">
+                    <Link
+                      to="/api-keys/docs"
+                      className="group flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+                        <Code2 className="h-4 w-4" />
+                        How to use this API key — full documentation
+                      </span>
+                      <ArrowUpRight className="h-4 w-4 text-primary transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    </Link>
+                  </div>
                 </section>
               )}
-
-              {/* Integration docs */}
-              <section className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft sm:p-6">
-                <div className="mb-4 flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-primary" />
-                  <h2 className="text-base font-semibold">How to use</h2>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {/* Frontend */}
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <Code2 className="h-3.5 w-3.5" /> Frontend · widget script
-                    </div>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Add this to any website — no key needed (public bot ID).
-                    </p>
-                    <div className="relative">
-                      <pre className="overflow-x-auto rounded-lg bg-background p-3 font-mono text-[11px] leading-5 text-foreground/80">
-                        {dashboardScript}
-                      </pre>
-                      <button
-                        onClick={() => copyText(dashboardScript, "script")}
-                        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-muted/80 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        {copiedId === "script" ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Backend */}
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <Terminal className="h-3.5 w-3.5" /> Backend · API key call
-                    </div>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      Keep the key on your server. Never put it in browser code.
-                    </p>
-                    <div className="relative">
-                      <pre className="overflow-x-auto rounded-lg bg-background p-3 font-mono text-[11px] leading-5 text-foreground/80">
-                        {backendExample}
-                      </pre>
-                      <button
-                        onClick={() => copyText(backendExample, "backend")}
-                        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-muted/80 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        {copiedId === "backend" ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        Copy
-                      </button>
-                    </div>
-                    <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2.5">
-                      <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                      <p className="text-[11px] leading-4 text-amber-600">
-                        If the plan expires this key stops working until you
-                        renew — the bot and its API key are protected together.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
             </motion.div>
           )}
         </AnimatePresence>

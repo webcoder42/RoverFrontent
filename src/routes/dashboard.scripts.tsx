@@ -44,7 +44,6 @@ import {
   ShoppingBag,
   Zap,
   Tag,
-  Scan,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -2269,14 +2268,6 @@ ${
                         <span className="text-[10px] text-muted-foreground shrink-0">
                           {formatDate(b.createdAt)}
                         </span>
-                        <Link
-                          to="/dashboard/api-keys/$botId"
-                          params={{ botId: b.id }}
-                          title="API keys for this chatbot"
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border/60 bg-muted/40 text-muted-foreground transition hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                        >
-                          <ArrowUpRight className="h-4 w-4" />
-                        </Link>
                       </div>
 
                       {b.planRestricted && (
@@ -2396,16 +2387,6 @@ ${
                             {b.embedScript ? "Regenerate" : "Generate"}
                           </button>
                         )}
-                        {!b.planRestricted && (
-                          <Link
-                            to="/admin/scan-status/$botId"
-                            params={{ botId: b.id }}
-                            title="Live scan progress, detected pages & flows"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-500/20"
-                          >
-                            <Scan className="h-3.5 w-3.5" /> Scan Status
-                          </Link>
-                        )}
                         {b.type === "agency" && (
                           <>
                             <a
@@ -2467,6 +2448,14 @@ ${
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+                        <Link
+                          to="/api-keys/$botId"
+                          params={{ botId: b.id }}
+                          title="Open API key for this chatbot"
+                          className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-600 transition hover:bg-violet-500/20 hover:text-violet-700"
+                        >
+                          API Key <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
                     </motion.div>
                   );

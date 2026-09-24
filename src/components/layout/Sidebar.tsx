@@ -16,6 +16,7 @@ import {
   Instagram,
   Globe,
   Phone,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getStoredToken } from "@/lib/auth";
@@ -29,6 +30,7 @@ export const navItems: NavItem[] = [
   { to: "/dashboard/templates", label: "Templates", icon: LayoutTemplate },
   { to: "/dashboard/storage", label: "Storage", icon: HardDrive },
   { to: "/dashboard/scripts", label: "Generated Scripts", icon: Code2 },
+  { to: "/api-keys/docs", label: "Docs", icon: BookOpen },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -43,7 +45,13 @@ function isBotsActive(pathname: string) {
   return BOT_LINKS.some((b) => pathname.startsWith(b.to));
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function Sidebar({
+  onNavigate,
+  extra,
+}: {
+  onNavigate?: () => void;
+  extra?: React.ReactNode;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [botsOpen, setBotsOpen] = useState(() => isBotsActive(pathname));
   const [planState, setPlanState] = useState<"active" | "expired" | "free">("free");
@@ -175,6 +183,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
         {navItems.slice(5).map(renderLink)}
       </nav>
+
+      {extra ? <div className="px-3 pb-2">{extra}</div> : null}
 
       <Link
         to="/plans"
