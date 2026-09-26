@@ -5,13 +5,19 @@ import { BarChart3, ArrowRight, KeyRound, Loader2 } from "lucide-react";
 import { config } from "@/lib/config";
 
 export const Route = createFileRoute("/console/")({
+  validateSearch: (search: Record<string, unknown>): { key?: string } => ({
+    key: typeof search.key === "string" ? search.key : undefined,
+  }),
   head: () => ({ meta: [{ title: "Analytics Console — WeBotMe" }] }),
   component: ConsoleGate,
 });
 
 function ConsoleGate() {
   const navigate = useNavigate();
-  const [value, setValue] = useState("");
+  const { key: initialKey } = Route.useSearch();
+  const [value, setValue] = useState(
+    initialKey && /^wc_[a-f0-9]{32}$/i.test(initialKey) ? initialKey : "",
+  );
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
 
@@ -97,8 +103,8 @@ function ConsoleGate() {
             )}
           </button>
           <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
-            Your console ID is a private key shared by your service provider. Keep it safe —
-            anyone with this ID can view the analytics dashboard.
+            Your console ID is a private key shared by your service provider. Keep it safe — anyone
+            with this ID can view the analytics dashboard.
           </p>
         </div>
       </motion.div>

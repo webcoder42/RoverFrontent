@@ -1,17 +1,15 @@
-import { createFileRoute, Outlet, redirect, Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import {
-  BookOpen,
-  Copy,
-  DollarSign,
-  KeyRound,
-  LayoutDashboard,
-  Loader2,
-  LogOut,
-} from "lucide-react";
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useRouterState,
+  useNavigate,
+} from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { BarChart3, BookOpen, DollarSign, KeyRound, LayoutDashboard, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isAuthenticated, getAuthHeaders, getStoredToken, getStoredUser, clearAuth } from "@/lib/auth";
-import { toast } from "sonner";
+import { isAuthenticated, getStoredToken, getStoredUser, clearAuth } from "@/lib/auth";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/api-keys")({
@@ -34,8 +32,17 @@ function ApiKeysLayout() {
     ? pathname.split("/api-keys/")[1]?.split("/")[0]
     : undefined;
 
+  const apiKeyPath = botId ? `/api-keys/${botId}` : "";
+  const analyticsPath = botId ? `/api-keys/${botId}/analytics` : "";
+  const apiKeyActive = apiKeyPath !== "" && pathname === apiKeyPath;
+  const analyticsActive = analyticsPath !== "" && pathname === analyticsPath;
+
   const [planState, setPlanState] = useState<"active" | "expired" | "free">("free");
-  const [activePurchase, setActivePurchase] = useState<Record<string, any> | null>(null);
+  const [activePurchase, setActivePurchase] = useState<{
+    expiresAt?: string;
+    planName?: string;
+    status?: string;
+  } | null>(null);
 
   useEffect(() => {
     const token = getStoredToken();
@@ -80,10 +87,72 @@ function ApiKeysLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-2">
-          {/* ── Inner API Console sub-sidebar: API key + Analytic key ── */}
-          <div className="pb-1">
-            <ApiConsoleCard botId={botId} />
+          <div className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            API Console
           </div>
+
+          {/* API Key — opens the full API key page for this chatbot */}
+          {botId ? (
+            <Link
+              to="/api-keys/$botId"
+              params={{ botId }}
+              className={cn(
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                apiKeyActive
+                  ? "bg-sidebar-accent text-primary shadow-soft"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <KeyRound className="h-4.5 w-4.5 shrink-0 text-primary" />
+              <span className="relative min-w-0 flex-1">
+                <span className="block">API Key</span>
+                <span className="mt-0.5 block text-[11px] font-normal leading-snug text-muted-foreground">
+                  Create, reveal &amp; copy your backend key.
+                </span>
+              </span>
+            </Link>
+          ) : (
+            <div className="rounded-xl px-3 py-2.5 text-xs text-muted-foreground">
+              Open a chatbot from your dashboard to manage its API key.
+            </div>
+          )}
+
+          {/* Analytics Key — opens its step page in the same sidebar layout */}
+          {botId ? (
+            <Link
+              to="/api-keys/$botId/analytics"
+              params={{ botId }}
+              className={cn(
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                analyticsActive
+                  ? "bg-sidebar-accent text-primary shadow-soft"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <BarChart3 className="h-4.5 w-4.5 shrink-0 text-sky-500" />
+              <span className="relative min-w-0 flex-1">
+                <span className="block">Analytics Key</span>
+                <span className="mt-0.5 block text-[11px] font-normal leading-snug text-muted-foreground">
+                  Copy key &amp; open the live dashboard.
+                </span>
+              </span>
+            </Link>
+          ) : (
+            <div className="rounded-xl px-3 py-2.5 text-xs text-muted-foreground">
+              Open a chatbot from your dashboard to see its analytics key.
+            </div>
+          )}
+
+          {/* How to use */}
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+          >
+            <BookOpen className="h-4.5 w-4.5 shrink-0" />
+            <span className="relative">How to use</span>
+          </a>
         </nav>
 
         {/* Plan box */}
@@ -112,13 +181,11 @@ function ApiKeysLayout() {
             ) : (
               <DollarSign className="h-3.5 w-3.5" />
             )}
-            {planState === "expired" ? (
-              "Plan Expired — Renew Now"
-            ) : planState === "active" ? (
-              "Plan Active"
-            ) : (
-              "Upgrade Plan"
-            )}
+            {planState === "expired"
+              ? "Plan Expired — Renew Now"
+              : planState === "active"
+                ? "Plan Active"
+                : "Upgrade Plan"}
           </div>
           <p
             className={cn(
@@ -180,146 +247,6 @@ function ApiKeysLayout() {
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Inner API Console card rendered inside the dedicated sidebar.
- * Shows the bot's API key (wbm_…) and the analytic key (wc_…).
- */
-function ApiConsoleCard({ botId }: { botId?: string }) {
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [consoleKey, setConsoleKey] = useState<string | null>(null);
-  const [loadingApi, setLoadingApi] = useState(false);
-  const [loadingConsole, setLoadingConsole] = useState(false);
-  const [copiedId, setCopiedId] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    if (!botId) return;
-    setLoadingApi(true);
-    setLoadingConsole(true);
-    fetch(`/api/chatbot/${botId}/api-key`, { headers: getAuthHeaders() })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!active) return;
-        setApiKey(d?.maskedKey || null);
-      })
-      .catch(() => {})
-      .finally(() => active && setLoadingApi(false));
-    fetch("/api/store/my/console-keys", { headers: getAuthHeaders() })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!active) return;
-        const found = (d?.keys || []).find((k: any) => k.chatbotId === botId);
-        setConsoleKey(found?.consoleKey || null);
-      })
-      .catch(() => {})
-      .finally(() => active && setLoadingConsole(false));
-    return () => {
-      active = false;
-    };
-  }, [botId]);
-
-  const copyText = async (text: string, id: string) => {
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(""), 1600);
-    toast.success("Copied");
-  };
-
-  const copyFullApiKey = async () => {
-    if (!botId) return;
-    try {
-      const res = await fetch(`/api/chatbot/${botId}/api-key/reveal`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && data.key) {
-        await copyText(data.key, "api");
-      } else {
-        toast.error(data.message || "Failed to reveal key");
-      }
-    } catch {
-      toast.error("Failed to reveal key");
-    }
-  };
-
-  return (
-    <div className="space-y-2 rounded-2xl border border-border/60 bg-card/60 p-3 shadow-soft">
-      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-        <KeyRound className="h-3.5 w-3.5 text-primary" />
-        API Console
-      </div>
-
-      <div className="space-y-1.5">
-        <a
-          href="/docs"
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-xs font-medium text-foreground/80 transition hover:bg-sidebar-accent/60 hover:text-foreground"
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          How to use
-        </a>
-
-        {/* API key field */}
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
-          <div className="text-[10px] font-medium text-muted-foreground">API Key</div>
-          {loadingApi ? (
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Loading…
-            </div>
-          ) : apiKey ? (
-            <button
-              onClick={copyFullApiKey}
-              title="Copy API key"
-              className="mt-1 flex w-full items-center gap-1.5 rounded-md font-mono text-[11px] font-semibold text-violet-500 transition hover:text-violet-400"
-            >
-              <span className="truncate">{apiKey}</span>
-              {copiedId === "api" ? (
-                <span className="text-emerald-500">✓</span>
-              ) : (
-                <Copy className="h-3 w-3 shrink-0 opacity-60" />
-              )}
-            </button>
-          ) : (
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
-              {botId ? "No key yet" : "Select a bot"}
-            </div>
-          )}
-        </div>
-
-        {/* Analytic key field */}
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-2">
-          <div className="text-[10px] font-medium text-muted-foreground">Analytic Key</div>
-          {loadingConsole ? (
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Loading…
-            </div>
-          ) : consoleKey ? (
-            <button
-              onClick={() => copyText(consoleKey, "console")}
-              title="Copy analytic key"
-              className="mt-1 flex w-full items-center gap-1.5 rounded-md font-mono text-[11px] font-semibold text-blue-500 transition hover:text-blue-400"
-            >
-              <span className="truncate">{consoleKey.slice(0, 11)}…</span>
-              {copiedId === "console" ? (
-                <span className="text-emerald-500">✓</span>
-              ) : (
-                <Copy className="h-3 w-3 shrink-0 opacity-60" />
-              )}
-            </button>
-          ) : (
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
-              {botId ? "No key yet" : "Select a bot"}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

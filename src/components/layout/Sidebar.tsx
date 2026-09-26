@@ -22,7 +22,13 @@ import { cn } from "@/lib/utils";
 import { getStoredToken } from "@/lib/auth";
 import logo from "@/asset/logo.png";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; external?: boolean };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  external?: boolean;
+};
 export const navItems: NavItem[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/dashboard/inbox", label: "Installer", icon: MessageSquareText },
@@ -237,13 +243,11 @@ export function Sidebar({
           ) : (
             <DollarSign className="h-3.5 w-3.5" />
           )}
-          {planState === "expired" ? (
-            "Plan Expired — Renew Now"
-          ) : planState === "active" ? (
-            "Plan Active"
-          ) : (
-            "Upgrade Plan"
-          )}
+          {planState === "expired"
+            ? "Plan Expired — Renew Now"
+            : planState === "active"
+              ? "Plan Active"
+              : "Upgrade Plan"}
         </div>
         <p
           className={cn(

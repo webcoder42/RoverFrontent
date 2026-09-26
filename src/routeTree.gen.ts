@@ -15,6 +15,7 @@ import { Route as RefundsRouteImport } from './routes/refunds'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -38,6 +39,7 @@ import { Route as DashboardFacebookRouteImport } from './routes/dashboard.facebo
 import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
 import { Route as ConsoleBotIdRouteImport } from './routes/console.$botId'
 import { Route as CheckoutPlanIdRouteImport } from './routes/checkout.$planId'
+import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ApiKeysBotIdRouteImport } from './routes/api-keys.$botId'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminStorageRouteImport } from './routes/admin.storage'
@@ -49,6 +51,8 @@ import { Route as AdminCreateAutoFlowRouteImport } from './routes/admin.createAu
 import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
 import { Route as AdminAutoFlowScanRouteImport } from './routes/admin.autoFlowScan'
+import { Route as ApiKeysBotIdIndexRouteImport } from './routes/api-keys.$botId.index'
+import { Route as ApiKeysBotIdAnalyticsRouteImport } from './routes/api-keys.$botId.analytics'
 import { Route as AdminScanStatusBotIdRouteImport } from './routes/admin.scan-status.$botId'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -79,6 +83,11 @@ const PlansRoute = PlansRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -196,6 +205,11 @@ const CheckoutPlanIdRoute = CheckoutPlanIdRouteImport.update({
   path: '/checkout/$planId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIdRoute = ChatIdRouteImport.update({
+  id: '/chat/$id',
+  path: '/chat/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKeysBotIdRoute = ApiKeysBotIdRouteImport.update({
   id: '/$botId',
   path: '/$botId',
@@ -251,6 +265,16 @@ const AdminAutoFlowScanRoute = AdminAutoFlowScanRouteImport.update({
   path: '/autoFlowScan',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiKeysBotIdIndexRoute = ApiKeysBotIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ApiKeysBotIdRoute,
+} as any)
+const ApiKeysBotIdAnalyticsRoute = ApiKeysBotIdAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => ApiKeysBotIdRoute,
+} as any)
 const AdminScanStatusBotIdRoute = AdminScanStatusBotIdRouteImport.update({
   id: '/scan-status/$botId',
   path: '/scan-status/$botId',
@@ -264,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/data-deletion': typeof DataDeletionRoute
   '/docs': typeof DocsRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
@@ -280,7 +305,8 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
-  '/api-keys/$botId': typeof ApiKeysBotIdRoute
+  '/api-keys/$botId': typeof ApiKeysBotIdRouteWithChildren
+  '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
@@ -299,12 +325,15 @@ export interface FileRoutesByFullPath {
   '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/api-keys/$botId/analytics': typeof ApiKeysBotIdAnalyticsRoute
+  '/api-keys/$botId/': typeof ApiKeysBotIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api-keys': typeof ApiKeysRouteWithChildren
   '/data-deletion': typeof DataDeletionRoute
   '/docs': typeof DocsRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
@@ -321,7 +350,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
-  '/api-keys/$botId': typeof ApiKeysBotIdRoute
+  '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
@@ -340,6 +369,8 @@ export interface FileRoutesByTo {
   '/console': typeof ConsoleIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/api-keys/$botId/analytics': typeof ApiKeysBotIdAnalyticsRoute
+  '/api-keys/$botId': typeof ApiKeysBotIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -349,6 +380,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/data-deletion': typeof DataDeletionRoute
   '/docs': typeof DocsRoute
+  '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/plans': typeof PlansRoute
   '/privacy': typeof PrivacyRoute
@@ -365,7 +397,8 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
-  '/api-keys/$botId': typeof ApiKeysBotIdRoute
+  '/api-keys/$botId': typeof ApiKeysBotIdRouteWithChildren
+  '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
   '/dashboard/create': typeof DashboardCreateRoute
@@ -384,6 +417,8 @@ export interface FileRoutesById {
   '/console/': typeof ConsoleIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/admin/scan-status/$botId': typeof AdminScanStatusBotIdRoute
+  '/api-keys/$botId/analytics': typeof ApiKeysBotIdAnalyticsRoute
+  '/api-keys/$botId/': typeof ApiKeysBotIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -394,6 +429,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/data-deletion'
     | '/docs'
+    | '/help'
     | '/login'
     | '/plans'
     | '/privacy'
@@ -411,6 +447,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/api-keys/$botId'
+    | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
     | '/dashboard/create'
@@ -429,12 +466,15 @@ export interface FileRouteTypes {
     | '/console/'
     | '/dashboard/'
     | '/admin/scan-status/$botId'
+    | '/api-keys/$botId/analytics'
+    | '/api-keys/$botId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api-keys'
     | '/data-deletion'
     | '/docs'
+    | '/help'
     | '/login'
     | '/plans'
     | '/privacy'
@@ -451,7 +491,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/storage'
     | '/admin/users'
-    | '/api-keys/$botId'
+    | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
     | '/dashboard/create'
@@ -470,6 +510,8 @@ export interface FileRouteTypes {
     | '/console'
     | '/dashboard'
     | '/admin/scan-status/$botId'
+    | '/api-keys/$botId/analytics'
+    | '/api-keys/$botId'
   id:
     | '__root__'
     | '/'
@@ -478,6 +520,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/data-deletion'
     | '/docs'
+    | '/help'
     | '/login'
     | '/plans'
     | '/privacy'
@@ -495,6 +538,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/api-keys/$botId'
+    | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
     | '/dashboard/create'
@@ -513,6 +557,8 @@ export interface FileRouteTypes {
     | '/console/'
     | '/dashboard/'
     | '/admin/scan-status/$botId'
+    | '/api-keys/$botId/analytics'
+    | '/api-keys/$botId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -522,12 +568,14 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   DataDeletionRoute: typeof DataDeletionRoute
   DocsRoute: typeof DocsRoute
+  HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
   PlansRoute: typeof PlansRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundsRoute: typeof RefundsRoute
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
+  ChatIdRoute: typeof ChatIdRoute
   CheckoutPlanIdRoute: typeof CheckoutPlanIdRoute
   ConsoleBotIdRoute: typeof ConsoleBotIdRoute
   EmbedIdRoute: typeof EmbedIdRoute
@@ -577,6 +625,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -740,6 +795,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutPlanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/$id': {
+      id: '/chat/$id'
+      path: '/chat/$id'
+      fullPath: '/chat/$id'
+      preLoaderRoute: typeof ChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api-keys/$botId': {
       id: '/api-keys/$botId'
       path: '/$botId'
@@ -817,6 +879,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAutoFlowScanRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api-keys/$botId/': {
+      id: '/api-keys/$botId/'
+      path: '/'
+      fullPath: '/api-keys/$botId/'
+      preLoaderRoute: typeof ApiKeysBotIdIndexRouteImport
+      parentRoute: typeof ApiKeysBotIdRoute
+    }
+    '/api-keys/$botId/analytics': {
+      id: '/api-keys/$botId/analytics'
+      path: '/analytics'
+      fullPath: '/api-keys/$botId/analytics'
+      preLoaderRoute: typeof ApiKeysBotIdAnalyticsRouteImport
+      parentRoute: typeof ApiKeysBotIdRoute
+    }
     '/admin/scan-status/$botId': {
       id: '/admin/scan-status/$botId'
       path: '/scan-status/$botId'
@@ -859,12 +935,26 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface ApiKeysBotIdRouteChildren {
+  ApiKeysBotIdAnalyticsRoute: typeof ApiKeysBotIdAnalyticsRoute
+  ApiKeysBotIdIndexRoute: typeof ApiKeysBotIdIndexRoute
+}
+
+const ApiKeysBotIdRouteChildren: ApiKeysBotIdRouteChildren = {
+  ApiKeysBotIdAnalyticsRoute: ApiKeysBotIdAnalyticsRoute,
+  ApiKeysBotIdIndexRoute: ApiKeysBotIdIndexRoute,
+}
+
+const ApiKeysBotIdRouteWithChildren = ApiKeysBotIdRoute._addFileChildren(
+  ApiKeysBotIdRouteChildren,
+)
+
 interface ApiKeysRouteChildren {
-  ApiKeysBotIdRoute: typeof ApiKeysBotIdRoute
+  ApiKeysBotIdRoute: typeof ApiKeysBotIdRouteWithChildren
 }
 
 const ApiKeysRouteChildren: ApiKeysRouteChildren = {
-  ApiKeysBotIdRoute: ApiKeysBotIdRoute,
+  ApiKeysBotIdRoute: ApiKeysBotIdRouteWithChildren,
 }
 
 const ApiKeysRouteWithChildren =
@@ -909,12 +999,14 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   DataDeletionRoute: DataDeletionRoute,
   DocsRoute: DocsRoute,
+  HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
   PlansRoute: PlansRoute,
   PrivacyRoute: PrivacyRoute,
   RefundsRoute: RefundsRoute,
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
+  ChatIdRoute: ChatIdRoute,
   CheckoutPlanIdRoute: CheckoutPlanIdRoute,
   ConsoleBotIdRoute: ConsoleBotIdRoute,
   EmbedIdRoute: EmbedIdRoute,

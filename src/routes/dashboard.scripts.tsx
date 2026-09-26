@@ -43,6 +43,12 @@ import {
   ShoppingBag,
   Zap,
   Tag,
+  Smartphone,
+  Apple,
+  Rocket,
+  QrCode,
+  Link2,
+  type LucideIcon,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -50,6 +56,7 @@ import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import { StripeConnectCard } from "@/components/stripe/StripeConnectCard";
 import { cn } from "@/lib/utils";
 import { config, getWidgetScriptUrl } from "@/lib/config";
+import QRCode from "qrcode";
 import { CURRENCY_LIST } from "@/lib/currency";
 import { useChatbotsStore, type Chatbot, type Template } from "@/store/chatbots";
 import { formatDate } from "@/lib/format";
@@ -61,6 +68,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { DetectedCatalogColumns } from "@/components/common/DetectedCatalogColumns";
 import { guessMapping } from "@/lib/productMapping";
@@ -747,12 +755,447 @@ const templateGradients: Record<string, string> = {
   babycare: "from-pink-500 to-rose-500",
 };
 
+type IntegrationPlatform = "web" | "mobile";
+
+type MobileAppId =
+  | "android-kotlin"
+  | "android-java"
+  | "ios-swift"
+  | "flutter"
+  | "react-native"
+  | "dotnet-maui"
+  | "kotlin-multiplatform"
+  | "native-script";
+
+interface MobileAppOption {
+  id: MobileAppId;
+  title: string;
+  language: string;
+  framework: string;
+  platform: string;
+  description: string;
+  publishTarget: string;
+  icon: LucideIcon;
+}
+
+const MOBILE_APP_OPTIONS: MobileAppOption[] = [
+  {
+    id: "android-kotlin",
+    title: "Android App",
+    language: "Kotlin",
+    framework: "Kotlin with Jetpack Compose or XML Views",
+    platform: "Android",
+    description: "Build a fully native Android chatbot with Kotlin.",
+    publishTarget:
+      "Test on a device, then publish a signed Android App Bundle (AAB) to Google Play.",
+    icon: Smartphone,
+  },
+  {
+    id: "android-java",
+    title: "Android with Java",
+    language: "Java",
+    framework: "Java with the Android SDK",
+    platform: "Android",
+    description: "Use Java when your existing Android project already uses it.",
+    publishTarget:
+      "Test on a device, then publish a signed Android App Bundle (AAB) to Google Play.",
+    icon: Smartphone,
+  },
+  {
+    id: "ios-swift",
+    title: "iOS App",
+    language: "Swift",
+    framework: "Swift with SwiftUI or UIKit",
+    platform: "iOS",
+    description: "Add the chatbot to a native iPhone or iPad app.",
+    publishTarget: "Archive a signed build in Xcode and upload it through App Store Connect.",
+    icon: Apple,
+  },
+  {
+    id: "flutter",
+    title: "Flutter App",
+    language: "Dart",
+    framework: "Flutter with Dart",
+    platform: "Android + iOS",
+    description: "Build one Flutter codebase for Android and iOS.",
+    publishTarget: "Create Play Store and App Store builds from the same Flutter project.",
+    icon: Layers,
+  },
+  {
+    id: "react-native",
+    title: "React Native",
+    language: "TypeScript",
+    framework: "React Native with Expo or the native CLI",
+    platform: "Android + iOS",
+    description: "Use React Native components to build for both app stores.",
+    publishTarget: "Generate an Android App Bundle and an iOS archive from your project.",
+    icon: Code2,
+  },
+  {
+    id: "dotnet-maui",
+    title: ".NET MAUI",
+    language: "C#",
+    framework: ".NET MAUI",
+    platform: "Android + iOS",
+    description: "Share a C# codebase across Android, iOS, Windows and macOS.",
+    publishTarget: "Package signed Android and iOS builds from Visual Studio or the .NET CLI.",
+    icon: Braces,
+  },
+  {
+    id: "kotlin-multiplatform",
+    title: "Kotlin Multiplatform",
+    language: "Kotlin",
+    framework: "Kotlin Multiplatform",
+    platform: "Android + iOS",
+    description: "Share Kotlin business and networking code across mobile apps.",
+    publishTarget: "Build and sign the generated Android and iOS application projects.",
+    icon: Globe,
+  },
+  {
+    id: "native-script",
+    title: "NativeScript",
+    language: "TypeScript",
+    framework: "NativeScript with TypeScript",
+    platform: "Android + iOS",
+    description: "Build native mobile UI using a TypeScript-based workflow.",
+    publishTarget: "Create native Android and iOS binaries and submit them to each store.",
+    icon: Globe,
+  },
+];
+
+const MOBILE_STEP_ICONS = [Bot, Shield, Code2, MessageSquareText, Rocket] as const;
+
+const getMobileSetupSteps = (app: MobileAppOption) => {
+  if (app.id === "react-native") {
+    return [
+      {
+        title: "Select your chatbot",
+        detail:
+          "Use this bot ID in the Expo app. The same bot, training and AutoFlow are used as the web widget.",
+      },
+      {
+        title: "Use the native chat endpoint",
+        detail:
+          "The app sends its current native screen context to WebotMe. No API secret is placed in the app.",
+      },
+      {
+        title: "Add the local TypeScript client",
+        detail:
+          "Copy the local native-sdk source into the Expo project during this first integration phase. It is not published as an npm package yet.",
+      },
+      {
+        title: "Register native screens and actions",
+        detail:
+          "Expose visible text, buttons, forms and routes so AutoFlow can choose the next native action.",
+      },
+      {
+        title: "Test AutoFlow end to end",
+        detail:
+          "Verify chat, navigation, forms, confirmation, checkout handoff and session persistence before publishing a package.",
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Select your chatbot",
+      detail: "Open a chatbot card after setup and use its bot ID to connect the conversation.",
+    },
+    {
+      title: "Create a secure backend",
+      detail:
+        "Store the Webotme API key on your server. Never place the secret key inside the app bundle.",
+    },
+    {
+      title: `Add an API client in ${app.language}`,
+      detail: `Use ${app.framework} to send chat requests from your backend to the Webotme API.`,
+    },
+    {
+      title: "Build the chat screen",
+      detail:
+        "Show messages, loading indicators, errors, and a message input using native app components.",
+    },
+    {
+      title: "Test and publish",
+      detail: app.publishTarget,
+    },
+  ];
+};
+
+interface CardIntegration {
+  platform: IntegrationPlatform;
+  appId: MobileAppId | null;
+}
+
+const DEFAULT_CARD_INTEGRATION: CardIntegration = {
+  platform: "web",
+  appId: null,
+};
+
+function IntegrationModeTabs({
+  platform,
+  onChange,
+  botName,
+}: {
+  platform: IntegrationPlatform;
+  onChange: (platform: IntegrationPlatform) => void;
+  botName: string;
+}) {
+  return (
+    <Tabs
+      value={platform}
+      onValueChange={(value) => onChange(value as IntegrationPlatform)}
+      className="mt-4"
+    >
+      <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-muted/70 p-1">
+        <TabsTrigger
+          value="web"
+          aria-label={`${botName} web integration`}
+          className="h-9 justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-soft"
+        >
+          <Globe className="h-3.5 w-3.5" /> Web
+        </TabsTrigger>
+        <TabsTrigger
+          value="mobile"
+          aria-label={`${botName} app integration`}
+          className="h-9 justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-violet-600 data-[state=active]:shadow-soft"
+        >
+          <Smartphone className="h-3.5 w-3.5" /> App
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+}
+
+function MobileAppSetup({
+  botName,
+  botId,
+  selectedApp,
+  onSelectApp,
+}: {
+  botName: string;
+  botId: string;
+  selectedApp: MobileAppId | null;
+  onSelectApp: (app: MobileAppId) => void;
+}) {
+  const selectedOption = MOBILE_APP_OPTIONS.find((option) => option.id === selectedApp) || null;
+  const [qr, setQr] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Standalone (non-iframe) chat URL that can be shared, QR'd or deep-linked.
+  const chatUrl = `${config.chatBaseUrl}/chat/${botId}`;
+
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(chatUrl, {
+      width: 220,
+      margin: 1,
+      color: { dark: "#0f172a", light: "#ffffff" },
+    })
+      .then((url) => {
+        if (active) setQr(url);
+      })
+      .catch(() => {
+        if (active) setQr(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [chatUrl]);
+
+  const copyChatLink = async () => {
+    try {
+      await navigator.clipboard.writeText(chatUrl);
+    } catch {
+      window.prompt("Copy this link", chatUrl);
+      return;
+    }
+    setLinkCopied(true);
+    toast.success("Chat link copied!");
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">
+            App integration
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Choose how you are building {botName} without a WebView.
+          </p>
+        </div>
+        <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-[9px] font-semibold text-violet-600">
+          Native SDK / API
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {MOBILE_APP_OPTIONS.map((option) => {
+          const OptionIcon = option.icon;
+          const selected = selectedApp === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onSelectApp(option.id)}
+              className={cn(
+                "flex min-h-[62px] items-center gap-2 rounded-xl border p-2.5 text-left transition-all",
+                selected
+                  ? "border-primary bg-primary/[0.07] text-foreground shadow-soft"
+                  : "border-border/70 bg-card hover:border-primary/40 hover:bg-accent/25",
+              )}
+            >
+              <span
+                className={cn(
+                  "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                  selected
+                    ? "bg-gradient-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                <OptionIcon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[11px] font-semibold">{option.title}</span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {option.language} · {option.platform}
+                </span>
+              </span>
+              {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedOption ? (
+        <div className="mt-3 rounded-xl border border-border/60 bg-card p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <selectedOption.icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold">{selectedOption.title} setup</p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {selectedOption.framework}
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+              {selectedOption.language}
+            </span>
+          </div>
+          <div className="mt-2 rounded-lg bg-muted/40 px-2.5 py-2 text-[10px] text-muted-foreground">
+            Bot ID: <span className="font-mono text-foreground/80">{botId}</span>
+          </div>
+          <ol className="mt-2 space-y-1.5">
+            {getMobileSetupSteps(selectedOption).map((step, index) => {
+              const StepIcon = MOBILE_STEP_ICONS[index] || Check;
+              return (
+                <li key={step.title} className="flex gap-2.5">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                    <StepIcon className="h-3 w-3" />
+                  </span>
+                  <div className="min-w-0 pt-0.5">
+                    <p className="text-[11px] font-semibold">
+                      {index + 1}. {step.title}
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+                      {step.detail}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          {selectedApp === "react-native" && (
+            <div className="mt-3 rounded-lg border border-primary/20 bg-muted/40 p-2.5">
+              <p className="text-[10px] font-semibold text-foreground">Native endpoint</p>
+              <code className="mt-1 block break-all text-[10px] leading-4 text-muted-foreground">
+                POST /api/chatbot/public/{botId}/native-chat/v1
+              </code>
+              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                Send message, sessionId and screenContext. The response always carries a{" "}
+                <code className="font-mono">text</code> field plus a{" "}
+                <code className="font-mono">version</code>, and errors use a stable{" "}
+                <code className="font-mono">code</code>/<code className="font-mono">message</code>{" "}
+                shape. Call the unversioned path only for older builds.
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-violet-500/30 bg-card/60 px-3 py-3 text-[10px] leading-4 text-muted-foreground">
+          <Smartphone className="h-4 w-4 shrink-0 text-violet-500" />
+          Select an app technology above to see its setup steps.
+        </div>
+      )}
+
+      <div className="mt-3 rounded-xl border border-border/60 bg-card p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
+              <Link2 className="h-3.5 w-3.5 text-violet-500" />
+              Shareable chat link
+            </p>
+            <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+              Standalone page (no iframe). Use it for QR codes, WhatsApp shares or deep links from
+              your app.
+            </p>
+          </div>
+          <button
+            onClick={copyChatLink}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            {linkCopied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Link2 className="h-3.5 w-3.5" />
+            )}
+            {linkCopied ? "Copied" : "Copy link"}
+          </button>
+        </div>
+
+        <code className="mt-2 block break-all rounded-lg bg-muted/40 px-2 py-1.5 font-mono text-[10px] text-muted-foreground">
+          {chatUrl}
+        </code>
+
+        {qr ? (
+          <div className="mt-3 flex flex-col items-center gap-2">
+            <div className="rounded-xl border border-border bg-white p-2">
+              <img src={qr} alt={`QR code for ${botName}`} className="h-36 w-36" />
+            </div>
+            <p className="text-center text-[10px] text-muted-foreground">
+              Scan to open the {botName} chat
+            </p>
+            <a
+              href={qr}
+              download={`${botName.replace(/\s+/g, "-").toLowerCase()}-qr.png`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-primary px-2.5 py-1.5 text-[10px] font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+            >
+              <QrCode className="h-3.5 w-3.5" /> Download QR
+            </a>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-[10px] text-muted-foreground">
+            <QrCode className="h-4 w-4" /> Generating QR…
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScriptsPage() {
   const { chatbots, setChatbots, update, remove } = useChatbotsStore();
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [cardIntegrations, setCardIntegrations] = useState<Record<string, CardIntegration>>({});
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [genStage, setGenStage] = useState<Record<string, string>>({});
   const [cssOpen, setCssOpen] = useState<Record<string, boolean>>({});
@@ -768,6 +1211,30 @@ function ScriptsPage() {
   const tourElRef = useRef<Element | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [draft, setDraft] = useState<EditDraft>(emptyDraft);
+
+  const getCardIntegration = (botId: string): CardIntegration =>
+    cardIntegrations[botId] || DEFAULT_CARD_INTEGRATION;
+
+  const changeCardIntegration = (botId: string, platform: IntegrationPlatform) => {
+    setCardIntegrations((previous) => ({
+      ...previous,
+      [botId]: {
+        ...(previous[botId] || DEFAULT_CARD_INTEGRATION),
+        platform,
+      },
+    }));
+  };
+
+  const selectCardMobileApp = (botId: string, appId: MobileAppId) => {
+    setCardIntegrations((previous) => ({
+      ...previous,
+      [botId]: {
+        platform: "mobile",
+        appId,
+      },
+    }));
+  };
+
   const usedStorageTargets = useMemo(() => {
     return chatbots
       .filter((b) => b.id !== editingBot?.id)
@@ -1396,9 +1863,7 @@ ${
             d?.scanStatus?.status === "complete" ||
             (Array.isArray(d?.scanStatus?.flowsDetected) && d.scanStatus.flowsDetected.length > 0);
           if (hasAutoFlow) {
-            setDraft((prev) =>
-              prev.flowMode === "auto" ? prev : { ...prev, flowMode: "auto" },
-            );
+            setDraft((prev) => (prev.flowMode === "auto" ? prev : { ...prev, flowMode: "auto" }));
           }
         })
         .catch(() => {
@@ -2145,17 +2610,17 @@ ${
 
   return (
     <PageTransition>
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
+      <div className="mb-0">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Generated Scripts</h1>
             <p className="text-sm text-muted-foreground">
-              Your chatbots and ready-made templates — generate embed scripts for your website.
+              Generate a website embed or connect the same chatbot to a native app.
             </p>
           </div>
           <button
             onClick={() => setHelpOpen(true)}
-            className="hidden md:inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground shadow-soft"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground shadow-soft hover:bg-accent hover:text-foreground"
           >
             <svg
               className="h-4 w-4"
@@ -2170,349 +2635,369 @@ ${
                 d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
               />
             </svg>
-            How to use this
+            <span className="hidden sm:inline">How to use this</span>
+            <span className="sm:hidden">Help</span>
           </button>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by chatbot name…"
-              className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+
+        <div className="mt-6">
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="relative max-w-md flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by chatbot name…"
+                className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            {chatbots.length > 0 && (
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="h-11 appearance-none rounded-xl border border-border bg-card pl-9 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {templateOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {t === "all" ? "All templates" : t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-          {chatbots.length > 0 && (
-            <div className="relative">
-              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="h-11 rounded-xl border border-border bg-card pl-9 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
-              >
-                {templateOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {t === "all" ? "All templates" : t}
-                  </option>
-                ))}
-              </select>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm">Loading…</p>
+            </div>
+          ) : (
+            <div className="space-y-12">
+              {/* Your Chatbots */}
+              {filtered.length > 0 && (
+                <section>
+                  <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
+                    <Bot className="h-4 w-4" /> Your Chatbots
+                  </h2>
+                  <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filtered.map((b, i) => {
+                      const isGen = generating[b.id];
+                      const stage = genStage[b.id] || "";
+                      const cardIntegration = getCardIntegration(b.id);
+                      return (
+                        <motion.div
+                          key={b.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          className="flex h-full flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="grid h-10 w-10 place-items-center rounded-xl text-white shadow-soft shrink-0"
+                              style={{
+                                background: `linear-gradient(135deg, ${b.primary}, ${b.secondary})`,
+                              }}
+                            >
+                              {b.logo ? (
+                                <img
+                                  src={b.logo}
+                                  alt=""
+                                  className="h-10 w-10 rounded-xl object-cover"
+                                />
+                              ) : (
+                                <Bot className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold">{b.name}</div>
+                              <div className="text-xs text-muted-foreground">{b.template}</div>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {formatDate(b.createdAt)}
+                            </span>
+                          </div>
+
+                          <IntegrationModeTabs
+                            platform={cardIntegration.platform}
+                            onChange={(platform) => changeCardIntegration(b.id, platform)}
+                            botName={b.name}
+                          />
+
+                          {b.planRestricted && (
+                            <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+                              <Shield className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                              <span className="text-[11px] font-semibold text-amber-600">
+                                Upgrade your plan
+                              </span>
+                              <Link
+                                to="/plans"
+                                className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:underline"
+                              >
+                                <ArrowUpCircle className="h-3 w-3" /> Upgrade
+                              </Link>
+                            </div>
+                          )}
+
+                          {cardIntegration.platform === "web" ? (
+                            <div className="mt-4 min-h-[60px]">
+                              <AnimatePresence mode="wait">
+                                {isGen ? (
+                                  <motion.div
+                                    key="gen"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex items-center justify-center gap-2 rounded-xl bg-muted py-3 text-sm text-muted-foreground"
+                                  >
+                                    <Loader2 className="h-4 w-4 animate-spin" /> {stage}
+                                  </motion.div>
+                                ) : b.planRestricted ? (
+                                  <motion.div
+                                    key="locked"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="flex h-full min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-4 text-center"
+                                  >
+                                    <Shield className="h-4 w-4 text-amber-500" />
+                                    <span className="text-[11px] font-medium leading-4 text-amber-600">
+                                      Embed script is disabled on your current plan.
+                                    </span>
+                                  </motion.div>
+                                ) : b.embedScript ? (
+                                  <motion.div
+                                    key="script"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="h-[220px] overflow-y-auto rounded-xl border border-border/60 bg-muted/40 p-3 font-mono text-[11px] leading-5 text-foreground/80"
+                                  >
+                                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                                      <Code2 className="h-3 w-3" /> embed
+                                    </div>
+                                    <pre className="mt-1 overflow-x-auto whitespace-pre-wrap">
+                                      {splitEmbedScript(b.embedScript || "").tag}
+                                    </pre>
+                                    {splitEmbedScript(b.embedScript || "").css && (
+                                      <>
+                                        <button
+                                          onClick={() =>
+                                            setCssOpen((prev) => ({ ...prev, [b.id]: !prev[b.id] }))
+                                          }
+                                          className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        >
+                                          <ChevronDown
+                                            className={`h-3 w-3 transition-transform ${cssOpen[b.id] ? "rotate-180" : ""}`}
+                                          />
+                                          {cssOpen[b.id] ? "Hide CSS" : "CSS (customize)"}
+                                        </button>
+                                        {cssOpen[b.id] && (
+                                          <pre className="mt-1.5 max-h-28 overflow-y-auto overflow-x-auto whitespace-pre-wrap border-t border-border/60 pt-1.5">
+                                            {splitEmbedScript(b.embedScript || "").css}
+                                          </pre>
+                                        )}
+                                      </>
+                                    )}
+                                  </motion.div>
+                                ) : (
+                                  <motion.div
+                                    key="cta"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-5 text-center"
+                                  >
+                                    <Sparkles className="h-5 w-5 text-primary/80 animate-pulse mb-1" />
+                                    <span className="text-xs text-muted-foreground">
+                                      No script generated yet
+                                    </span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          ) : (
+                            <MobileAppSetup
+                              botName={b.name}
+                              botId={b.id}
+                              selectedApp={cardIntegration.appId}
+                              onSelectApp={(appId) => selectCardMobileApp(b.id, appId)}
+                            />
+                          )}
+
+                          <div className="mt-auto pt-4 flex flex-wrap items-center gap-2">
+                            {b.embedScript && !isGen && !b.planRestricted && (
+                              <button
+                                {...(i === 0 ? { "data-tour": "step2" } : {})}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(b.embedScript || "");
+                                  toast.success("Copied!");
+                                  if (tourStep === 2) setTourStep(3);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                              >
+                                <Copy className="h-3.5 w-3.5" /> Copy
+                              </button>
+                            )}
+                            {!b.planRestricted && (
+                              <button
+                                {...(i === 0 ? { "data-tour": "step3" } : {})}
+                                onClick={() => {
+                                  handleGenerate(b.id, b.name);
+                                  if (tourStep === 3) setTourStep(4);
+                                }}
+                                disabled={isGen}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />{" "}
+                                {b.embedScript ? "Regenerate" : "Generate"}
+                              </button>
+                            )}
+                            {b.type === "agency" && (
+                              <>
+                                <a
+                                  href="/console"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Open analytics console (paste your console ID)"
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+                                >
+                                  <BarChart3 className="h-3.5 w-3.5" /> Analytics
+                                </a>
+                              </>
+                            )}
+                            <button
+                              {...(i === 0 ? { "data-tour": "step5" } : {})}
+                              onClick={() => {
+                                setPreview(b);
+                                if (tourStep === 5) setTourStep(6);
+                              }}
+                              className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              {...(i === 0 ? { "data-tour": "step4" } : {})}
+                              disabled={b.planRestricted}
+                              onClick={() => {
+                                if (b.planRestricted) return;
+                                openEditor(b);
+                                if (tourStep === 4) setTourStep(6);
+                              }}
+                              title={b.planRestricted ? "Disabled on current plan" : "Edit"}
+                              className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              disabled={b.planRestricted}
+                              onClick={() => {
+                                if (b.planRestricted) return;
+                                setDeleteTarget(b);
+                              }}
+                              title={b.planRestricted ? "Disabled on current plan" : "Delete"}
+                              className="inline-flex items-center justify-center rounded-xl border border-destructive/40 bg-destructive/10 p-2 text-destructive hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <Link
+                              to="/api-keys/$botId"
+                              params={{ botId: b.id }}
+                              title="Open API key for this chatbot"
+                              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary p-0 text-primary-foreground shadow-soft transition hover:brightness-110"
+                            >
+                              <ArrowUpRight className="h-4 w-4" />
+                            </Link>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Ready-made Templates */}
+              {templates.length > 0 && (
+                <section>
+                  <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
+                    <HardDrive className="h-4 w-4" /> Ready-made Bots
+                  </h2>
+                  <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {templates.map((t, i) => {
+                      const isGen = generating[t.slug];
+                      return (
+                        <motion.div
+                          key={t.slug}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06 }}
+                          className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft"
+                        >
+                          <div
+                            className={`bg-gradient-to-r ${templateGradients[t.slug] || "from-primary to-indigo-600"} px-5 py-4`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl">{templateIcons[t.slug] || "🤖"}</span>
+                              <div>
+                                <h3 className="text-lg font-bold text-white">{t.name}</h3>
+                                <p className="text-xs text-white/80">
+                                  {t.knowledge?.fileCount ?? 0} knowledge files
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-1 flex-col p-5">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {t.description}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {(t.knowledge?.files ?? []).map((f) => (
+                                <span
+                                  key={f.name}
+                                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
+                                >
+                                  <Code2 className="h-3 w-3" /> {f.name}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="mt-auto pt-4">
+                              {isGen ? (
+                                <div className="flex items-center justify-center gap-2 rounded-xl bg-muted py-3 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Creating bot…
+                                </div>
+                              ) : (
+                                <button
+                                  {...(i === 0 ? { "data-tour": "step1" } : {})}
+                                  onClick={() => handleTemplateGenerate(t.slug)}
+                                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+                                >
+                                  <Sparkles className="h-4 w-4" /> Use This Bot
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {filtered.length === 0 && templates.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 py-20 text-center">
+                  <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-lg">
+                    <Code2 className="h-8 w-8" />
+                  </div>
+                  <h2 className="text-lg font-semibold">No scripts yet</h2>
+                  <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                    Create your first chatbot or use a ready-made template to get started.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm">Loading…</p>
-        </div>
-      ) : (
-        <div className="space-y-12">
-          {/* Your Chatbots */}
-          {filtered.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
-                <Bot className="h-4 w-4" /> Your Chatbots
-              </h2>
-              <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((b, i) => {
-                  const isGen = generating[b.id];
-                  const stage = genStage[b.id] || "";
-                  return (
-                    <motion.div
-                      key={b.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      className="flex h-full flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="grid h-10 w-10 place-items-center rounded-xl text-white shadow-soft shrink-0"
-                          style={{
-                            background: `linear-gradient(135deg, ${b.primary}, ${b.secondary})`,
-                          }}
-                        >
-                          {b.logo ? (
-                            <img
-                              src={b.logo}
-                              alt=""
-                              className="h-10 w-10 rounded-xl object-cover"
-                            />
-                          ) : (
-                            <Bot className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold">{b.name}</div>
-                          <div className="text-xs text-muted-foreground">{b.template}</div>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          {formatDate(b.createdAt)}
-                        </span>
-                      </div>
-
-                      {b.planRestricted && (
-                        <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
-                          <Shield className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                          <span className="text-[11px] font-semibold text-amber-600">
-                            Upgrade your plan
-                          </span>
-                          <Link
-                            to="/plans"
-                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:underline"
-                          >
-                            <ArrowUpCircle className="h-3 w-3" /> Upgrade
-                          </Link>
-                        </div>
-                      )}
-
-                      <div className="mt-4 min-h-[60px]">
-                        <AnimatePresence mode="wait">
-                          {isGen ? (
-                            <motion.div
-                              key="gen"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="flex items-center justify-center gap-2 rounded-xl bg-muted py-3 text-sm text-muted-foreground"
-                            >
-                              <Loader2 className="h-4 w-4 animate-spin" /> {stage}
-                            </motion.div>
-                          ) : b.planRestricted ? (
-                            <motion.div
-                              key="locked"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="flex h-full min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-4 text-center"
-                            >
-                              <Shield className="h-4 w-4 text-amber-500" />
-                              <span className="text-[11px] font-medium leading-4 text-amber-600">
-                                Embed script is disabled on your current plan.
-                              </span>
-                            </motion.div>
-                          ) : b.embedScript ? (
-                            <motion.div
-                              key="script"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="h-[220px] overflow-y-auto rounded-xl border border-border/60 bg-muted/40 p-3 font-mono text-[11px] leading-5 text-foreground/80"
-                            >
-                              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                                <Code2 className="h-3 w-3" /> embed
-                              </div>
-                              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap">
-                                {splitEmbedScript(b.embedScript || "").tag}
-                              </pre>
-                              {splitEmbedScript(b.embedScript || "").css && (
-                                <>
-                                  <button
-                                    onClick={() =>
-                                      setCssOpen((prev) => ({ ...prev, [b.id]: !prev[b.id] }))
-                                    }
-                                    className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                                  >
-                                    <ChevronDown
-                                      className={`h-3 w-3 transition-transform ${cssOpen[b.id] ? "rotate-180" : ""}`}
-                                    />
-                                    {cssOpen[b.id] ? "Hide CSS" : "CSS (customize)"}
-                                  </button>
-                                  {cssOpen[b.id] && (
-                                    <pre className="mt-1.5 max-h-28 overflow-y-auto overflow-x-auto whitespace-pre-wrap border-t border-border/60 pt-1.5">
-                                      {splitEmbedScript(b.embedScript || "").css}
-                                    </pre>
-                                  )}
-                                </>
-                              )}
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="cta"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 py-5 text-center"
-                            >
-                              <Sparkles className="h-5 w-5 text-primary/80 animate-pulse mb-1" />
-                              <span className="text-xs text-muted-foreground">
-                                No script generated yet
-                              </span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      <div className="mt-auto pt-4 flex flex-wrap items-center gap-2">
-                        {b.embedScript && !isGen && !b.planRestricted && (
-                          <button
-                            {...(i === 0 ? { "data-tour": "step2" } : {})}
-                            onClick={() => {
-                              navigator.clipboard.writeText(b.embedScript || "");
-                              toast.success("Copied!");
-                              if (tourStep === 2) setTourStep(3);
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110"
-                          >
-                            <Copy className="h-3.5 w-3.5" /> Copy
-                          </button>
-                        )}
-                        {!b.planRestricted && (
-                          <button
-                            {...(i === 0 ? { "data-tour": "step3" } : {})}
-                            onClick={() => {
-                              handleGenerate(b.id, b.name);
-                              if (tourStep === 3) setTourStep(4);
-                            }}
-                            disabled={isGen}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />{" "}
-                            {b.embedScript ? "Regenerate" : "Generate"}
-                          </button>
-                        )}
-                        {b.type === "agency" && (
-                          <>
-                            <a
-                              href="/console"
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Open analytics console (paste your console ID)"
-                              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
-                            >
-                              <BarChart3 className="h-3.5 w-3.5" /> Analytics
-                            </a>
-                          </>
-                        )}
-                        <button
-                          {...(i === 0 ? { "data-tour": "step5" } : {})}
-                          onClick={() => {
-                            setPreview(b);
-                            if (tourStep === 5) setTourStep(6);
-                          }}
-                          className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          {...(i === 0 ? { "data-tour": "step4" } : {})}
-                          disabled={b.planRestricted}
-                          onClick={() => {
-                            if (b.planRestricted) return;
-                            openEditor(b);
-                            if (tourStep === 4) setTourStep(6);
-                          }}
-                          title={b.planRestricted ? "Disabled on current plan" : "Edit"}
-                          className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-card"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          disabled={b.planRestricted}
-                          onClick={() => {
-                            if (b.planRestricted) return;
-                            setDeleteTarget(b);
-                          }}
-                          title={b.planRestricted ? "Disabled on current plan" : "Delete"}
-                          className="inline-flex items-center justify-center rounded-xl border border-destructive/40 bg-destructive/10 p-2 text-destructive hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                        <Link
-                          to="/api-keys/$botId"
-                          params={{ botId: b.id }}
-                          title="Open API key for this chatbot"
-                          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary p-0 text-primary-foreground shadow-soft transition hover:brightness-110"
-                        >
-                          <ArrowUpRight className="h-4 w-4" />
-                        </Link>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Ready-made Templates */}
-          {templates.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
-                <HardDrive className="h-4 w-4" /> Ready-made Bots
-              </h2>
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {templates.map((t, i) => {
-                  const isGen = generating[t.slug];
-                  return (
-                    <motion.div
-                      key={t.slug}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft"
-                    >
-                      <div
-                        className={`bg-gradient-to-r ${templateGradients[t.slug] || "from-primary to-indigo-600"} px-5 py-4`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-3xl">{templateIcons[t.slug] || "🤖"}</span>
-                          <div>
-                            <h3 className="text-lg font-bold text-white">{t.name}</h3>
-                            <p className="text-xs text-white/80">
-                              {t.knowledge?.fileCount ?? 0} knowledge files
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-1 flex-col p-5">
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {t.description}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {(t.knowledge?.files ?? []).map((f) => (
-                            <span
-                              key={f.name}
-                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-                            >
-                              <Code2 className="h-3 w-3" /> {f.name}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-auto pt-4">
-                          {isGen ? (
-                            <div className="flex items-center justify-center gap-2 rounded-xl bg-muted py-3 text-sm text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" /> Creating bot…
-                            </div>
-                          ) : (
-                            <button
-                              {...(i === 0 ? { "data-tour": "step1" } : {})}
-                              onClick={() => handleTemplateGenerate(t.slug)}
-                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
-                            >
-                              <Sparkles className="h-4 w-4" /> Use This Bot
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {filtered.length === 0 && templates.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 py-20 text-center">
-              <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-lg">
-                <Code2 className="h-8 w-8" />
-              </div>
-              <h2 className="text-lg font-semibold">No scripts yet</h2>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Create your first chatbot or use a ready-made template to get started.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Preview Dialog */}
       <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
@@ -5987,6 +6472,18 @@ ${
           <DialogHeader>
             <DialogTitle>How to use Generated Scripts</DialogTitle>
           </DialogHeader>
+          <div className="space-y-5 text-sm">
+            <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4">
+              <div className="flex items-center gap-2 text-violet-600">
+                <Smartphone className="h-4 w-4" />
+                <span className="text-xs font-semibold">Add a chatbot to a native app</span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Open a chatbot card, select App, choose your technology and language, then follow
+                the setup steps shown inside that card. A WebView is not required.
+              </p>
+            </div>
+          </div>
           <div className="space-y-5 text-sm">
             <div>
               <h3 className="font-semibold flex items-center gap-2">

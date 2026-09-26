@@ -2,7 +2,14 @@ import { Bell, Search, Menu, Sparkles } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "./Sidebar";
 import { useState, useEffect } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate } from "@tanstack/react-router";
 import { clearAuth, getStoredUser, getStoredToken } from "@/lib/auth";
@@ -75,7 +82,9 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-xl border border-border/60 bg-card pl-1.5 pr-3 py-1.5 hover:bg-accent">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-gradient-primary text-[11px] font-bold text-primary-foreground">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-gradient-primary text-[11px] font-bold text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="text-left">
                 <div className="text-xs font-semibold leading-tight">{username}</div>
@@ -86,7 +95,9 @@ export function Topbar() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate({ to: "/dashboard/settings" })}>Settings</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate({ to: "/dashboard/settings" })}>
+              Settings
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
