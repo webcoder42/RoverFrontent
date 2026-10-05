@@ -1,11 +1,10 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
   Bell,
   Copy,
   Check,
-  CreditCard,
   ExternalLink,
   Gift,
   KeyRound,
@@ -26,16 +25,15 @@ import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/settings")({
-  head: () => ({ meta: [{ title: "Settings — Webotme" }] }),
+  head: () => ({ meta: [{ title: "Settings � Webotme" }] }),
   component: SettingsPage,
 });
 
-type SettingsTab = "profile" | "billing" | "coupons" | "connected" | "email" | "notifications";
+type SettingsTab = "profile" | "coupons" | "connected" | "email" | "notifications";
 type EmailType = "smtp" | "resend";
 
 const SETTINGS_TABS: { key: SettingsTab; label: string; icon: typeof User }[] = [
   { key: "profile", label: "Profile", icon: User },
-  { key: "billing", label: "Billing", icon: CreditCard },
   { key: "coupons", label: "Coupons", icon: Ticket },
   { key: "connected", label: "Connected accounts", icon: Plug },
   { key: "email", label: "Email setup", icon: Mail },
@@ -84,7 +82,7 @@ const formatDate = (value: string | Date) =>
     year: "numeric",
   });
 
-/* ── Coupons tab ─────────────────────────────────────────────── */
+/* -- Coupons tab ----------------------------------------------- */
 interface CouponRecord {
   code: string;
   planKey: string;
@@ -154,13 +152,13 @@ function CouponsTab() {
           <Ticket className="h-4 w-4 text-primary" /> Coupons &amp; offers
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Every discount code issued to your account — active, expired and redeemed history.
+          Every discount code issued to your account � active, expired and redeemed history.
         </p>
       </div>
 
       {coupons === null ? (
         <div className="rounded-2xl border border-border/60 bg-card p-8 text-center text-sm text-muted-foreground shadow-soft">
-          Loading coupons…
+          Loading coupons�
         </div>
       ) : coupons.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/70 bg-card/50 p-10 text-center shadow-soft">
@@ -207,8 +205,8 @@ function CouponsTab() {
                   </button>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                     <span>{c.title || sourceLabel(c.source)}</span>
-                    <span>·</span>
-                    <span>Issued {c.createdAt ? formatDate(c.createdAt) : "—"}</span>
+                    <span>�</span>
+                    <span>Issued {c.createdAt ? formatDate(c.createdAt) : "�"}</span>
                   </div>
                 </div>
 
@@ -271,12 +269,30 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [notif, setNotif] = useState({ product: true, weekly: true, security: false });
-  const [autoRenew, setAutoRenew] = useState<boolean | null>(null);
-  const [hasSubscription, setHasSubscription] = useState(false);
-  const [renewEndsAt, setRenewEndsAt] = useState<string | null>(null);
-  const [renewBusy, setRenewBusy] = useState(false);
+  const [planLabel, setPlanLabel] = useState<string | null>(null);
+  const [planRenews, setPlanRenews] = useState<string | null>(null);
 
-  // ── Email setup state (custom SMTP / Resend) ──
+  useEffect(() => {
+    fetch("/api/plan-purchase/active", { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((data) => {
+        const p = data?.purchase;
+        if (!p) return;
+        setPlanLabel(p.planName || p.planId?.name || "Premium");
+        setPlanRenews(
+          p.expiresAt
+            ? new Date(p.expiresAt).toLocaleDateString(undefined, {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : null,
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  // -- Email setup state (custom SMTP / Resend) --
   const [emailCfgs, setEmailCfgs] = useState<any[]>([]);
   const [emailCfg, setEmailCfg] = useState<any>(null);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
@@ -318,14 +334,13 @@ function SettingsPage() {
         if (first?.fromName && !fromName) setFromName(first.fromName);
       }
     } catch {
-      // silent — form stays empty
+      // silent � form stays empty
     } finally {
       setEmailLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAutoRenew();
     loadEmailConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -360,11 +375,11 @@ function SettingsPage() {
         setProviderLabel("");
         setDetectNote(
           data.message ||
-            "Couldn't detect automatically — please pick your provider below or enter settings manually.",
+            "Couldn't detect automatically � please pick your provider below or enter settings manually.",
         );
       }
     } catch (error: any) {
-      setDetectNote(error.message || "Auto-detection failed — please pick your provider below.");
+      setDetectNote(error.message || "Auto-detection failed � please pick your provider below.");
     } finally {
       setDetecting(false);
     }
@@ -440,7 +455,7 @@ function SettingsPage() {
       if (editingEmailId) body.id = editingEmailId;
       if (emailType === "smtp") {
         if (!bizEmail.trim() || !bizEmail.includes("@")) throw new Error("Business email is required");
-        if (!smtpHost.trim()) throw new Error("SMTP host is required — select your provider or enter it manually");
+        if (!smtpHost.trim()) throw new Error("SMTP host is required � select your provider or enter it manually");
         const hasSavedPass = editingCfg?.type === "smtp";
         if (!smtpPass && !hasSavedPass) throw new Error("Email password is required");
         body.provider = providerKey;
@@ -538,44 +553,12 @@ function SettingsPage() {
       if (editingEmailId && editingEmailId === id) cancelEditConfig();
       await loadEmailConfig();
       toast.success(
-        id ? "Saved email removed" : "Custom email removed — using system default again",
+        id ? "Saved email removed" : "Custom email removed � using system default again",
       );
     } catch (error: any) {
       toast.error(error.message || "Failed to remove email setup");
     } finally {
       setEmailRemoving(false);
-    }
-  };
-
-  const loadAutoRenew = async () => {
-    try {
-      const res = await fetch("/api/paddle/auto-renew", { headers: getAuthHeaders() });
-      if (!res.ok) return;
-      const data = await res.json();
-      setHasSubscription(Boolean(data.hasSubscription));
-      setAutoRenew(Boolean(data.autoRenew));
-      setRenewEndsAt(data.endsAt ? formatDate(data.endsAt) : null);
-    } catch {
-      // silent — status stays hidden on failure
-    }
-  };
-
-  const handleToggleAutoRenew = async (next: boolean) => {
-    setRenewBusy(true);
-    try {
-      const res = await fetch(`/api/paddle/auto-renew/${next ? "enable" : "disable"}`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update auto-renew");
-      setAutoRenew(Boolean(data.autoRenew));
-      setRenewEndsAt(data.endsAt ? formatDate(data.endsAt) : null);
-      toast.success(next ? "Auto-renew is back on" : "Auto-renew turned off");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update auto-renew");
-    } finally {
-      setRenewBusy(false);
     }
   };
 
@@ -684,94 +667,98 @@ function SettingsPage() {
         <div className="min-w-0 flex-1 space-y-6">
           {activeTab === "profile" && (
             <section className="rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
-              <h2 className="flex items-center gap-2 text-base font-semibold">
-                <User className="h-4 w-4 text-primary" /> Profile
-              </h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {/* Editable: Name */}
-                <label className="block">
-                  <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-                    <User className="h-4 w-4" /> Full name
-                  </span>
+              <h2 className="text-xl font-bold tracking-tight">Profile</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manage how you appear across WEBOTME.
+              </p>
+
+              <div className="mt-6 divide-y divide-border/60">
+                {/* Full name */}
+                <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">Full name</div>
+                    <div className="text-xs text-muted-foreground">Your display name.</div>
+                  </div>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="input"
+                    className="input w-full sm:max-w-xs"
                     placeholder="Your name"
                   />
-                </label>
+                </div>
 
-                {/* Read-only: Email */}
-                <label className="block">
-                  <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-                    <Mail className="h-4 w-4" /> Email
-                  </span>
-                  <div className="relative">
+                {/* Email */}
+                <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">Email</div>
+                    <div className="text-xs text-muted-foreground">Used to sign in. Can't be changed.</div>
+                  </div>
+                  <div className="flex w-full items-center gap-2 sm:max-w-xs">
                     <input
                       value={storedUser?.email || ""}
                       readOnly
-                      className="input cursor-not-allowed opacity-60"
+                      className="input min-w-0 flex-1 cursor-not-allowed opacity-70"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      Read only
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">
+                      <BadgeCheck className="h-3.5 w-3.5" /> Verified
                     </span>
                   </div>
-                </label>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <GradientButton onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save changes"}
-                </GradientButton>
-              </div>
-            </section>
-          )}
-
-          {activeTab === "billing" && (
-            <section className="rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-semibold">Paddle billing</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Manage your payment method, subscription, and invoices.
-                  </p>
                 </div>
-                <GradientButton onClick={handleOpenBilling} disabled={openingPortal}>
-                  <ExternalLink className="h-4 w-4" />{" "}
-                  {openingPortal ? "Opening..." : "Manage billing"}
-                </GradientButton>
-              </div>
 
-              {hasSubscription && autoRenew !== null && (
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 p-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      Auto-renew{" "}
-                      {autoRenew ? (
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
-                          On
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                          Off
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {autoRenew
-                        ? "Your plan renews automatically at the end of each billing period."
-                        : renewEndsAt
-                          ? `Auto-renew is off. You keep full access until ${renewEndsAt}, then your plan ends and you won't be charged again.`
-                          : "Auto-renew is off. Your plan will end after the current billing period."}
-                    </p>
+                {/* Role */}
+                <div className="flex flex-col gap-2 py-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">Role</div>
+                    <div className="text-xs text-muted-foreground">Your access level.</div>
                   </div>
-                  <Switch
-                    checked={autoRenew}
-                    disabled={renewBusy}
-                    onCheckedChange={(v) => handleToggleAutoRenew(v)}
-                  />
+                  <div className="text-sm font-medium capitalize text-foreground">
+                    {storedUser?.role || "User"}
+                  </div>
                 </div>
-              )}
+
+                {/* Plan */}
+                <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">Plan</div>
+                    <div className="text-xs text-muted-foreground">
+                      {planLabel
+                        ? `${planLabel}${planRenews ? `, renews ${planRenews}` : ""}.`
+                        : "No active plan."}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {planLabel && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleOpenBilling}
+                      disabled={openingPortal}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Manage billing
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">All changes saved</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setName(storedUser?.username || "")}
+                    className="rounded-xl border border-border/60 bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    Discard
+                  </button>
+                  <GradientButton onClick={handleSave} disabled={saving}>
+                    <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save changes"}
+                  </GradientButton>
+                </div>
+              </div>
             </section>
           )}
 
@@ -803,12 +790,12 @@ function SettingsPage() {
 
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Connect your own business email so every order confirmation &amp; notification your
-                chatbots send arrives from <strong>your own address</strong> — not ours. Just enter
-                your email; we auto-detect the provider (Zoho, Hostinger, Google Workspace, GoDaddy…).
+                chatbots send arrives from <strong>your own address</strong> � not ours. Just enter
+                your email; we auto-detect the provider (Zoho, Hostinger, Google Workspace, GoDaddy�).
                 You can save multiple emails and pick which one each chatbot uses.
               </p>
 
-              {/* ── Saved connections list ── */}
+              {/* -- Saved connections list -- */}
               {!emailLoading && emailCfgs.length > 0 && (
                 <div className="mt-4 space-y-2">
                   {emailCfgs.map((cfg) => (
@@ -829,7 +816,7 @@ function SettingsPage() {
                               {PROVIDER_LABELS[cfg.provider] || (cfg.type === "resend" ? "Resend" : "SMTP")}
                             </span>
                             <span className="text-muted-foreground">
-                              📧 {cfg.smtpUserMasked || cfg.fromEmail}
+                              ?? {cfg.smtpUserMasked || cfg.fromEmail}
                             </span>
                             {cfg.verified ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
@@ -843,8 +830,8 @@ function SettingsPage() {
                           </div>
                           <div className="text-muted-foreground">
                             Type: {cfg.type === "smtp" ? "Business email (SMTP)" : "Resend API"}
-                            {cfg.fromName ? ` • Sender name: ${cfg.fromName}` : ""}
-                            {cfg.lastVerifiedAt ? ` • Verified ${formatDate(cfg.lastVerifiedAt)}` : ""}
+                            {cfg.fromName ? ` � Sender name: ${cfg.fromName}` : ""}
+                            {cfg.lastVerifiedAt ? ` � Verified ${formatDate(cfg.lastVerifiedAt)}` : ""}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -880,11 +867,11 @@ function SettingsPage() {
                 </div>
               )}
 
-              {/* ── Form mode banner ── */}
+              {/* -- Form mode banner -- */}
               {editingEmailId ? (
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3">
                   <p className="text-xs font-semibold text-foreground">
-                    Editing a saved email — leave the password field empty to keep the stored one.
+                    Editing a saved email � leave the password field empty to keep the stored one.
                   </p>
                   <button
                     type="button"
@@ -907,7 +894,7 @@ function SettingsPage() {
                 )
               )}
 
-              {/* ── Method selection ── */}
+              {/* -- Method selection -- */}
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
@@ -941,12 +928,12 @@ function SettingsPage() {
                     <KeyRound className="h-4 w-4 text-primary" /> Resend API key
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Best deliverability — requires a domain verified at resend.com.
+                    Best deliverability � requires a domain verified at resend.com.
                   </p>
                 </button>
               </div>
 
-              {/* ── SMTP form ── */}
+              {/* -- SMTP form -- */}
               {emailType === "smtp" && (
                 <div className="mt-5 space-y-4">
                   <label className="block">
@@ -954,7 +941,7 @@ function SettingsPage() {
                       Your business email
                       {detecting && (
                         <span className="inline-flex items-center gap-1 font-normal text-muted-foreground">
-                          <RefreshCw className="h-3 w-3 animate-spin" /> Detecting…
+                          <RefreshCw className="h-3 w-3 animate-spin" /> Detecting�
                         </span>
                       )}
                     </span>
@@ -969,12 +956,12 @@ function SettingsPage() {
 
                   {providerLabel && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      <BadgeCheck className="h-3.5 w-3.5" /> {providerLabel} detected — settings filled automatically
+                      <BadgeCheck className="h-3.5 w-3.5" /> {providerLabel} detected � settings filled automatically
                     </div>
                   )}
                   {detectNote && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
-                      ℹ️ {detectNote}
+                      ?? {detectNote}
                     </p>
                   )}
 
@@ -1033,7 +1020,7 @@ function SettingsPage() {
                       <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
                         Email password / app password
                         {emailCfg?.type === "smtp" && (
-                          <span className="font-normal text-muted-foreground"> (saved — leave empty to keep)</span>
+                          <span className="font-normal text-muted-foreground"> (saved � leave empty to keep)</span>
                         )}
                       </span>
                       <input
@@ -1042,7 +1029,7 @@ function SettingsPage() {
                         className="input font-mono"
                         type="password"
                         autoComplete="new-password"
-                        placeholder={emailCfg?.type === "smtp" ? "••••••••" : "Your mail password"}
+                        placeholder={emailCfg?.type === "smtp" ? "��������" : "Your mail password"}
                       />
                     </label>
                     <label className="block">
@@ -1060,7 +1047,7 @@ function SettingsPage() {
 
                   <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
                     <div className="text-xs font-semibold text-foreground/80">
-                      🔑 How to get your app password
+                      ?? How to get your app password
                     </div>
                     <ol className="mt-2 space-y-1.5 text-xs text-muted-foreground">
                       <li>
@@ -1097,7 +1084,7 @@ function SettingsPage() {
                 </div>
               )}
 
-              {/* ── Resend form ── */}
+              {/* -- Resend form -- */}
               {emailType === "resend" && (
                 <div className="mt-5 space-y-4">
                   <ol className="space-y-1.5 rounded-xl border border-border/60 bg-muted/40 p-4 text-xs text-muted-foreground">
@@ -1117,7 +1104,7 @@ function SettingsPage() {
                       Resend API key
                       {emailCfg?.type === "resend" && (
                         <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-600">
-                          saved — leave empty to keep
+                          saved � leave empty to keep
                         </span>
                       )}
                     </span>
@@ -1127,7 +1114,7 @@ function SettingsPage() {
                       className="input font-mono"
                       type="password"
                       autoComplete="off"
-                      placeholder={emailCfg?.type === "resend" ? "re_••••••••" : "re_123abc..."}
+                      placeholder={emailCfg?.type === "resend" ? "re_��������" : "re_123abc..."}
                     />
                   </label>
 
