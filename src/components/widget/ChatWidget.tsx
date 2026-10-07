@@ -64,12 +64,16 @@ export function ChatWidget({ botId }: { botId: string }) {
   const slideTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const imageListRef = useRef<string[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-  const [wakeOn, setWakeOn] = useState(true);
-  const [voiceOn, setVoiceOn] = useState(true);
+  const [wakeOn, setWakeOn] = useState(false);
+  // Mic + spoken replies are OFF by default: the widget never opens the mic or
+  // speaks on page load. The user taps the mic to start listening, and the bot
+  // wakes up only when its activation phrase is heard.
+  const [voiceOn, setVoiceOn] = useState(false);
   const voiceRef = useRef<ReturnType<typeof createVoiceEngine> | null>(null);
   const sendRef = useRef<any>(null);
-  const voiceOnRef = useRef(true);
-  const wakeOnRef = useRef(true);
+  const voiceOnRef = useRef(false);
+  const wakeOnRef = useRef(false);
+  const activatedRef = useRef(false);
 
   const startSlideTimer = () => {
     if (slideTimerRef.current) clearInterval(slideTimerRef.current);
@@ -831,9 +835,86 @@ export function ChatWidget({ botId }: { botId: string }) {
       return;
     }
     const name = bot.name || "Assistant";
+    const allCmds: string[] = Array.isArray(bot.activation?.commands)
+      ? bot.activation.commands.map((c: string) => c.replace(/{botName}/g, name))
+      : [`hello ${name}`, `shutdown ${name}`];
+    const activateCmds = allCmds.filter(
+      (c) => !/shutdown|bye|stop|off/i.test(c),
+    );
+    const shutdownCmds = allCmds.filter((c) => /shutdown|bye|stop|off/i.test(c));
+
+    // The engine strips the bot's name out of what we hear ("hello rover" ->
+    // "hello"), so commands must be matched against both the raw phrase and the
+    // same name-stripped form. Otherwise activation would never fire.
+    const tokens = name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+    const stripName = (s: string) => {
+      let clean = " " + s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim() + " ";
+      for (const token of tokens) {
+        if (token) {
+          clean = clean.replace(
+            new RegExp(`(^|[^a-z0-9])${token}(?=$|[^a-z0-9])`, "g"),
+            "$1 ",
+          );
+        }
+      }
+      return clean.replace(/\s+/g, " ").trim();
+    };
+    const matchesCommand = (phrase: string, cmds: string[]) => {
+      const stripped = stripName(phrase);
+      return cmds.some((cmd) => {
+        const raw = cmd
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!raw) return false;
+        if (phrase.includes(raw)) return true;
+        const noName = stripName(raw);
+        return Boolean(noName) && (stripped === noName || stripped.includes(noName));
+      });
+    };
+
     const engine = createVoiceEngine({
       wakeWords: [name],
-      onUserQuery: (text) => sendRef.current?.(String(text)),
+      alwaysRespond: true,
+      onUserQuery: (text) => {
+        const normalized = String(text)
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/gi, "")
+          .trim();
+
+        const isExit = matchesCommand(normalized, shutdownCmds);
+        if (activatedRef.current && isExit) {
+          activatedRef.current = false;
+          setVoiceOn(false);
+          voiceOnRef.current = false;
+          voiceRef.current?.setVoiceRepliesEnabled(false);
+          setWakeOn(false);
+          wakeOnRef.current = false;
+          voiceRef.current?.setWakeEnabled(false);
+          setVoiceState("idle");
+          return;
+        }
+
+        if (!activatedRef.current) {
+          const isWake = matchesCommand(normalized, activateCmds);
+          if (isWake) {
+            activatedRef.current = true;
+            // Activating the bot also turns on spoken replies so it can greet
+            // back out loud; the mic keeps listening afterwards.
+            setVoiceOn(true);
+            voiceOnRef.current = true;
+            voiceRef.current?.setVoiceRepliesEnabled(true);
+            sendRef.current?.(String(text));
+          }
+          return;
+        }
+        sendRef.current?.(String(text));
+      },
       onStateChange: (s) => setVoiceState(s),
     });
     voiceRef.current = engine;
@@ -864,6 +945,7 @@ export function ChatWidget({ botId }: { botId: string }) {
     if (!engine) return;
     engine.setWakeEnabled(next);
     setVoiceState(engine.state);
+    if (!next) activatedRef.current = false;
   };
 
   const handleToggleVoice = () => {
@@ -874,10 +956,7 @@ export function ChatWidget({ botId }: { botId: string }) {
   };
 
   const handleTapToTalk = () => {
-    const engine = voiceRef.current;
-    if (!engine) return;
-    engine.tapToTalk();
-    setVoiceState(engine.state);
+    handleToggleWake();
   };
 
   if (loading) {

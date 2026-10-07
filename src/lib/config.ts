@@ -6,4 +6,6 @@ export const config = {
   chatBaseUrl: CHAT_BASE_URL.replace(/\/$/, ''),
 };
 
-export const getWidgetScriptUrl = () => `${config.apiBaseUrl}/static/widget.js`;
+export const getWidgetScriptUrl = () => `${config.apiBaseUrl}/static/widget.js?v=20261007-nav`;
+
+export const AUTOFLOW_SCRIPT_VERSION = "20261007-nav";
