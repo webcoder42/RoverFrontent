@@ -9,105 +9,55 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WelcomeRouteImport } from './routes/welcome'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as RefundsRouteImport } from './routes/refunds'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as PlansRouteImport } from './routes/plans'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as HelpRouteImport } from './routes/help'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as DataDeletionRouteImport } from './routes/data-deletion'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ApiKeysRouteImport } from './routes/api-keys'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
-import { Route as ConsoleIndexRouteImport } from './routes/console.index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ApiKeysRouteImport } from './routes/api-keys'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DataDeletionRouteImport } from './routes/data-deletion'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PlansRouteImport } from './routes/plans'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RefundsRouteImport } from './routes/refunds'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as StoreBotIdRouteImport } from './routes/store.$botId'
-import { Route as EmbedIdRouteImport } from './routes/embed.$id'
-import { Route as DashboardWhatsappRouteImport } from './routes/dashboard.whatsapp'
-import { Route as DashboardTemplatesRouteImport } from './routes/dashboard.templates'
-import { Route as DashboardTelegramRouteImport } from './routes/dashboard.telegram'
-import { Route as DashboardStorageRouteImport } from './routes/dashboard.storage'
-import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
-import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts'
-import { Route as DashboardInstagramRouteImport } from './routes/dashboard.instagram'
-import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
-import { Route as DashboardFacebookRouteImport } from './routes/dashboard.facebook'
-import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
-import { Route as ConsoleBotIdRouteImport } from './routes/console.$botId'
-import { Route as CheckoutPlanIdRouteImport } from './routes/checkout.$planId'
-import { Route as ChatIdRouteImport } from './routes/chat.$id'
-import { Route as ApiKeysBotIdRouteImport } from './routes/api-keys.$botId'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
-import { Route as AdminStorageRouteImport } from './routes/admin.storage'
-import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
-import { Route as AdminPurchasesRouteImport } from './routes/admin.purchases'
-import { Route as AdminPlansRouteImport } from './routes/admin.plans'
-import { Route as AdminFlowsRouteImport } from './routes/admin.flows'
-import { Route as AdminCreateAutoFlowRouteImport } from './routes/admin.createAutoFlow'
-import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
-import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
 import { Route as AdminAutoFlowScanRouteImport } from './routes/admin.autoFlowScan'
+import { Route as AdminChatbotsRouteImport } from './routes/admin.chatbots'
+import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
+import { Route as AdminCreateAutoFlowRouteImport } from './routes/admin.createAutoFlow'
+import { Route as AdminFlowsRouteImport } from './routes/admin.flows'
+import { Route as AdminPlansRouteImport } from './routes/admin.plans'
+import { Route as AdminPurchasesRouteImport } from './routes/admin.purchases'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminStorageRouteImport } from './routes/admin.storage'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as ApiKeysBotIdRouteImport } from './routes/api-keys.$botId'
+import { Route as ChatIdRouteImport } from './routes/chat.$id'
+import { Route as CheckoutPlanIdRouteImport } from './routes/checkout.$planId'
+import { Route as ConsoleIndexRouteImport } from './routes/console.index'
+import { Route as ConsoleBotIdRouteImport } from './routes/console.$botId'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
+import { Route as DashboardFacebookRouteImport } from './routes/dashboard.facebook'
+import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
+import { Route as DashboardInstagramRouteImport } from './routes/dashboard.instagram'
+import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
+import { Route as DashboardStorageRouteImport } from './routes/dashboard.storage'
+import { Route as DashboardTelegramRouteImport } from './routes/dashboard.telegram'
+import { Route as DashboardTemplatesRouteImport } from './routes/dashboard.templates'
+import { Route as DashboardWhatsappRouteImport } from './routes/dashboard.whatsapp'
+import { Route as EmbedIdRouteImport } from './routes/embed.$id'
+import { Route as StoreBotIdRouteImport } from './routes/store.$botId'
+import { Route as AdminScanStatusBotIdRouteImport } from './routes/admin.scan-status.$botId'
 import { Route as ApiKeysBotIdIndexRouteImport } from './routes/api-keys.$botId.index'
 import { Route as ApiKeysBotIdAnalyticsRouteImport } from './routes/api-keys.$botId.analytics'
-import { Route as AdminScanStatusBotIdRouteImport } from './routes/admin.scan-status.$botId'
 
-const WelcomeRoute = WelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RefundsRoute = RefundsRouteImport.update({
-  id: '/refunds',
-  path: '/refunds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlansRoute = PlansRouteImport.update({
-  id: '/plans',
-  path: '/plans',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HelpRoute = HelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DataDeletionRoute = DataDeletionRouteImport.update({
-  id: '/data-deletion',
-  path: '/data-deletion',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKeysRoute = ApiKeysRouteImport.update({
-  id: '/api-keys',
-  path: '/api-keys',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -115,19 +65,59 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ApiKeysRoute = ApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DashboardRoute,
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
-  id: '/console/',
-  path: '/console/',
+const DataDeletionRoute = DataDeletionRouteImport.update({
+  id: '/data-deletion',
+  path: '/data-deletion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlansRoute = PlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundsRoute = RefundsRouteImport.update({
+  id: '/refunds',
+  path: '/refunds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -135,124 +125,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const StoreBotIdRoute = StoreBotIdRouteImport.update({
-  id: '/store/$botId',
-  path: '/store/$botId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmbedIdRoute = EmbedIdRouteImport.update({
-  id: '/embed/$id',
-  path: '/embed/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardWhatsappRoute = DashboardWhatsappRouteImport.update({
-  id: '/whatsapp',
-  path: '/whatsapp',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardTemplatesRoute = DashboardTemplatesRouteImport.update({
-  id: '/templates',
-  path: '/templates',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardTelegramRoute = DashboardTelegramRouteImport.update({
-  id: '/telegram',
-  path: '/telegram',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardStorageRoute = DashboardStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardScriptsRoute = DashboardScriptsRouteImport.update({
-  id: '/scripts',
-  path: '/scripts',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardInstagramRoute = DashboardInstagramRouteImport.update({
-  id: '/instagram',
-  path: '/instagram',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardInboxRoute = DashboardInboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardFacebookRoute = DashboardFacebookRouteImport.update({
-  id: '/facebook',
-  path: '/facebook',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardCreateRoute = DashboardCreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const ConsoleBotIdRoute = ConsoleBotIdRouteImport.update({
-  id: '/console/$botId',
-  path: '/console/$botId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutPlanIdRoute = CheckoutPlanIdRouteImport.update({
-  id: '/checkout/$planId',
-  path: '/checkout/$planId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatIdRoute = ChatIdRouteImport.update({
-  id: '/chat/$id',
-  path: '/chat/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKeysBotIdRoute = ApiKeysBotIdRouteImport.update({
-  id: '/$botId',
-  path: '/$botId',
-  getParentRoute: () => ApiKeysRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminStorageRoute = AdminStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSettingsRoute = AdminSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
-  id: '/purchases',
-  path: '/purchases',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPlansRoute = AdminPlansRouteImport.update({
-  id: '/plans',
-  path: '/plans',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminFlowsRoute = AdminFlowsRouteImport.update({
-  id: '/flows',
-  path: '/flows',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCreateAutoFlowRoute = AdminCreateAutoFlowRouteImport.update({
-  id: '/createAutoFlow',
-  path: '/createAutoFlow',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCouponsRoute = AdminCouponsRouteImport.update({
-  id: '/coupons',
-  path: '/coupons',
+const AdminAutoFlowScanRoute = AdminAutoFlowScanRouteImport.update({
+  id: '/autoFlowScan',
+  path: '/autoFlowScan',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminChatbotsRoute = AdminChatbotsRouteImport.update({
@@ -260,9 +135,139 @@ const AdminChatbotsRoute = AdminChatbotsRouteImport.update({
   path: '/chatbots',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAutoFlowScanRoute = AdminAutoFlowScanRouteImport.update({
-  id: '/autoFlowScan',
-  path: '/autoFlowScan',
+const AdminCouponsRoute = AdminCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCreateAutoFlowRoute = AdminCreateAutoFlowRouteImport.update({
+  id: '/createAutoFlow',
+  path: '/createAutoFlow',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFlowsRoute = AdminFlowsRouteImport.update({
+  id: '/flows',
+  path: '/flows',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
+  id: '/purchases',
+  path: '/purchases',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminStorageRoute = AdminStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiKeysBotIdRoute = ApiKeysBotIdRouteImport.update({
+  id: '/$botId',
+  path: '/$botId',
+  getParentRoute: () => ApiKeysRoute,
+} as any)
+const ChatIdRoute = ChatIdRouteImport.update({
+  id: '/chat/$id',
+  path: '/chat/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutPlanIdRoute = CheckoutPlanIdRouteImport.update({
+  id: '/checkout/$planId',
+  path: '/checkout/$planId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
+  id: '/console/',
+  path: '/console/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConsoleBotIdRoute = ConsoleBotIdRouteImport.update({
+  id: '/console/$botId',
+  path: '/console/$botId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardCreateRoute = DashboardCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardFacebookRoute = DashboardFacebookRouteImport.update({
+  id: '/facebook',
+  path: '/facebook',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardInboxRoute = DashboardInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardInstagramRoute = DashboardInstagramRouteImport.update({
+  id: '/instagram',
+  path: '/instagram',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardScriptsRoute = DashboardScriptsRouteImport.update({
+  id: '/scripts',
+  path: '/scripts',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardStorageRoute = DashboardStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardTelegramRoute = DashboardTelegramRouteImport.update({
+  id: '/telegram',
+  path: '/telegram',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardTemplatesRoute = DashboardTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardWhatsappRoute = DashboardWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const EmbedIdRoute = EmbedIdRouteImport.update({
+  id: '/embed/$id',
+  path: '/embed/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoreBotIdRoute = StoreBotIdRouteImport.update({
+  id: '/store/$botId',
+  path: '/store/$botId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminScanStatusBotIdRoute = AdminScanStatusBotIdRouteImport.update({
+  id: '/scan-status/$botId',
+  path: '/scan-status/$botId',
   getParentRoute: () => AdminRoute,
 } as any)
 const ApiKeysBotIdIndexRoute = ApiKeysBotIdIndexRouteImport.update({
@@ -274,11 +279,6 @@ const ApiKeysBotIdAnalyticsRoute = ApiKeysBotIdAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
   getParentRoute: () => ApiKeysBotIdRoute,
-} as any)
-const AdminScanStatusBotIdRoute = AdminScanStatusBotIdRouteImport.update({
-  id: '/scan-status/$botId',
-  path: '/scan-status/$botId',
-  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -585,81 +585,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/welcome': {
-      id: '/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof WelcomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/refunds': {
-      id: '/refunds'
-      path: '/refunds'
-      fullPath: '/refunds'
-      preLoaderRoute: typeof RefundsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/plans': {
-      id: '/plans'
-      path: '/plans'
-      fullPath: '/plans'
-      preLoaderRoute: typeof PlansRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/help': {
-      id: '/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof HelpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/data-deletion': {
-      id: '/data-deletion'
-      path: '/data-deletion'
-      fullPath: '/data-deletion'
-      preLoaderRoute: typeof DataDeletionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api-keys': {
-      id: '/api-keys'
-      path: '/api-keys'
-      fullPath: '/api-keys'
-      preLoaderRoute: typeof ApiKeysRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -669,25 +599,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/api-keys': {
+      id: '/api-keys'
+      path: '/api-keys'
+      fullPath: '/api-keys'
+      preLoaderRoute: typeof ApiKeysRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard/': {
-      id: '/dashboard/'
-      path: '/'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRoute
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/console/': {
-      id: '/console/'
-      path: '/console'
-      fullPath: '/console/'
-      preLoaderRoute: typeof ConsoleIndexRouteImport
+    '/data-deletion': {
+      id: '/data-deletion'
+      path: '/data-deletion'
+      fullPath: '/data-deletion'
+      preLoaderRoute: typeof DataDeletionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plans': {
+      id: '/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof PlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refunds': {
+      id: '/refunds'
+      path: '/refunds'
+      fullPath: '/refunds'
+      preLoaderRoute: typeof RefundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -697,172 +683,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/store/$botId': {
-      id: '/store/$botId'
-      path: '/store/$botId'
-      fullPath: '/store/$botId'
-      preLoaderRoute: typeof StoreBotIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/embed/$id': {
-      id: '/embed/$id'
-      path: '/embed/$id'
-      fullPath: '/embed/$id'
-      preLoaderRoute: typeof EmbedIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/whatsapp': {
-      id: '/dashboard/whatsapp'
-      path: '/whatsapp'
-      fullPath: '/dashboard/whatsapp'
-      preLoaderRoute: typeof DashboardWhatsappRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/templates': {
-      id: '/dashboard/templates'
-      path: '/templates'
-      fullPath: '/dashboard/templates'
-      preLoaderRoute: typeof DashboardTemplatesRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/telegram': {
-      id: '/dashboard/telegram'
-      path: '/telegram'
-      fullPath: '/dashboard/telegram'
-      preLoaderRoute: typeof DashboardTelegramRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/storage': {
-      id: '/dashboard/storage'
-      path: '/storage'
-      fullPath: '/dashboard/storage'
-      preLoaderRoute: typeof DashboardStorageRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/settings': {
-      id: '/dashboard/settings'
-      path: '/settings'
-      fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/scripts': {
-      id: '/dashboard/scripts'
-      path: '/scripts'
-      fullPath: '/dashboard/scripts'
-      preLoaderRoute: typeof DashboardScriptsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/instagram': {
-      id: '/dashboard/instagram'
-      path: '/instagram'
-      fullPath: '/dashboard/instagram'
-      preLoaderRoute: typeof DashboardInstagramRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/inbox': {
-      id: '/dashboard/inbox'
-      path: '/inbox'
-      fullPath: '/dashboard/inbox'
-      preLoaderRoute: typeof DashboardInboxRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/facebook': {
-      id: '/dashboard/facebook'
-      path: '/facebook'
-      fullPath: '/dashboard/facebook'
-      preLoaderRoute: typeof DashboardFacebookRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/create': {
-      id: '/dashboard/create'
-      path: '/create'
-      fullPath: '/dashboard/create'
-      preLoaderRoute: typeof DashboardCreateRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/console/$botId': {
-      id: '/console/$botId'
-      path: '/console/$botId'
-      fullPath: '/console/$botId'
-      preLoaderRoute: typeof ConsoleBotIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout/$planId': {
-      id: '/checkout/$planId'
-      path: '/checkout/$planId'
-      fullPath: '/checkout/$planId'
-      preLoaderRoute: typeof CheckoutPlanIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat/$id': {
-      id: '/chat/$id'
-      path: '/chat/$id'
-      fullPath: '/chat/$id'
-      preLoaderRoute: typeof ChatIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api-keys/$botId': {
-      id: '/api-keys/$botId'
-      path: '/$botId'
-      fullPath: '/api-keys/$botId'
-      preLoaderRoute: typeof ApiKeysBotIdRouteImport
-      parentRoute: typeof ApiKeysRoute
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/storage': {
-      id: '/admin/storage'
-      path: '/storage'
-      fullPath: '/admin/storage'
-      preLoaderRoute: typeof AdminStorageRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/purchases': {
-      id: '/admin/purchases'
-      path: '/purchases'
-      fullPath: '/admin/purchases'
-      preLoaderRoute: typeof AdminPurchasesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/plans': {
-      id: '/admin/plans'
-      path: '/plans'
-      fullPath: '/admin/plans'
-      preLoaderRoute: typeof AdminPlansRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/flows': {
-      id: '/admin/flows'
-      path: '/flows'
-      fullPath: '/admin/flows'
-      preLoaderRoute: typeof AdminFlowsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/createAutoFlow': {
-      id: '/admin/createAutoFlow'
-      path: '/createAutoFlow'
-      fullPath: '/admin/createAutoFlow'
-      preLoaderRoute: typeof AdminCreateAutoFlowRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/coupons': {
-      id: '/admin/coupons'
-      path: '/coupons'
-      fullPath: '/admin/coupons'
-      preLoaderRoute: typeof AdminCouponsRouteImport
+    '/admin/autoFlowScan': {
+      id: '/admin/autoFlowScan'
+      path: '/autoFlowScan'
+      fullPath: '/admin/autoFlowScan'
+      preLoaderRoute: typeof AdminAutoFlowScanRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/chatbots': {
@@ -872,11 +697,193 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChatbotsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/autoFlowScan': {
-      id: '/admin/autoFlowScan'
-      path: '/autoFlowScan'
-      fullPath: '/admin/autoFlowScan'
-      preLoaderRoute: typeof AdminAutoFlowScanRouteImport
+    '/admin/coupons': {
+      id: '/admin/coupons'
+      path: '/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof AdminCouponsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/createAutoFlow': {
+      id: '/admin/createAutoFlow'
+      path: '/createAutoFlow'
+      fullPath: '/admin/createAutoFlow'
+      preLoaderRoute: typeof AdminCreateAutoFlowRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/flows': {
+      id: '/admin/flows'
+      path: '/flows'
+      fullPath: '/admin/flows'
+      preLoaderRoute: typeof AdminFlowsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/purchases': {
+      id: '/admin/purchases'
+      path: '/purchases'
+      fullPath: '/admin/purchases'
+      preLoaderRoute: typeof AdminPurchasesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/storage': {
+      id: '/admin/storage'
+      path: '/storage'
+      fullPath: '/admin/storage'
+      preLoaderRoute: typeof AdminStorageRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api-keys/$botId': {
+      id: '/api-keys/$botId'
+      path: '/$botId'
+      fullPath: '/api-keys/$botId'
+      preLoaderRoute: typeof ApiKeysBotIdRouteImport
+      parentRoute: typeof ApiKeysRoute
+    }
+    '/chat/$id': {
+      id: '/chat/$id'
+      path: '/chat/$id'
+      fullPath: '/chat/$id'
+      preLoaderRoute: typeof ChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/$planId': {
+      id: '/checkout/$planId'
+      path: '/checkout/$planId'
+      fullPath: '/checkout/$planId'
+      preLoaderRoute: typeof CheckoutPlanIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/console/': {
+      id: '/console/'
+      path: '/console'
+      fullPath: '/console/'
+      preLoaderRoute: typeof ConsoleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/console/$botId': {
+      id: '/console/$botId'
+      path: '/console/$botId'
+      fullPath: '/console/$botId'
+      preLoaderRoute: typeof ConsoleBotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/create': {
+      id: '/dashboard/create'
+      path: '/create'
+      fullPath: '/dashboard/create'
+      preLoaderRoute: typeof DashboardCreateRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/facebook': {
+      id: '/dashboard/facebook'
+      path: '/facebook'
+      fullPath: '/dashboard/facebook'
+      preLoaderRoute: typeof DashboardFacebookRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/inbox': {
+      id: '/dashboard/inbox'
+      path: '/inbox'
+      fullPath: '/dashboard/inbox'
+      preLoaderRoute: typeof DashboardInboxRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/instagram': {
+      id: '/dashboard/instagram'
+      path: '/instagram'
+      fullPath: '/dashboard/instagram'
+      preLoaderRoute: typeof DashboardInstagramRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/scripts': {
+      id: '/dashboard/scripts'
+      path: '/scripts'
+      fullPath: '/dashboard/scripts'
+      preLoaderRoute: typeof DashboardScriptsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/storage': {
+      id: '/dashboard/storage'
+      path: '/storage'
+      fullPath: '/dashboard/storage'
+      preLoaderRoute: typeof DashboardStorageRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/telegram': {
+      id: '/dashboard/telegram'
+      path: '/telegram'
+      fullPath: '/dashboard/telegram'
+      preLoaderRoute: typeof DashboardTelegramRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/templates': {
+      id: '/dashboard/templates'
+      path: '/templates'
+      fullPath: '/dashboard/templates'
+      preLoaderRoute: typeof DashboardTemplatesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/whatsapp': {
+      id: '/dashboard/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/dashboard/whatsapp'
+      preLoaderRoute: typeof DashboardWhatsappRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/embed/$id': {
+      id: '/embed/$id'
+      path: '/embed/$id'
+      fullPath: '/embed/$id'
+      preLoaderRoute: typeof EmbedIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/store/$botId': {
+      id: '/store/$botId'
+      path: '/store/$botId'
+      fullPath: '/store/$botId'
+      preLoaderRoute: typeof StoreBotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/scan-status/$botId': {
+      id: '/admin/scan-status/$botId'
+      path: '/scan-status/$botId'
+      fullPath: '/admin/scan-status/$botId'
+      preLoaderRoute: typeof AdminScanStatusBotIdRouteImport
       parentRoute: typeof AdminRoute
     }
     '/api-keys/$botId/': {
@@ -892,13 +899,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api-keys/$botId/analytics'
       preLoaderRoute: typeof ApiKeysBotIdAnalyticsRouteImport
       parentRoute: typeof ApiKeysBotIdRoute
-    }
-    '/admin/scan-status/$botId': {
-      id: '/admin/scan-status/$botId'
-      path: '/scan-status/$botId'
-      fullPath: '/admin/scan-status/$botId'
-      preLoaderRoute: typeof AdminScanStatusBotIdRouteImport
-      parentRoute: typeof AdminRoute
     }
   }
 }
