@@ -15,6 +15,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     envPrefix: ["VITE_", "PADDLE_"],
+    // Keep Vite pre-bundling out of node_modules so EPERM locks on the
+    // node_modules/.vite/deps folder (OneDrive/AV/file locks) disappear.
+    cacheDir: "C:/Users/User/AppData/Local/Temp/rovor-chatbot-vite-cache",
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-dev-runtime",
+        "@tanstack/react-router",
+      ],
+    },
     plugins: [
       TanStackRouterVite(),
       react(),
