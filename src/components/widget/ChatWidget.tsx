@@ -527,10 +527,13 @@ export function ChatWidget({ botId }: { botId: string }) {
           // For autoflow compatibility
           domContext: pageSnapshotRef.current || undefined,
           currentUrl: window.location.href,
-          // Autonomous task loop context (only for automated task steps)
+          // Autonomous task loop context: keep in-flight task active when user provides guidance
           autoTask: taskOpt
             ? { goal: taskOpt.goal, plan: taskOpt.plan || [], done: taskOpt.done || [] }
-            : undefined,
+            : taskActiveRef.current && taskRef.current
+              ? { goal: taskRef.current.goal, plan: taskRef.current.plan || [], done: taskRef.current.done || [] }
+              : undefined,
+          lastActionResult: inboxRef.current.length > 0 ? inboxRef.current[inboxRef.current.length - 1]?.result : undefined,
         }),
       });
 
@@ -711,7 +714,13 @@ export function ChatWidget({ botId }: { botId: string }) {
 
       // Autonomous goal: remember the task so the widget keeps continuing.
       const userInitiated = !stepRunningRef.current;
-      if ((data as any).autoTask) {
+      const isCancel =
+        userInitiated &&
+        /^(?:stop|cancel|abort|ruk jao|band karo|rehndo|chhor do|exit|khatam)\b/i.test(trimmedMessage);
+
+      if (isCancel) {
+        completeTask();
+      } else if ((data as any).autoTask) {
         beginTask(
           String((data as any).autoTask.goal || trimmedMessage),
           Array.isArray((data as any).autoTask.plan)
@@ -719,9 +728,10 @@ export function ChatWidget({ botId }: { botId: string }) {
             : pendingStepsRef.current,
         );
       } else if (!isTaskStep && userInitiated) {
-        // A normal user-initiated message that produced no goal → stop any
-        // in-flight autonomous task (the user redirected the conversation).
-        completeTask();
+        // Keep active task alive if user gave guidance or hint without cancelling
+        if (!taskActiveRef.current) {
+          completeTask();
+        }
       }
 
       const botMessage: Message = {
@@ -882,7 +892,10 @@ export function ChatWidget({ botId }: { botId: string }) {
       wakeWords: [name],
       alwaysRespond: true,
       onUserQuery: (text) => {
-        const normalized = String(text)
+        const queryText = String(text || "").trim();
+        if (!queryText) return;
+
+        const normalized = queryText
           .toLowerCase()
           .replace(/[^a-z0-9\s]/gi, "")
           .trim();
@@ -900,20 +913,14 @@ export function ChatWidget({ botId }: { botId: string }) {
           return;
         }
 
-        if (!activatedRef.current) {
-          const isWake = matchesCommand(normalized, activateCmds);
-          if (isWake) {
-            activatedRef.current = true;
-            // Activating the bot also turns on spoken replies so it can greet
-            // back out loud; the mic keeps listening afterwards.
-            setVoiceOn(true);
-            voiceOnRef.current = true;
-            voiceRef.current?.setVoiceRepliesEnabled(true);
-            sendRef.current?.(String(text));
-          }
-          return;
+        // Always activate voice replies and forward spoken text directly to chat!
+        activatedRef.current = true;
+        if (!voiceOnRef.current) {
+          setVoiceOn(true);
+          voiceOnRef.current = true;
+          voiceRef.current?.setVoiceRepliesEnabled(true);
         }
-        sendRef.current?.(String(text));
+        sendRef.current?.(queryText);
       },
       onStateChange: (s) => setVoiceState(s),
     });
@@ -956,7 +963,14 @@ export function ChatWidget({ botId }: { botId: string }) {
   };
 
   const handleTapToTalk = () => {
-    handleToggleWake();
+    activatedRef.current = true;
+    const engine = voiceRef.current;
+    if (!engine) return;
+    if (engine.state === "listening" || engine.state === "speaking") {
+      engine.stopSpeaking();
+    } else {
+      engine.tapToTalk();
+    }
   };
 
   if (loading) {
