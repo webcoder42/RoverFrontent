@@ -1575,64 +1575,6 @@ export function ChatWidget({ botId }: { botId: string }) {
         </>
       </div>
 
-      {/* ── Chat Input Bar (top) ─────────────────────────────────────── */}
-      <div
-        className="p-3 shrink-0 flex items-end gap-2 border-b"
-        style={{
-          borderColor: isDarkMode ? "#1f2937" : "#e5e7eb",
-          background: bg,
-        }}
-      >
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Type your message..."
-          rows={1}
-          autoFocus={false}
-          className={`flex-1 px-4 py-2.5 text-sm focus:outline-none transition-all duration-200 border resize-none scrollbar-thin ${
-            isMinimal
-              ? "rounded-md"
-              : inputStyle === "pill"
-                ? "rounded-full"
-                : inputStyle === "minimal"
-                  ? "rounded-none border-b-2"
-                  : "rounded-xl"
-          }`}
-          style={{
-            background: surfaceBg,
-            color: textCol,
-            borderColor: isDarkMode ? "#1f2937" : "#e5e7eb",
-            maxHeight: "120px",
-            minHeight: "40px",
-          }}
-        />
-        <button
-          onClick={handleSend}
-          className={`grid h-10 w-10 shrink-0 place-items-center hover:brightness-110 active:scale-95 transition-all shadow-md ${
-            isMinimal
-              ? "rounded-md"
-              : inputStyle === "pill"
-                ? "rounded-full"
-                : inputStyle === "minimal"
-                  ? "rounded-none"
-                  : "rounded-xl"
-          }`}
-          style={{
-            background: sendBtnBg,
-            color: sendBtnText,
-          }}
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
-
       {/* ── Chat Message List ────────────────────────────────────────── */}
       <div
         className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin"
@@ -1855,6 +1797,63 @@ export function ChatWidget({ botId }: { botId: string }) {
         primary={primaryBg}
         secondary={secondaryBg}
       />
+
+      <div
+        className="p-3 shrink-0 flex items-end gap-2 border-t"
+        style={{
+          borderColor: isDarkMode ? "#1f2937" : "#e5e7eb",
+          background: bg,
+        }}
+      >
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder="Type your message..."
+          rows={1}
+          autoFocus={false}
+          className={`flex-1 px-4 py-2.5 text-sm focus:outline-none transition-all duration-200 border resize-none scrollbar-thin ${
+            isMinimal
+              ? "rounded-md"
+              : inputStyle === "pill"
+                ? "rounded-full"
+                : inputStyle === "minimal"
+                  ? "rounded-none border-b-2"
+                  : "rounded-xl"
+          }`}
+          style={{
+            background: surfaceBg,
+            color: textCol,
+            borderColor: isDarkMode ? "#1f2937" : "#e5e7eb",
+            maxHeight: "120px",
+            minHeight: "40px",
+          }}
+        />
+        <button
+          onClick={handleSend}
+          className={`grid h-10 w-10 shrink-0 place-items-center hover:brightness-110 active:scale-95 transition-all shadow-md ${
+            isMinimal
+              ? "rounded-md"
+              : inputStyle === "pill"
+                ? "rounded-full"
+                : inputStyle === "minimal"
+                  ? "rounded-none"
+                  : "rounded-xl"
+          }`}
+          style={{
+            background: sendBtnBg,
+            color: sendBtnText,
+          }}
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Product Details Sheet Overlay */}
       {selectedProduct && (

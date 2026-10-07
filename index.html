@@ -12,7 +12,30 @@
   <div id="root"></div>
 
   <script type="module" src="/src/main.tsx"></script>
+<!-- WeBotMe chatbot widget -->
+<script async src="http://localhost:3000/static/widget.js" data-bot-id="6ab5d5a1ce7bded044906e36" data-api-host="http://localhost:3000" data-chat-host="http://localhost:5174"></script>
 
+<!-- ================================================================
+  Webotme Widget Custom CSS
+  Add CSS in this block to position, resize and style your widget —
+  these styles apply automatically.
+
+  Selectors:
+    #rover-chatbot-bubble  → launcher button / icon
+    #rover-chatbot-frame   → chat panel
+
+  Optionally you can override from the script tag itself:
+  data-widget-position="top-left"  data-widget-open-mode="sidebar"
+  data-widget-width="480"          data-widget-height="640"
+  data-widget-launcher="button"    data-widget-launcher-text="Chat with us"
+  data-widget-launcher-style="pill"
+================================================================= -->
+<style data-rover-custom-css="true">
+  /* Add your own CSS here — e.g. move the widget up or make it bigger */
+  /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
+  /* #rover-chatbot-frame { width: 480px; height: 640px; } */
+  /* -- saved custom CSS will appear here -- */
+</style>
 </body>
 </html>
 
