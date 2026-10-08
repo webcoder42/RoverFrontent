@@ -251,15 +251,16 @@ export function ChatWidget({ botId }: { botId: string }) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         const task = taskRef.current;
         if (!task) return;
-        if (task.iterations >= 16) {
-          completeTask();
+        if (task.iterations >= 60) {
+          task.waitingForInput = true;
+          persistTask(task);
           const isUrduGoal = isUrduMessage(task.goal);
           const limitMsg: Message = {
             id: Math.random().toString(36).substring(7),
             sender: "bot",
             text: isUrduGoal
-              ? "Is kaam ko auto-mukammal karne ke liye bohat zyada steps chahiye. Aap thora guide karein, ya dobara bata dein — main wahi se continue karunga."
-              : "This task requires more steps than usual. Please provide a quick hint or instruction, and I will continue from here.",
+              ? "Main is step par ruka hoon taake aap verify kar lein. Aage barhne ke liye 'continue' ya agla instruction batayein."
+              : "I have paused at this step for your confirmation. Please say 'continue' or let me know how you'd like to proceed.",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, limitMsg]);
@@ -782,27 +783,44 @@ export function ChatWidget({ botId }: { botId: string }) {
         orderId: typeof data.orderId === "string" ? data.orderId : undefined,
       };
 
+      // During autonomous task steps, suppress intermediate action-confirmation
+      // messages ("OK, clicked X, moving forward") to avoid cluttering the chat.
+      // Only show messages when the agent:
+      //   1. Asks the user a question (need-input)
+      //   2. Completes the task (done)
+      //   3. Gets stuck in a loop (stall guard)
+      //   4. It's the very first step (user-initiated, non-task-step)
+      const taskStatus = (data as any)?.task?.status;
+      const isIntermediateTaskStep =
+        isTaskStep &&
+        taskStatus === "continue" &&
+        taskStallRef.current < 3;
+      const shouldSuppressMessage = isIntermediateTaskStep;
+
       const hasActionResponse = data.type === "action" && (data.action || (data as any).actions);
       const shouldRevealProgressively = !hasActionResponse && replyText.length > 180 && !isTaskStep;
-      if (shouldRevealProgressively) {
-        setTyping(false);
-        setMessages((prev) => [...prev, { ...botMessage, text: "" }]);
-        let visibleText = "";
-        let cursor = 0;
-        while (cursor < replyText.length) {
-          const nextBreak = replyText.indexOf("\n", cursor);
-          const target = Math.min(replyText.length, cursor + 14);
-          const end = nextBreak >= cursor && nextBreak <= target ? nextBreak + 1 : target;
-          visibleText += replyText.slice(cursor, end);
-          cursor = end;
-          const chunk = visibleText;
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === botMessage.id ? { ...msg, text: chunk } : msg)),
-          );
-          await new Promise((resolve) => setTimeout(resolve, 24));
+
+      if (!shouldSuppressMessage) {
+        if (shouldRevealProgressively) {
+          setTyping(false);
+          setMessages((prev) => [...prev, { ...botMessage, text: "" }]);
+          let visibleText = "";
+          let cursor = 0;
+          while (cursor < replyText.length) {
+            const nextBreak = replyText.indexOf("\n", cursor);
+            const target = Math.min(replyText.length, cursor + 14);
+            const end = nextBreak >= cursor && nextBreak <= target ? nextBreak + 1 : target;
+            visibleText += replyText.slice(cursor, end);
+            cursor = end;
+            const chunk = visibleText;
+            setMessages((prev) =>
+              prev.map((msg) => (msg.id === botMessage.id ? { ...msg, text: chunk } : msg)),
+            );
+            await new Promise((resolve) => setTimeout(resolve, 24));
+          }
+        } else {
+          setMessages((prev) => [...prev, botMessage]);
         }
-      } else {
-        setMessages((prev) => [...prev, botMessage]);
       }
 
       // Legacy fallback for string-based token actions
