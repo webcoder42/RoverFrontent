@@ -126,6 +126,13 @@ export function ChatWidget({ botId }: { botId: string }) {
   const stepRunningRef = useRef(false);
   const lastActionRef = useRef<{ hasNav: boolean; url: string } | null>(null);
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isUrduMessage = (txt?: string) => {
+    if (!txt) return false;
+    return /\b(?:karo|karna|karen|karein|kardo|krdo|krna|karwa|banao|bana|banwa|chahiye|chahta|chahti|mujhe|mujhy|humein|apko|aapko|aap|ap|tum|mera|meri|mere|hoga|hogi|hogy|hogaya|ho|gaya|gai|gye|gaye|sahi|theek|hai|hain|tha|thi|the|or|aur|phir|dobara|wahi|yahan|wahan|kaha|kahan|kyun|kya|kia|kaise|kese|kis|tarah|tarha|batao|batayein|bataen|pata|shuru|khatam|ruk|ruko|chal|chalo|agy|aage|baad|pehly|pehle|sab|kuch|koi|bhai|yaar|yar|ha|han|haan|nahi|nahin|na|yeh|ye|woh|wo|mat|ab|sirf|zada|ziada|bohat|bhot)\b/i.test(
+      txt,
+    );
+  };
+
   // Autonomous goal task: once the user states a high-level goal, the widget
   // keeps re-sending { goal, done[] } + live DOM to the server, which decides
   // every next step itself (wizard flows, bookings, error/limit handling).
@@ -135,6 +142,7 @@ export function ChatWidget({ botId }: { botId: string }) {
     plan: string[];
     done: string[];
     iterations: number;
+    waitingForInput?: boolean;
   } | null>(null);
   // Stall guards so an autonomous loop can never spin forever when the page
   // stops responding to actions (same page + same actions two steps in a row).
@@ -167,6 +175,7 @@ export function ChatWidget({ botId }: { botId: string }) {
     plan: string[];
     done: string[];
     iterations: number;
+    waitingForInput?: boolean;
   }) => {
     taskRef.current = task;
     try {
@@ -183,9 +192,10 @@ export function ChatWidget({ botId }: { botId: string }) {
     // every step and decides itself, so the queued strings are only hints.
     persistPendingSteps([]);
     if (!taskRef.current || taskRef.current.goal !== goal) {
-      persistTask({ goal, plan: plan || [], done: [], iterations: 0 });
+      persistTask({ goal, plan: plan || [], done: [], iterations: 0, waitingForInput: false });
     } else {
       taskRef.current.plan = plan || [];
+      taskRef.current.waitingForInput = false;
       persistTask(taskRef.current);
     }
   };
@@ -210,7 +220,22 @@ export function ChatWidget({ botId }: { botId: string }) {
     return `${url}::${btnText}::${String(s.visibleText || "").slice(0, 150)}`;
   };
 
-  const shouldAutoContinue = () => taskActiveRef.current || pendingStepsRef.current.length > 0;
+  const shouldAutoContinue = () => {
+    if (pendingStepsRef.current.length > 0) return true;
+    if (taskActiveRef.current && taskRef.current) {
+      if (taskRef.current.waitingForInput) {
+        const snap = pageSnapshotRef.current;
+        if (snap?.inputSettled || snap?.userInteracted) {
+          taskRef.current.waitingForInput = false;
+          persistTask(taskRef.current);
+          return true;
+        }
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
 
   const advanceStep = async () => {
     if (stepRunningRef.current) return;
@@ -226,12 +251,15 @@ export function ChatWidget({ botId }: { botId: string }) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         const task = taskRef.current;
         if (!task) return;
-        if (task.iterations >= 12) {
+        if (task.iterations >= 16) {
           completeTask();
+          const isUrduGoal = isUrduMessage(task.goal);
           const limitMsg: Message = {
             id: Math.random().toString(36).substring(7),
             sender: "bot",
-            text: "Is kaam ko auto-mukammal karne ke liye bohat zyada steps chahiye. Aap thora guide karein, ya dobara kaha dein — main wahi se continue karunga.",
+            text: isUrduGoal
+              ? "Is kaam ko auto-mukammal karne ke liye bohat zyada steps chahiye. Aap thora guide karein, ya dobara bata dein — main wahi se continue karunga."
+              : "This task requires more steps than usual. Please provide a quick hint or instruction, and I will continue from here.",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, limitMsg]);
@@ -662,25 +690,36 @@ export function ChatWidget({ botId }: { botId: string }) {
       // ── AUTONOMOUS TASK BOOKKEEPING ────────────────────────────────────
       const taskInfo = (data as any)?.task;
       const actionsExecuted = data.type === "action" && (data.action || (data as any).actions);
-      if (taskInfo && taskOpt) {
+      if (taskInfo) {
         const current = taskRef.current;
         if (current) {
           current.done = Array.isArray(taskInfo.done)
             ? taskInfo.done.map((d: any) => String(d))
             : current.done;
+          current.waitingForInput = taskInfo.status === "need-input";
           persistTask(current);
         }
-        // End the loop when the agent says done / needs input / did nothing.
-        if (
-          taskInfo.status !== "continue" ||
-          (taskInfo.status === "continue" && !actionsExecuted)
-        ) {
+
+        if (taskInfo.status === "done") {
           completeTask();
-        } else {
+        } else if (taskInfo.status === "need-input") {
+          // Keep task paused & alive awaiting user input
+          if (current) {
+            current.waitingForInput = true;
+            persistTask(current);
+          }
+          taskActiveRef.current = true;
+        } else if (taskInfo.status === "continue") {
+          if (current) {
+            current.waitingForInput = false;
+            persistTask(current);
+          }
+          taskActiveRef.current = true;
+
           // Loop guard: two consecutive autonomous steps that neither changed
           // the page nor produced a different action mean the agent is spinning
           // (e.g. re-clicking the same button that is not responding). Stop
-          // gracefully instead of hammering the same action until the 12 cap.
+          // gracefully instead of hammering the same action until the cap.
           const stepActions: any[] = Array.isArray((data as any)?.actions)
             ? (data as any).actions
             : (data as any).action
@@ -695,21 +734,21 @@ export function ChatWidget({ botId }: { botId: string }) {
             .join("||");
           const samePage = !!sig && taskSigRef.current === sig;
           const sameActions = !!actionSig && taskLastActionsRef.current === actionSig;
-          // A React wizard can keep the same snapshot briefly while its state
-          // is updating. Only treat an action as stalled when both the page
-          // and the exact action are unchanged; a different next action is
-          // valid progress even if the snapshot has not caught up yet.
+
           taskStallRef.current = samePage && sameActions ? taskStallRef.current + 1 : 0;
           taskSigRef.current = sig;
           taskLastActionsRef.current = actionSig;
+
           if (taskStallRef.current >= 3) {
             completeTask();
-            replyText =
-              "I noticed this step is not responding on the page — I stopped here to avoid getting stuck in a loop. A small hint from you and I will retry.";
+            const isUrduTask = isUrduMessage(taskRef.current?.goal || trimmedMessage);
+            replyText = isUrduTask
+              ? "Yeh step page par respond nahi kar raha — loop se bachne ke liye main yahan ruk gaya hoon. Aap thora sa guide karein to main retry karunga."
+              : "I noticed this step is not responding on the page — I stopped here to avoid getting stuck in a loop. A small hint from you and I will retry.";
+          } else if (actionsExecuted) {
+            scheduleStepAdvance(750);
           }
         }
-      } else if (isTaskStep) {
-        completeTask();
       }
 
       // Autonomous goal: remember the task so the widget keeps continuing.
@@ -728,7 +767,6 @@ export function ChatWidget({ botId }: { botId: string }) {
             : pendingStepsRef.current,
         );
       } else if (!isTaskStep && userInitiated) {
-        // Keep active task alive if user gave guidance or hint without cancelling
         if (!taskActiveRef.current) {
           completeTask();
         }
