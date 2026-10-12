@@ -224,12 +224,6 @@ export function ChatWidget({ botId }: { botId: string }) {
     if (pendingStepsRef.current.length > 0) return true;
     if (taskActiveRef.current && taskRef.current) {
       if (taskRef.current.waitingForInput) {
-        const snap = pageSnapshotRef.current;
-        if (snap?.inputSettled || snap?.userInteracted) {
-          taskRef.current.waitingForInput = false;
-          persistTask(taskRef.current);
-          return true;
-        }
         return false;
       }
       return true;
@@ -239,6 +233,7 @@ export function ChatWidget({ botId }: { botId: string }) {
 
   const advanceStep = async () => {
     if (stepRunningRef.current) return;
+    if (taskRef.current?.waitingForInput) return;
     stepRunningRef.current = true;
     lastActionRef.current = null;
     try {
@@ -288,9 +283,11 @@ export function ChatWidget({ botId }: { botId: string }) {
   };
 
   const scheduleStepAdvance = (delayMs: number) => {
+    if (taskRef.current?.waitingForInput) return;
     if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
     stepTimerRef.current = setTimeout(() => {
       stepTimerRef.current = null;
+      if (taskRef.current?.waitingForInput) return;
       advanceStep();
     }, delayMs);
   };
@@ -492,13 +489,16 @@ export function ChatWidget({ botId }: { botId: string }) {
       timestamp: new Date(),
     };
     setMessages([welcomeMsg]);
-    // Register session on server with welcome message
+    voiceRef.current?.stopSpeaking();
+    voiceRef.current?.endConversation?.();
+    // Register session on server with welcome message & clear old session memory
     try {
       await fetch(`/api/chatbot/public/${id}/session/new`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: newSessionId,
+          oldSessionId: sessionId || undefined,
           userId: visitorId,
           welcomeMessage: currentBot.welcome || "Hi 👋 How can I help you today?",
         }),
@@ -531,6 +531,10 @@ export function ChatWidget({ botId }: { botId: string }) {
       };
 
       setMessages((prev) => [...prev, userMessage]);
+      if (taskRef.current) {
+        taskRef.current.waitingForInput = false;
+        persistTask(taskRef.current);
+      }
     }
     if (!isTaskStep && !isEvent && typeof overrideText !== "string") setInput("");
     if (!isTaskStep && typeof overrideText === "string") setInput(""); // always clear on click as well
@@ -596,7 +600,7 @@ export function ChatWidget({ botId }: { botId: string }) {
         .replace(/\[Remaining steps:[^\]]*\]/g, "")
         .replace(/\[Steps left:[^\]]*\]/g, "")
         .replace(/\[Agla step:[^\]]*\]/g, "")
-        .replace(/\s{2,}/g, " ")
+        .replace(/[ \t]{2,}/g, " ")
         .trim();
 
       // If it's the Agentic Action format (single or multiple chained actions)
@@ -760,6 +764,26 @@ export function ChatWidget({ botId }: { botId: string }) {
 
       if (isCancel) {
         completeTask();
+      } else if (taskInfo?.status === "need-input") {
+        // Task needs user input (e.g. card details) — pause and wait.
+        // Do NOT call beginTask() which resets waitingForInput = false!
+        if (taskRef.current) {
+          taskRef.current.waitingForInput = true;
+          persistTask(taskRef.current);
+        } else if ((data as any).autoTask) {
+          persistTask({
+            goal: String((data as any).autoTask.goal || trimmedMessage),
+            plan: Array.isArray((data as any).autoTask.plan) ? (data as any).autoTask.plan : [],
+            done: Array.isArray((data as any).autoTask.done) ? (data as any).autoTask.done : [],
+            iterations: 0,
+            waitingForInput: true,
+          });
+        }
+        taskActiveRef.current = true;
+        if (stepTimerRef.current) {
+          clearTimeout(stepTimerRef.current);
+          stepTimerRef.current = null;
+        }
       } else if ((data as any).autoTask) {
         beginTask(
           String((data as any).autoTask.goal || trimmedMessage),
@@ -1158,7 +1182,11 @@ export function ChatWidget({ botId }: { botId: string }) {
       : "#ffffff";
 
   const renderMessageText = (text: string, msgId: string) => {
-    const lines = text.split("\n");
+    const normalizedText = String(text || "")
+      .replace(/\s*•\s*/g, "\n- ")
+      .replace(/(:\s*|\.\s*|\?\s*|\!\s*)\s*-\s+([A-Z0-9])/g, "$1\n- $2")
+      .replace(/([^\n])\s+-\s+([A-Z0-9])/g, "$1\n- $2");
+    const lines = normalizedText.split("\n");
     const elements: React.ReactNode[] = [];
     let listItems: React.ReactNode[] = [];
     let listType: "ul" | "ol" | null = null;

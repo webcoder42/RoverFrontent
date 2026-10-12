@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -30,10 +31,10 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
-  const details = error?.message || String(error);
+  const details = error instanceof Error ? error.message : String(error ?? "");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

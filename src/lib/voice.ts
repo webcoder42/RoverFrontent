@@ -46,8 +46,8 @@ export interface VoiceEngineOptions {
 
 
 /** After a wake word, wait at most this long before responding anyway. */
-const MAX_WAIT_AFTER_WAKE_MS = 5500;
-const MAX_WAIT_TAP_MS = 6000;
+const MAX_WAIT_AFTER_WAKE_MS = 7000;
+const MAX_WAIT_TAP_MS = 8000;
 /** Max duration for any TTS utterance — safety net if onend never fires. */
 const MAX_SPEAK_DURATION_MS = 30000;
 
@@ -252,7 +252,7 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
   const lang =
     opts.lang ||
     (typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US");
-  const silenceMs = Math.round((opts.silenceTimeout ?? 1.4) * 1000);
+  const silenceMs = Math.round((opts.silenceTimeout ?? 2.2) * 1000);
   const alwaysRespond = opts.alwaysRespond ?? true;
   const speechRate = opts.rate ?? 0.9; // Friendly, clear human conversational speed
   const speechPitch = opts.pitch ?? 1.0;
@@ -262,6 +262,7 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
   let state: VoiceState = isVoiceSupported() ? "idle" : "unsupported";
   let wakeEnabled = true;
   let voiceRepliesEnabled = true;
+  let conversationalMode = false;
   let lastSpeakAt = 0;
   const LAST_SPEAK_IGNORE_MS = 500;
   let lastResultAt = Date.now();
@@ -321,11 +322,13 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
         return;
       }
       if (state === "denied") setState("idle");
-      // Only auto-start background if recognition is NOT already running
-      // (tapToTalk handles its own start).
-      if (wakeEnabled && !rec) {
+      if ((wakeEnabled || conversationalMode) && !rec) {
         try {
-          startBackground();
+          if (conversationalMode) {
+            resumeListening();
+          } else {
+            startBackground();
+          }
         } catch {
           /* noop */
         }
@@ -338,35 +341,21 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
     window.addEventListener("keydown", primeMicOnGesture);
   }
 
-  // Watchdog: Chrome can silently drop a continuous recognition session without
-  // firing onerror/onend. If we should be listening but have no live session,
-  // restart it periodically.
+  // Watchdog: ensures recognition remains active if conversationalMode or wakeEnabled
   let watchdog: ReturnType<typeof setInterval> | null = null;
   const ensureBackgroundAlive = () => {
-    if (stopped || !backgroundSession || !wakeEnabled) return;
-    // If recognition object is gone, restart it.
-    if (!rec) {
-      try {
-        startBackground();
-      } catch {
-        /* noop */
-      }
+    if (stopped || state === "speaking") return;
+    if (conversationalMode && !rec) {
+      try { resumeListening(); } catch {}
       return;
     }
-    // If we haven't received ANY result in 30s while in background mode,
-    // the recognition session is likely dead — restart it.
-    if (Date.now() - lastResultAt > 30000) {
-      try { rec.stop(); } catch { /* noop */ }
-      rec = null;
-      try {
-        startBackground();
-      } catch {
-        /* noop */
-      }
+    if (backgroundSession && wakeEnabled && !rec) {
+      try { startBackground(); } catch {}
+      return;
     }
   };
   const startWatchdog = () => {
-    if (!watchdog) watchdog = setInterval(ensureBackgroundAlive, 4000);
+    if (!watchdog) watchdog = setInterval(ensureBackgroundAlive, 3000);
   };
   startWatchdog();
 
@@ -378,47 +367,32 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
     silenceTimer = null;
     if (maxWaitTimer) clearTimeout(maxWaitTimer);
     maxWaitTimer = null;
-  };
-
-  // Deliver whatever has been captured (pending + latest interim).
-  // If nothing but the wake word/silence was said, send "Hello" so the bot
-  // always answers by voice.
-  const deliver = () => {
-    const interim = rec?.__lastInterim || "";
-    clearTimers();
     if (deliverySoonTimer) {
       clearTimeout(deliverySoonTimer);
       deliverySoonTimer = null;
     }
+  };
+
+  // Deliver whatever has been captured (pending + latest interim).
+  const deliver = () => {
+    const interim = rec?.__lastInterim || "";
+    clearTimers();
     const wasWake = captureIsWake;
-    const wasBackground = backgroundSession;
     captureActive = false;
     captureIsWake = false;
     const combined = stripAddress(pending + " " + interim, wakeWords);
     pending = "";
     if (rec) rec.__lastInterim = "";
+
     if (!combined && !wasWake) {
-      // Mic tapped but no speech → do nothing.
-      if (!wasBackground) {
-        stopRecognition();
-        if (wakeEnabled) {
-          setTimeout(() => {
-            if (!stopped && wakeEnabled && !backgroundSession) startBackground();
-          }, 300);
-        }
-      }
-      setState(backgroundSession && wakeEnabled ? "background" : "idle");
+      // Nothing heard, stay in listening mode if conversation is alive
+      setState(conversationalMode ? "listening" : (backgroundSession && wakeEnabled ? "background" : "idle"));
       return;
     }
-    if (!wasBackground) {
-      stopRecognition();
-      if (wakeEnabled) {
-        setTimeout(() => {
-          if (!stopped && wakeEnabled && !backgroundSession) startBackground();
-        }, 500);
-      }
-    }
-    setState(backgroundSession && wakeEnabled ? "background" : "idle");
+
+    // Keep conversational voice active so after bot speaks, it listens again
+    conversationalMode = true;
+    setState("idle");
     opts.onUserQuery?.(combined || "Hello");
   };
 
@@ -426,13 +400,14 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
     if (silenceTimer) clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => {
       if (captureActive) {
-        const interim = rec?.__lastInterim || "";
-        // Finalize when speech stopped for >= silenceMs.
-        if (Date.now() - lastInterimAt >= silenceMs || !interim) deliver();
+        if (Date.now() - lastInterimAt >= silenceMs) {
+          deliver();
+        } else {
+          armSilence();
+        }
       }
-    }, silenceMs + 100);
+    }, silenceMs);
   };
-
 
   const armMaxWait = (ms: number) => {
     if (maxWaitTimer) clearTimeout(maxWaitTimer);
@@ -442,8 +417,6 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
   };
 
   const startCapture = (fromWake: boolean) => {
-    // If the bot is mid-sentence, cut it off so the mic captures ONLY the
-    // user's words (exact speech), not a mix with the bot's own voice.
     stopSpeaking();
     captureActive = true;
     captureIsWake = fromWake;
@@ -453,6 +426,16 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
     setState("listening");
     armSilence();
     armMaxWait(fromWake ? MAX_WAIT_AFTER_WAKE_MS : MAX_WAIT_TAP_MS);
+  };
+
+  const resumeListening = () => {
+    if (stopped) return;
+    conversationalMode = true;
+    stopSpeaking();
+    if (!rec) {
+      startRecognition(true);
+    }
+    startCapture(false);
   };
 
   const makeRecognition = () => {
@@ -477,47 +460,65 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
         }
         stopRecognition();
       } else if (err === "network") {
-        console.warn("[RoverVoice] SpeechRecognition network error (Google Speech blocked in Brave/offline):", err);
+        console.warn("[RoverVoice] SpeechRecognition network error:", err);
         setState("brave_blocked");
         stopRecognition();
       } else if (err === "no-speech" || err === "aborted") {
-        captureActive = false;
-        clearTimers();
-        setState(backgroundSession ? "background" : "idle");
+        // Normal silence timeout in browser - do not kill session!
+        if (captureActive) {
+          clearTimers();
+          captureActive = false;
+        }
+        if (state !== "speaking") {
+          setState(conversationalMode ? "listening" : (backgroundSession && wakeEnabled ? "background" : "idle"));
+        }
       }
     };
     recognition.onend = () => {
-      console.log("[RoverVoice] SpeechRecognition ended, background=", backgroundSession, "wake=", wakeEnabled);
+      console.log("[RoverVoice] SpeechRecognition ended, conversationalMode=", conversationalMode, "wake=", wakeEnabled);
       if (stopped) return;
-      // Auto-restart the background session (it is continuous).
-      if (backgroundSession && wakeEnabled) {
-        captureActive = false;
-        captureIsWake = false;
-        pending = "";
-        clearTimers();
-        try {
-          recognition.start();
-        } catch {
-          /* already started */
-        }
-      } else if (!backgroundSession) {
-        captureActive = false;
-        captureIsWake = false;
-        clearTimers();
+      clearTimers();
+      captureActive = false;
+      captureIsWake = false;
+      pending = "";
+      if (rec) rec.__lastInterim = "";
+
+      // If bot is currently speaking, utter.onend will trigger resumeListening
+      if (state === "speaking") return;
+
+      if (conversationalMode) {
+        setTimeout(() => {
+          if (!stopped && conversationalMode && state !== "speaking") {
+            try {
+              recognition.start();
+              rec = recognition;
+              startCapture(false);
+            } catch {
+              /* already active or retry in watchdog */
+            }
+          }
+        }, 200);
+      } else if (backgroundSession && wakeEnabled) {
+        setTimeout(() => {
+          if (!stopped && wakeEnabled && state !== "speaking") {
+            try {
+              recognition.start();
+              rec = recognition;
+              setState("background");
+            } catch {
+              /* already active */
+            }
+          }
+        }, 200);
+      } else {
         setState("idle");
       }
     };
     recognition.onresult = (event: any) => {
-      // Track that recognition is alive (used by the watchdog).
       lastResultAt = Date.now();
-      // Ignore audio while the bot is ACTIVELY speaking — stops the mic from
-      // hearing the bot's own voice (echo → bot answering itself loop).
-      // We check speechSynthesis.speaking as ground truth: if TTS actually
-      // stopped but onend hasn't fired yet, we still accept user speech.
       const nowMs = Date.now();
       const speakingRightNow = state === "speaking" && typeof window !== "undefined" && window.speechSynthesis?.speaking;
       if (speakingRightNow) return;
-      // Tiny tail-window right after TTS finishes (noise pedestal).
       if (nowMs - lastSpeakAt < LAST_SPEAK_IGNORE_MS) return;
 
       let finalText = "";
@@ -531,15 +532,14 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
 
       if (finalText || interimText) lastInterimAt = Date.now();
 
-      if (backgroundSession) {
-        // ── Always-on mode ───────────────────────────────────────────────
+      if (backgroundSession && !conversationalMode) {
+        // ── Wake-word background mode ─────────────────────────────────────
         const heard = pending + " " + finalText + " " + interimText;
         const phrase = finalText + " " + interimText;
 
         if (!captureActive) {
           const heardWord = hasWakeWord(heard, wakeWords);
           if (heardWord) opts.onWake?.();
-          // Reply to the exact wake word OR to any actual spoken sentence.
           if (heardWord || (alwaysRespond && isLikelySpeech(phrase))) {
             startCapture(true);
           }
@@ -548,43 +548,43 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
         if (captureActive) {
           if (finalText) pending += finalText + " ";
           if (rec) rec.__lastInterim = interimText;
-          // Fast: as soon as a phrase finishes, deliver it.
           if (finalText) deliverySoon();
           else armSilence();
         }
       } else {
-        // ── Push-to-talk mode ───────────────────────────────────────────
+        // ── Conversational / Push-to-talk mode ────────────────────────────
         if (!captureActive) startCapture(false);
         if (finalText) pending += finalText + " ";
         if (rec) rec.__lastInterim = interimText;
-        if (interimText && !finalText) armSilence();
+
+        // Reset silence timer on every new interim or final word
         if (finalText) {
-          // Deliver shortly after the segment ends so the full phrase is
-          // captured, not just the first word.
-          if (pending.trim()) deliverySoon();
-          else armSilence();
+          deliverySoon();
+        } else {
+          armSilence();
         }
       }
     };
     return recognition;
   };
 
-  // Deliver ~400ms after a finished segment so natural speech is delivered
-  // promptly and sharp without awkward lag.
+  // Deliver after 1800ms of true silence following speech, so natural pauses don't cut user off!
   let deliverySoonTimer: ReturnType<typeof setTimeout> | null = null;
   const deliverySoon = () => {
     if (deliverySoonTimer) clearTimeout(deliverySoonTimer);
     deliverySoonTimer = setTimeout(() => {
-      if (captureActive) deliver();
-    }, 450);
+      if (captureActive) {
+        if (Date.now() - lastInterimAt >= 1800) {
+          deliver();
+        } else {
+          armSilence();
+        }
+      }
+    }, 1800);
   };
 
   const stopRecognition = () => {
     clearTimers();
-    if (deliverySoonTimer) {
-      clearTimeout(deliverySoonTimer);
-      deliverySoonTimer = null;
-    }
     captureActive = false;
     try {
       if (rec) rec.stop();
@@ -608,8 +608,8 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
       recognition.start();
       rec = recognition;
       console.log("[RoverVoice] SpeechRecognition STARTED, continuous=", continuous);
-      setState(continuous ? "background" : "idle");
-      if (!continuous) startCapture(false);
+      setState(conversationalMode ? "listening" : (continuous ? "background" : "idle"));
+      if (conversationalMode || !continuous) startCapture(false);
       return true;
     } catch (e) {
       console.warn("[RoverVoice] recognition.start() FAILED:", e);
@@ -665,21 +665,35 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
   /** Once-off push-to-talk. */
   const tapToTalk = (): boolean => {
     if (stopped) return false;
-    // Stop any current speaking so mic only hears the user.
+    // If currently speaking, tapping interrupts TTS and immediately listens to user!
+    if (state === "speaking") {
+      stopSpeaking();
+      conversationalMode = true;
+      resumeListening();
+      return true;
+    }
+    // If already actively listening, tapping again pauses/mutes voice
+    if (state === "listening" && conversationalMode) {
+      conversationalMode = false;
+      stopRecognition();
+      setState(backgroundSession && wakeEnabled ? "background" : "idle");
+      return true;
+    }
+
+    conversationalMode = true;
     stopSpeaking();
     backgroundSession = false;
     captureActive = false;
     pending = "";
     console.log("[RoverVoice] tapToTalk: starting, micPermission=", micPermissionGranted);
-    // Use continuous: true so browser doesn't cut off on short pauses
     const ok = startRecognition(true);
     if (ok) {
+      startCapture(false);
       return true;
     }
-    // Recognition failed to start — likely no mic permission.
-    // Acquire permission and retry (async).
+    // Recognition failed to start — acquire permission and retry
     console.log("[RoverVoice] tapToTalk: recognition failed, acquiring mic...");
-    setState("listening"); // Show immediate UI feedback
+    setState("listening");
     acquireMicPermission().then((granted) => {
       if (!granted || stopped) {
         console.warn("[RoverVoice] tapToTalk: mic denied");
@@ -688,12 +702,14 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
       }
       console.log("[RoverVoice] tapToTalk: retrying after permission grant");
       startRecognition(true);
+      startCapture(false);
     });
     return false;
   };
 
   const stop = () => {
     stopped = true;
+    conversationalMode = false;
     backgroundSession = false;
     captureActive = false;
     pending = "";
@@ -730,11 +746,9 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
       clearTimeout(speakSafetyTimer);
       speakSafetyTimer = null;
     }
-    // If state was stuck on "speaking", unstick it immediately so the mic
-    // is no longer blocked.
     if (state === "speaking") {
       lastSpeakAt = Date.now();
-      setState(backgroundSession ? "background" : "idle");
+      setState(conversationalMode ? "listening" : (backgroundSession && wakeEnabled ? "background" : "idle"));
     }
   };
 
@@ -783,20 +797,40 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
               speakSafetyTimer = null;
               if (state === "speaking") {
                 lastSpeakAt = Date.now();
-                setState(backgroundSession ? "background" : "idle");
+                if (!stopped && conversationalMode) {
+                  resumeListening();
+                } else {
+                  setState(backgroundSession && wakeEnabled ? "background" : "idle");
+                }
               }
             }, MAX_SPEAK_DURATION_MS);
           };
           utterance.onend = () => {
             if (speakSafetyTimer) { clearTimeout(speakSafetyTimer); speakSafetyTimer = null; }
-            // Guard the mic from TTS tail audio right after we stop speaking.
             lastSpeakAt = Date.now();
-            if (!captureActive) setState(backgroundSession ? "background" : "idle");
+            // Automatically resume listening so conversation flows seamlessly!
+            if (!stopped && conversationalMode) {
+              setTimeout(() => {
+                if (!stopped && conversationalMode && state !== "speaking") {
+                  resumeListening();
+                }
+              }, 400);
+            } else if (!captureActive) {
+              setState(backgroundSession && wakeEnabled ? "background" : "idle");
+            }
           };
           utterance.onerror = () => {
             if (speakSafetyTimer) { clearTimeout(speakSafetyTimer); speakSafetyTimer = null; }
             lastSpeakAt = Date.now();
-            if (!captureActive) setState(backgroundSession ? "background" : "idle");
+            if (!stopped && conversationalMode) {
+              setTimeout(() => {
+                if (!stopped && conversationalMode && state !== "speaking") {
+                  resumeListening();
+                }
+              }, 400);
+            } else if (!captureActive) {
+              setState(backgroundSession && wakeEnabled ? "background" : "idle");
+            }
           };
           window.speechSynthesis.speak(utterance);
         } catch {
@@ -836,8 +870,18 @@ export function createVoiceEngine(opts: VoiceEngineOptions = {}) {
     get voiceReplies() {
       return voiceRepliesEnabled;
     },
+    get conversational() {
+      return conversationalMode;
+    },
     startBackground,
     tapToTalk,
+    resumeListening,
+    endConversation: () => {
+      conversationalMode = false;
+      stopSpeaking();
+      stopRecognition();
+      setState(backgroundSession && wakeEnabled ? "background" : "idle");
+    },
     stop,
     speak,
     stopSpeaking,
