@@ -34,6 +34,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminStorageRouteImport } from './routes/admin.storage'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiKeysBotIdRouteImport } from './routes/api-keys.$botId'
+import { Route as AppSetupBotIdRouteImport } from './routes/app-setup.$botId'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CheckoutPlanIdRouteImport } from './routes/checkout.$planId'
 import { Route as ConsoleIndexRouteImport } from './routes/console.index'
@@ -180,6 +181,11 @@ const ApiKeysBotIdRoute = ApiKeysBotIdRouteImport.update({
   path: '/$botId',
   getParentRoute: () => ApiKeysRoute,
 } as any)
+const AppSetupBotIdRoute = AppSetupBotIdRouteImport.update({
+  id: '/app-setup/$botId',
+  path: '/app-setup/$botId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/chat/$id',
   path: '/chat/$id',
@@ -306,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
   '/api-keys/$botId': typeof ApiKeysBotIdRouteWithChildren
+  '/app-setup/$botId': typeof AppSetupBotIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
@@ -350,6 +357,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
+  '/app-setup/$botId': typeof AppSetupBotIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
@@ -398,6 +406,7 @@ export interface FileRoutesById {
   '/admin/storage': typeof AdminStorageRoute
   '/admin/users': typeof AdminUsersRoute
   '/api-keys/$botId': typeof ApiKeysBotIdRouteWithChildren
+  '/app-setup/$botId': typeof AppSetupBotIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/checkout/$planId': typeof CheckoutPlanIdRoute
   '/console/$botId': typeof ConsoleBotIdRoute
@@ -447,6 +456,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/api-keys/$botId'
+    | '/app-setup/$botId'
     | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
@@ -491,6 +501,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/storage'
     | '/admin/users'
+    | '/app-setup/$botId'
     | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
@@ -538,6 +549,7 @@ export interface FileRouteTypes {
     | '/admin/storage'
     | '/admin/users'
     | '/api-keys/$botId'
+    | '/app-setup/$botId'
     | '/chat/$id'
     | '/checkout/$planId'
     | '/console/$botId'
@@ -575,6 +587,7 @@ export interface RootRouteChildren {
   RefundsRoute: typeof RefundsRoute
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
+  AppSetupBotIdRoute: typeof AppSetupBotIdRoute
   ChatIdRoute: typeof ChatIdRoute
   CheckoutPlanIdRoute: typeof CheckoutPlanIdRoute
   ConsoleBotIdRoute: typeof ConsoleBotIdRoute
@@ -759,6 +772,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api-keys/$botId'
       preLoaderRoute: typeof ApiKeysBotIdRouteImport
       parentRoute: typeof ApiKeysRoute
+    }
+    '/app-setup/$botId': {
+      id: '/app-setup/$botId'
+      path: '/app-setup/$botId'
+      fullPath: '/app-setup/$botId'
+      preLoaderRoute: typeof AppSetupBotIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/chat/$id': {
       id: '/chat/$id'
@@ -1006,6 +1026,7 @@ const rootRouteChildren: RootRouteChildren = {
   RefundsRoute: RefundsRoute,
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
+  AppSetupBotIdRoute: AppSetupBotIdRoute,
   ChatIdRoute: ChatIdRoute,
   CheckoutPlanIdRoute: CheckoutPlanIdRoute,
   ConsoleBotIdRoute: ConsoleBotIdRoute,

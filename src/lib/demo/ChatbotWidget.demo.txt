@@ -1,0 +1,2079 @@
+// WebotMe demo — the complete chatbot widget file.
+// Draggable floating button, bottom-sheet chat, voice in/out, and the full
+// AutoFlow loop: screen scanner, action executor, safety consent gate,
+// flow-cache replay and the auto-minimise behaviour while the bot works.
+// Names, routes and services here are demo values — change them to your own.
+// Theme is the purple (#7327C2) you can restyle in `styles` at the bottom.
+
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as WebotMe from '@webotme/react-native';
+import {
+  cancelAutoTask,
+  chatWithUs,
+  stopChat,
+  setupExecutor,
+  configureVoice,
+  stopVoice,
+  useChat,
+  useNavigationAdapter,
+  useVoiceChat,
+  voiceWithUs,
+  executeActions,
+  nextAutoFlowStep,
+  useWebotMe,
+  configureChat,
+  saveCompletedFlow,
+  getCachedFlow,
+} from '@webotme/react-native';
+import type { ChatResult } from '@webotme/react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Easing,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+const FAB = 56;
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const SHEET_H = Math.round(SCREEN_H * 0.86);
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// ── Demo data — swap in your own services and availability ────────────────
+const AVAILABILITY_TIME_LABELS: Record<string, string> = {
+  Morning: '8 AM - 12 PM',
+  Afternoon: '12 - 6 PM',
+  Evening: '6 PM - 12 AM',
+};
+const formatReadableDate = (date: Date) =>
+  date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+const BOOKING_SERVICES = [
+  { id: 'personal-support', label: 'Personal support visit' },
+  { id: 'companion-visit', label: 'Companion visit' },
+  { id: 'transportation', label: 'Transportation' },
+  { id: 'food-prep', label: 'Food prep & nutrition' },
+];
+const BOOKING_SERVICE_IDS_BY_TYPE: Record<string, string[]> = {
+  support: ['personal-support'],
+  companion: ['companion-visit'],
+  transport: ['transportation'],
+  food: ['food-prep'],
+};
+const BOOKING_SERVICE_LABEL_OVERRIDES: Record<string, string> = {};
+
+// After navigating, allow the new screen to render (fast & safe 400ms).
+const NAV_SETTLE_MS = 250;
+// Max wait for a server reply when no task is active
+const REQUEST_TIMEOUT_MS = 45000;
+// If `sending` stays true this long with no progress, prompt the user
+const STUCK_MS = 45000;
+
+const clamp = (v: number, min: number, max: number) =>
+  Math.min(Math.max(v, min), max);
+
+// ── Screen fingerprint helpers (used by the hybrid FlowCache replay) ────────
+// A fingerprint is built from the current route + every visible button's text
+// plus its selected/disabled state, so it changes whenever the wizard advances
+// or a selection flips. Purely generic: it never names an app screen or button.
+const REPLAY_SETTLE_MS = 300;
+const REPLAY_POLL_MS = 60;
+
+function screenFingerprint(): string {
+  try {
+    const ctx = WebotMe.scanScreen();
+    const btns = (ctx.buttons ?? [])
+      .map((b: any) => `${b?.text ?? ''}${b?.selected ? '*' : ''}${b?.disabled ? 'x' : ''}`)
+      .join('|');
+    const vis = (ctx.visibleText ?? []).slice(0, 12).join(' ').slice(0, 300);
+    return `${ctx.name}::${btns}::${vis}`;
+  } catch {
+    return '';
+  }
+}
+
+/** Poll until the screen differs from `prev` (or the timeout elapses). */
+async function waitForScreenChange(
+  prev: string,
+  timeoutMs = REPLAY_SETTLE_MS,
+  intervalMs = REPLAY_POLL_MS,
+): Promise<string> {
+  const start = Date.now();
+  let last = screenFingerprint();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    last = screenFingerprint();
+    if (last && last !== prev) return last;
+  }
+  return last;
+}
+
+/** Is this cached step's target control currently present and clickable? */
+function hasLiveControl(step: any): boolean {
+  const target = step?.targetText || step?.label || step?.selector;
+  if (!target || typeof target !== 'string') return false;
+  if (step?.actionType && step.actionType !== 'click') return false;
+  try {
+    return typeof WebotMe.findClickHandler(target) === 'function';
+  } catch {
+    return false;
+  }
+}
+
+/** Stable string for a step's target — used to remember what we already tapped. */
+function stepTargetKey(step: any): string {
+  return String(step?.targetText || step?.label || step?.selector || '').toLowerCase();
+}
+
+/** Convert an executed server action into a cacheable step record. */
+function stepFromAction(act: any): any {
+  const data = act?.data ?? {};
+  const actionType =
+    act?.action === 'fill_input' || act?.type === 'fill'
+      ? 'fill_input'
+      : act?.action || act?.type || 'click';
+  const text = typeof data.text === 'string' ? data.text : undefined;
+  // The server tags its own actions (kind/slot/value) when it can; otherwise a
+  // generic classifier decides from the button words + action type. No app
+  // screen or button names are involved.
+  const classified =
+    (WebotMe as any).classifyStep?.({
+      actionType,
+      text,
+      serverKind: act?.kind ?? data?.kind,
+      serverSlot: act?.slot ?? data?.slot,
+      serverValue: act?.value ?? data?.value,
+    }) || { kind: 'choice' as const };
+  return {
+    screenName: (WebotMe.getCurrentRoute?.() as string) || WebotMe.scanScreen()?.name || 'screen',
+    actionType,
+    targetText: text,
+    selector: typeof data.selector === 'string' ? data.selector : undefined,
+    label: typeof data.label === 'string' ? data.label : undefined,
+    inputValue:
+      typeof data.value === 'string' ? data.value : typeof data.text === 'string' ? data.text : undefined,
+    kind: classified.kind,
+    slot: classified.slot,
+    value: classified.value ?? text,
+  };
+}
+
+/** One-tap consent before a final confirm/pay/book step. Default ON. */
+function askFinalConsent(label: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Confirm before I proceed?',
+      `"${label}" will finalize this action. Tap Confirm to go ahead.`,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Confirm', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
+// SDK ke exports mein reset/clear wala function dhoondta hai aur call karta hai
+function resetSdkConversation(): boolean {
+  const sdk = WebotMe as any;
+  const candidates = [
+    'clearChat',
+    'resetChat',
+    'newChat',
+    'newConversation',
+    'startNewChat',
+    'clearMessages',
+    'clearConversation',
+    'resetConversation',
+  ];
+
+  for (const name of candidates) {
+    if (typeof sdk[name] === 'function') {
+      try {
+        sdk[name]();
+        console.log(`[Chatbot] SDK reset via ${name}()`);
+        return true;
+      } catch (e) {
+        console.log(`[Chatbot] ${name}() failed:`, e);
+      }
+    }
+  }
+
+  console.log(
+    '[Chatbot] No reset function found. SDK exports:',
+    Object.keys(sdk)
+  );
+  return false;
+}
+
+function renderMessageText(text: string, baseStyle: any, boldStyle: any) {
+  if (!text) return null;
+  // Parse markdown bold **text** into clean formatted bold text without raw asterisks
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <Text style={baseStyle}>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+          const inner = part.slice(2, -2);
+          return (
+            <Text key={index} style={boldStyle}>
+              {inner}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
+}
+
+// ---- Guided conversation (hardcoded) options ----
+type QuickOption = { id: string; label: string; icon: string };
+type LocalMessage = {
+  id: string;
+  from: 'user' | 'bot';
+  text: string;
+  createdAt: number;
+  pending?: boolean;
+};
+type FlowState =
+  | 'root'
+  | 'question'
+  | 'booking_type'
+  | 'booking_service'
+  | 'booking_duration'
+  | 'booking_date'
+  | 'booking_time'
+  | 'find_page'
+  | 'idle';
+
+const WELCOME_TEXT =
+  "Hello, I'm WebotMe Demo, your personal assistant. How can I help you today?";
+
+const MAIN_OPTIONS: QuickOption[] = [
+  { id: 'question', label: 'I have a question', icon: 'help-circle' },
+  { id: 'book', label: 'Book new appointment', icon: 'calendar' },
+  { id: 'navigate', label: 'Help me find a page', icon: 'map' },
+  { id: 'appointments', label: 'My appointments', icon: 'clock' },
+];
+
+const APPOINTMENT_TYPES: QuickOption[] = [
+  { id: 'support', label: 'Personal support', icon: 'heart' },
+  { id: 'companion', label: 'Companion visit', icon: 'users' },
+  { id: 'transport', label: 'Transportation', icon: 'truck' },
+  { id: 'food', label: 'Food prep & nutrition', icon: 'coffee' },
+];
+
+const BOOKING_TYPE_TO_SERVICE_CATEGORY: Record<string, string> = {
+  support: 'support',
+  companion: 'companion',
+  transport: 'transport',
+  food: 'food',
+};
+
+const BOOKING_DURATIONS = [1, 2, 3, 4, 6, 8];
+const BOOKING_TIME_SLOTS: QuickOption[] = [
+  { id: 'Morning', label: 'Morning (8 AM–12 PM)', icon: 'sunrise' },
+  { id: 'Afternoon', label: 'Afternoon (12–6 PM)', icon: 'sun' },
+  { id: 'Evening', label: 'Evening (6 PM–12 AM)', icon: 'moon' },
+];
+
+const formatLocalDateId = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const getBookingDateOptions = (): QuickOption[] =>
+  Array.from({ length: 7 }, (_, offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    const dayLabel = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    return {
+      id: formatLocalDateId(date),
+      label: offset === 0 ? `Today, ${dayLabel}` : dayLabel,
+      icon: 'calendar',
+    };
+  });
+
+const getAppointmentTypeServices = (appointmentType: string): QuickOption[] => {
+  const category = BOOKING_TYPE_TO_SERVICE_CATEGORY[appointmentType];
+  return (BOOKING_SERVICE_IDS_BY_TYPE[category] || []).map((id) => ({
+    id,
+    label: BOOKING_SERVICES.find((service) => service.id === id)?.label
+      || BOOKING_SERVICE_LABEL_OVERRIDES[id]
+      || id,
+    icon: 'briefcase',
+  }));
+};
+
+const PAGES: { id: string; label: string; route: string; icon: string }[] = [
+  { id: 'appointments', label: 'Appointments', route: '/(app)/appointments', icon: 'calendar' },
+  { id: 'messages', label: 'Messages', route: '/(app)/messages', icon: 'message-circle' },
+  { id: 'profile', label: 'Profile', route: '/(app)/profile', icon: 'user' },
+  { id: 'billing', label: 'Billing & Payment', route: '/(app)/billing-payment', icon: 'credit-card' },
+  { id: 'plans', label: 'Plans', route: '/(app)/plans', icon: 'package' },
+  { id: 'preferences', label: 'Preferences', route: '/(app)/preferences', icon: 'sliders' },
+];
+
+const makeWelcomeMessage = (): LocalMessage => ({
+  id: 'welcome',
+  from: 'bot',
+  text: WELCOME_TEXT,
+  createdAt: 0,
+});
+
+export default function ChatbotWidget() {
+  const router = useRouter();
+  const webot = useWebotMe();
+  const [visible, setVisible] = useState(false);
+  const visibleRef = useRef(false);
+  visibleRef.current = visible;
+
+  const initialPosition = {
+    x: SCREEN_W - FAB - 20,
+    y: SCREEN_H - FAB - 28,
+  };
+  const [pan] = useState(() => new Animated.ValueXY(initialPosition));
+
+  const [panResponder] = useState(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 6 || Math.abs(gesture.dy) > 6,
+      onMoveShouldSetPanResponderCapture: (_, gesture) =>
+        Math.abs(gesture.dx) > 6 || Math.abs(gesture.dy) > 6,
+      onPanResponderGrant: () => {
+        pan.extractOffset();
+      },
+      onPanResponderMove: (_, gesture) => {
+        pan.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+        pan.stopAnimation(({ x, y }) => {
+          const nextPosition = {
+            x: clamp(x, 0, SCREEN_W - FAB),
+            y: clamp(y, 0, SCREEN_H - FAB),
+          };
+          pan.setValue(nextPosition);
+        });
+      },
+    })
+  );
+
+  // ---- BOTTOM SHEET ANIMATION ----
+  // translateY: SCREEN_H = band (neeche screen se bahar), 0 = poora khula
+  const [translateY] = useState(() => new Animated.Value(SCREEN_H));
+  // Keyboard/window resize ke baad available height (onLayout se milti hai).
+  // Sheet ki height is par clamp hoti hai taake wo kabhi available space se
+  // bara na ho aur screen ke top ki taraf overflow na kare.
+  const [availH, setAvailH] = useState(SCREEN_H);
+  const backdropOpacity = translateY.interpolate({
+    inputRange: [0, SHEET_H],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const closingRef = useRef(false);
+  const closeRef = useRef<() => void>(() => { });
+
+  // Header ko neeche drag karne se chat close hoti hai
+  const [sheetPanResponder] = useState(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) =>
+        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) translateY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 110 || g.vy > 0.8) {
+          closeRef.current();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+            speed: 14,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 6,
+          speed: 14,
+        }).start();
+      },
+    })
+  );
+
+  const { messages, sending, error, pendingWorkflow, autoTask } = useChat();
+  const voice = useVoiceChat();
+  const voiceSendRef = useRef<(text: string) => Promise<ChatResult>>(chatWithUs);
+  const [textUi, setTextUi] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const transcriptRef = useRef(false);
+
+  // Task state (yahan upar hai taake neeche ke effects use kar sakein)
+  const waitingForInput = Boolean((autoTask as any)?.waitingForInput);
+  const taskActive = Boolean(autoTask?.goal) && !waitingForInput;
+  const taskActiveRef = useRef(taskActive);
+  taskActiveRef.current = taskActive;
+  // true = task chalne par humne chat khud minimize ki (taake screen par steps nazar aayein)
+  const minimizedByTaskRef = useRef(false);
+
+  // Keep SDK navigation actions connected without repeatedly scanning the app tree.
+  useNavigationAdapter();
+
+  // ---- NAVIGATION HELPER (shared by SDK executor + sendToServer) ----
+  // Always uses the latest router/closeChat via refs (the executor effect below
+  // runs once, so plain closures would go stale). A repeated navigate to the same
+  // route within 2s is de-duplicated, so it is safe if BOTH the SDK executor and
+  // sendToServer receive the same navigate action.
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const lastNavRef = useRef<{ route: string; ts: number; promise: Promise<boolean> } | null>(null);
+
+  const goToRoute = (rawRoute: unknown, source: string): Promise<boolean> => {
+    const anyRoute = rawRoute as any;
+    const route =
+      typeof rawRoute === 'string'
+        ? rawRoute
+        : anyRoute?.url ??
+        anyRoute?.route ??
+        anyRoute?.path ??
+        anyRoute?.data?.url ??
+        anyRoute?.data?.route ??
+        null;
+
+    if (!route || typeof route !== 'string') {
+      console.log(`[Chatbot] goToRoute (${source}): no usable route in`, rawRoute);
+      return Promise.resolve(false);
+    }
+
+    const last = lastNavRef.current;
+    if (last && last.route === route && Date.now() - last.ts < 2000) {
+      console.log(`[Chatbot] goToRoute (${source}): duplicate navigate to ${route} ignored`);
+      return last.promise;
+    }
+
+    console.log(`[Chatbot] goToRoute (${source}):`, route);
+    const promise = new Promise<boolean>((resolve) => {
+      // Chat khuli ho to pehle band karo; band ho to foran navigate karo (extra delay nahi)
+      const wasOpen = visibleRef.current;
+      if (wasOpen) closeRef.current();
+      setTimeout(() => {
+        try {
+          routerRef.current.push(route as any);
+          // Wait for the screen to mount, then report success to the SDK
+          setTimeout(() => resolve(true), NAV_SETTLE_MS);
+        } catch (e) {
+          console.log('[Chatbot] router.push failed:', e);
+          resolve(false);
+        }
+      }, wasOpen ? 300 : 0);
+    });
+    lastNavRef.current = { route, ts: Date.now(), promise };
+    return promise;
+  };
+
+  // Arm the executor for autonomous AutoFlow actions
+  useEffect(() => {
+    const unsub = setupExecutor({
+      // driveAutoFlow khud actions chalata hai — SDK watcher se double
+      // execution na ho, isliye watch:false.
+      watch: false,
+      navigate: (routeArg: any) => {
+        console.log('[Chatbot] executor navigate called with:', routeArg);
+        return goToRoute(routeArg, 'executor');
+      },
+      onActionExecuted: (action, success, error) => {
+        if (success) return;
+        console.log('[AutoFlow] action failed:', action.type, error);
+        if (!autoTaskRef.current?.goal) {
+          pushLocal(
+            'bot',
+            action.type === 'navigate'
+              ? `I couldn't open that page (${(action.data as any)?.url ?? ''}) — ${error || 'no route found'}. Please tap it yourself.`
+              : `I couldn't tap "${(action.data as any)?.text ?? (action.data as any)?.label ?? 'that button'}" — ${error || 'not found on this screen'}. Please tap it manually.`
+          );
+        }
+      },
+    });
+    return unsub;
+  }, []);
+
+  // ---- NEW CHAT: is index se pehle ke messages hide ho jayenge (fallback) ----
+  const [startIndex, setStartIndex] = useState(0);
+  const visibleMessages = useMemo(
+    () => messages.slice(startIndex),
+    [messages, startIndex]
+  );
+
+  // ---- GUIDED FLOW (hardcoded bot messages + selectable quick replies) ----
+  const [flow, setFlow] = useState<FlowState>('root');
+  const [bookingType, setBookingType] = useState<string | null>(null);
+  const [bookingServiceId, setBookingServiceId] = useState<string | null>(null);
+  const [bookingDuration, setBookingDuration] = useState<number | null>(null);
+  const [bookingDate, setBookingDate] = useState<string | null>(null);
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>(() => [
+    makeWelcomeMessage(),
+  ]);
+  const localIdRef = useRef(0);
+
+  // Latest autoTask, readable inside async sendToServer closures.
+  const autoTaskRef = useRef(autoTask);
+  autoTaskRef.current = autoTask;
+
+  // True while the driveAutoFlow loop is running — the "AI is working" pill
+  // connects to this so the pill stays visible between steps.
+  const [autoFlowRunning, setAutoFlowRunning] = useState(false);
+  const autoFlowRunningRef = useRef(false);
+  // Used to immediately break the loop when Stop is pressed
+  const stopFlowRef = useRef(false);
+  // Bumped every time a NEW driveAutoFlow starts. An older loop sees the
+  // mismatch and exits, so a new task never shares the screen with a stale one.
+  const flowGenRef = useRef(0);
+  // Resolves when the currently-running loop finishes — a new loop waits on
+  // this so two loops never tap the screen at the same time.
+  const runningLoopRef = useRef<Promise<void> | null>(null);
+
+
+  const pushLocal = (from: 'user' | 'bot', text: string) => {
+    localIdRef.current += 1;
+    const msg: LocalMessage = {
+      id: `local_${Date.now().toString(36)}_${localIdRef.current}`,
+      from,
+      text,
+      createdAt: Date.now(),
+    };
+    setLocalMessages((prev) => [...prev, msg]);
+    return msg;
+  };
+
+  // ---- AutoFlow: hybrid replay + autonomous server steps -------------------
+  // Runs as long as a task goal exists and waitingForInput is false.
+  //
+  // At every step it FIRST checks the locally cached blueprint. If the cached
+  // control is still present on the live screen, it is tapped locally (no
+  // network round-trip) — this is what makes repeat bookings feel instant.
+  // The moment a cached control is NOT on the screen (the flow diverged, e.g.
+  // a different service was requested), it falls back to the server for that
+  // one step, then re-syncs to the next still-matching cached step. So common
+  // steps stay fast and only the genuinely different ones cost a server call.
+  const driveAutoFlow = async (
+    initialActions?: any[],
+    initialReply?: string,
+    initialTask?: any,
+  ) => {
+    // Take over from any older loop: bump the generation so it exits at its
+    // next check, then wait (bounded) for it to actually stop — two loops must
+    // never tap the screen at the same time.
+    const myGen = ++flowGenRef.current;
+    const prev = runningLoopRef.current;
+    if (prev) {
+      await Promise.race([prev, new Promise((r) => setTimeout(r, 1200))]);
+    }
+    if (flowGenRef.current !== myGen) return; // an even newer task took over
+    autoFlowRunningRef.current = true;
+    setAutoFlowRunning(true);
+
+    const run = (async () => {
+      try {
+        let actions: any[] | undefined = initialActions;
+        let hops = 0;
+        let consecutiveFailures = 0;
+        let lastTask: any = initialTask || null;
+        const MAX_HOPS = 100;
+
+        // LIVE task: prefer the latest server-returned task, then the React ref.
+        // initialTask may be stale (waitingForInput gets updated later).
+        const getTask = () => {
+          const live = autoTaskRef.current as any;
+          if (live?.goal) return live;
+          return lastTask;
+        };
+
+        // ── Cached blueprint for this goal (loaded once) ────────────────────
+        const startGoal = String(initialTask?.goal || autoTaskRef.current?.goal || '').trim();
+        // Manual-tap training: human taps made during/after this task are
+        // recorded under this goal (see the SDK's tap recorder).
+        if (startGoal) (WebotMe as any).setUserFlowGoal?.(startGoal);
+        let cachedSteps: any[] = [];
+        let learning = true; // no blueprint yet → record one as we go
+        if (startGoal) {
+          try {
+            const cached = await getCachedFlow(startGoal);
+            if (cached?.steps?.length) {
+              cachedSteps = cached.steps;
+              learning = false;
+              console.log(
+                `[FlowCache] Loaded blueprint (${cachedSteps.length} steps) for "${startGoal}" — replaying known steps locally.`,
+              );
+            }
+          } catch (e) {
+            console.warn('[FlowCache] Could not load blueprint, learning fresh:', e);
+          }
+        }
+
+        let replayIdx = 0;
+        let replayEnabled = cachedSteps.length > 0;
+        const recordedSteps: any[] = [];
+        // True only when the loop ended because the server reported done —
+        // i.e. the flow actually reached its end. A flow paused for user input
+        // or stopped mid-way is NOT complete and must not save as completed.
+        let reachedEnd = false;
+        // Targets already tapped this session — never re-sync onto them.
+        const tappedTargets = new Set<string>();
+        // Values the user explicitly asked for this run (service words, hours,
+        // dates…). Cached choice/value steps only replay when they match.
+        const requestVals = (WebotMe as any).extractRequestValues
+          ? (WebotMe as any).extractRequestValues(String(initialTask?.goal || startGoal || ''))
+          : { numbers: [], content: [] };
+        // Labels the user already gave consent for this task — shared with the
+        // SDK executor so the same final step is never asked twice.
+        (WebotMe as any).clearConsentApprovals?.();
+        // Set when the user declines a consent prompt — the loop stops cleanly.
+        let userDeclined = false;
+
+        /** Find the first not-yet-tapped cached step whose control is live now. */
+        const findResyncIndex = (): number => {
+          for (let i = 0; i < cachedSteps.length; i++) {
+            if (tappedTargets.has(stepTargetKey(cachedSteps[i]))) continue;
+            if (hasLiveControl(cachedSteps[i])) return i;
+          }
+          return -1;
+        };
+
+        while (hops < MAX_HOPS) {
+          if (stopFlowRef.current || flowGenRef.current !== myGen) {
+            console.log(
+              '[Chatbot] driveAutoFlow stopped by user' +
+              (flowGenRef.current !== myGen ? ' (newer task took over)' : ''),
+            );
+            break;
+          }
+          hops++;
+
+          const hasActions = Array.isArray(actions) && actions.length > 0;
+
+          // ── SERVER-PROVIDED ACTIONS: run them, then position the replay ────
+          // The server's plan is always fresher than the cache, so it wins
+          // whenever it has one. Executing it may advance the wizard onto a
+          // later cached step — re-sync so the cache can serve what comes next.
+          if (hasActions) {
+            // ── Consent gate: server-planned final confirm/pay/book actions ──
+            // The bot may plan the last step, but it never RUNS it without a
+            // one-tap user approval (config: configureFlows({requireFinalConsent:false})).
+            const requireConsent = (WebotMe as any).shouldRequireFinalConsent?.() !== false;
+            if (requireConsent) {
+              for (const act of actions as any[]) {
+                const actText = String(act?.data?.text ?? act?.data?.label ?? '');
+                // Server may put kind at root OR inside data — read both.
+                const isConsent =
+                  act?.kind === 'consent' ||
+                  act?.data?.kind === 'consent' ||
+                  (WebotMe as any).isConsentLabel?.(actText) === true ||
+                  (WebotMe as any).isSensitiveLabel?.(actText) === true ||
+                  (WebotMe as any).isDestructiveLabel?.(actText) === true;
+                if (!isConsent || (WebotMe as any).hasConsentApproved?.(actText)) continue;
+                const approved = await askFinalConsent(actText || 'this final step');
+                if (!approved) {
+                  console.log('[FlowCache] User declined final confirmation — stopping flow.');
+                  userDeclined = true;
+                  break;
+                }
+                (WebotMe as any).approveConsent?.(actText);
+              }
+              if (userDeclined) {
+                pushLocal('bot', 'Ok, I stopped before confirming. Ask me to continue anytime.');
+                break;
+              }
+            }
+            console.log('[Chatbot] driveAutoFlow executing actions:', JSON.stringify(actions));
+            const ok = await executeActions(actions as any[]);
+            for (const act of actions as any[]) {
+              // Always remember what we tapped so a re-sync never re-taps it,
+              // even when this step came from the server rather than the cache.
+              const rec = stepFromAction(act);
+              tappedTargets.add(stepTargetKey(rec));
+              if (ok && learning) {
+                recordedSteps.push(rec);
+                // Save after every step so an interrupted run leaves a
+                // replayable prefix. mergeFlow unions partials.
+                if (startGoal) void saveCompletedFlow(startGoal, [...recordedSteps], false);
+              }
+            }
+            actions = undefined;
+
+            // ── NAV GOAL: after executing the navigation click, we're done ──
+            // "go to settings" is fulfilled by reaching the page. Advancing
+            // further made the server ask "Which service?" and stall the flow.
+            const currentGoal = String(getTask()?.goal || startGoal || '');
+            if ((WebotMe as any).isNavigationCommand?.(currentGoal) && ok) {
+              console.log('[Chatbot] driveAutoFlow: navigation goal reached — stopping.');
+              reachedEnd = true;
+              break;
+            }
+
+            if (cachedSteps.length > 0) {
+              const idx = findResyncIndex();
+              if (idx >= 0) {
+                replayIdx = idx;
+                replayEnabled = true;
+                console.log(`[FlowCache] Re-synced to cached step ${idx + 1}/${cachedSteps.length}.`);
+              } else {
+                replayEnabled = false;
+              }
+            }
+            consecutiveFailures = 0;
+            continue; // next iteration: let the cache try before spending a call
+          }
+
+          // ── FAST PATH: replay a cached step locally (no server call) ───────
+          // common steps always replay. choice/value steps replay only when the
+          // user's request matches the recorded value (or they stated nothing
+          // and the same value is still on screen) — a stale service/date/slot
+          // is NEVER blindly re-tapped. consent steps ask the user first.
+          if (replayEnabled && replayIdx < cachedSteps.length) {
+            const step = cachedSteps[replayIdx];
+            const target = step?.targetText || step?.label || step?.selector;
+            // Unknown kind → treat as "choice" (the safe path: verify value +
+            // live screen before tapping), never as a blind "common" tap.
+            const kind = String(step?.kind || 'choice');
+            const alreadyTapped = tappedTargets.has(stepTargetKey(step));
+
+            let allowLocal = true;
+            const isSensTarget = (WebotMe as any).isSensitiveLabel?.(String(target || '')) === true;
+            if (!alreadyTapped) {
+              if (
+                (kind === 'choice' || kind === 'value') &&
+                !isSensTarget &&
+                (WebotMe as any).canReplayCachedStep
+              ) {
+                const decision = (WebotMe as any).canReplayCachedStep(step, requestVals, cachedSteps);
+                allowLocal = !!decision?.ok;
+                if (!allowLocal) {
+                  console.log(
+                    `[FlowCache] Step ${replayIdx + 1} ("${target}") needs server: ${decision?.reason || 'unknown'}`,
+                  );
+                }
+              } else if (
+                (kind === 'consent' && (WebotMe as any).shouldRequireFinalConsent?.() !== false) ||
+                isSensTarget
+              ) {
+                if ((WebotMe as any).hasConsentApproved?.(target)) {
+                  // already approved earlier in this flow
+                } else {
+                  const approved = await askFinalConsent(String(target || 'this final step'));
+                  if (!approved) {
+                    console.log('[FlowCache] User declined final confirmation — stopping flow.');
+                    userDeclined = true;
+                    break;
+                  }
+                  (WebotMe as any).approveConsent?.(String(target || ''));
+                }
+              }
+            }
+
+            if (allowLocal && hasLiveControl(step)) {
+              const handler = WebotMe.findClickHandler(target) as any;
+              const before = screenFingerprint();
+              console.log(
+                `[FlowCache] Replaying cached step ${replayIdx + 1}/${cachedSteps.length}: click "${target}" (${kind})`,
+              );
+              let tapped = true;
+              try {
+                handler();
+              } catch (e) {
+                tapped = false;
+                console.warn('[FlowCache] Cached step tap failed, asking server:', e);
+              }
+              if (tapped) {
+                tappedTargets.add(stepTargetKey(step));
+                replayIdx++;
+                if (learning) {
+                  recordedSteps.push(step);
+                  // Persist each locally-replayed step too, so the prefix is
+                  // never lost if the run is interrupted later.
+                  if (startGoal) void saveCompletedFlow(startGoal, [...recordedSteps], false);
+                }
+                WebotMe.reportActionResult({ success: true, action: `click:${target}`, screenChanged: true });
+                await waitForScreenChange(before);
+                consecutiveFailures = 0;
+                continue; // ← no server round-trip for this step
+              }
+              replayEnabled = false;
+            } else if (allowLocal) {
+              // Diverged: the recorded control is not on this screen. Pause the
+              // replay and let the server plan this one step, then re-sync.
+              console.log(
+                `[FlowCache] Step ${replayIdx + 1} diverged ("${target}" not on screen) — asking server for this step.`,
+              );
+              // Mark it dealt-with so a later re-sync can't jump back onto it and
+              // tap it a second time once the server has handled it.
+              tappedTargets.add(stepTargetKey(step));
+              replayEnabled = false;
+            } else {
+              // choice/value step needs a fresh decision — server plans it, then
+              // the loop re-syncs onto the next still-matching cached step.
+              tappedTargets.add(stepTargetKey(step));
+              replayEnabled = false;
+            }
+          }
+
+          const task = getTask();
+          if (task?.goal && !task?.waitingForInput) {
+            // NOTE: no re-sync here. We only reach this branch when the cache
+            // could not serve the current step — i.e. the flow diverged. Jumping
+            // to a later cached step now would silently SKIP the step the server
+            // still needs to plan. Re-positioning happens after the server's
+            // actions run (the hasActions branch above).
+            const res = await advanceStep();
+            if (!res) {
+              consecutiveFailures++;
+            } else if (res.terminal) {
+              // Our task view was stale — the server already finished it.
+              console.log('[Chatbot] driveAutoFlow: task already ended on server');
+              reachedEnd = true;
+              break;
+            } else {
+              consecutiveFailures = 0;
+              actions = res.actions;
+              if (res.task) lastTask = res.task;
+              continue;
+            }
+          } else if (task?.waitingForInput) {
+            // The server paused to ask the user something — the flow is NOT
+            // finished, so it must never save as a completed blueprint.
+            console.log('[Chatbot] driveAutoFlow: awaiting user input — flow not complete');
+            break;
+          } else {
+            console.log('[Chatbot] driveAutoFlow: task completed');
+            reachedEnd = true;
+            break;
+          }
+
+          if (consecutiveFailures > 0 && consecutiveFailures < 3) {
+            await new Promise((r) => setTimeout(r, 400));
+          }
+
+          if (consecutiveFailures >= 3) {
+            console.log('[Chatbot] driveAutoFlow: consecutive step retries reached limit');
+            break;
+          }
+        }
+        console.log('[Chatbot] driveAutoFlow ended, hops:', hops);
+
+        // ── Persist the learned blueprint ────────────────────────────────────
+        // Only recorded when there was no cached flow for this goal (learning).
+        // `completed` marks a flow that ran to its end, so saveCompletedFlow can
+        // prefer it over a truncated recording of the same intent.
+        if (learning && recordedSteps.length > 0) {
+          const goalForSave = startGoal || String(getTask()?.goal || '');
+          if (goalForSave) {
+            void saveCompletedFlow(goalForSave, recordedSteps, reachedEnd);
+            console.log(
+              `[FlowCache] Saved ${recordedSteps.length} recorded steps for "${goalForSave}"${reachedEnd ? ' (completed)' : ' (partial)'}.`,
+            );
+          }
+        }
+      } catch (e: any) {
+        console.log('[Chatbot] driveAutoFlow error:', e?.message || String(e));
+      } finally {
+        // Only the CURRENT generation may clear the running flag — an older
+        // loop finishing late must not hide a newer loop's "working" pill.
+        if (flowGenRef.current === myGen) {
+          autoFlowRunningRef.current = false;
+          setAutoFlowRunning(false);
+        }
+      }
+    })();
+
+    runningLoopRef.current = run;
+    await run;
+    if (runningLoopRef.current === run) runningLoopRef.current = null;
+  };
+
+  // advanceStep: nextAutoFlowStep with throttle/inflight retry.
+  // Returns null when the step genuinely failed (including "…" transient
+  // replies from the server's LLM-retry path).
+  // Returns { terminal: true } when the package store already dropped the
+  // task — that is a flow end, not a retryable failure.
+  const advanceStep = async (): Promise<
+    { actions: any[]; task?: any; terminal?: boolean } | null
+  > => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (stopFlowRef.current) return null;
+      const res: any = await nextAutoFlowStep();
+      if (res?.ok) {
+        const replyText = String(res.reply || '').trim();
+        const isTransient = replyText === '\u2026' || replyText === '...';
+        const hasRealActions = Array.isArray(res.actions) && res.actions.length > 0;
+        if (isTransient && !hasRealActions) {
+          console.log('[Chatbot] advanceStep: transient "…" reply — counting as failure');
+          return null;
+        }
+        return { actions: res.actions || [], task: res.autoTask ?? undefined };
+      }
+      const err = String(res?.error || '');
+      // The store's autoTask is already gone (server ended it) while our local
+      // view of the task was stale. Retrying just re-prints the same error.
+      if (/no autoflow task to advance/i.test(err)) {
+        console.log('[Chatbot] advanceStep: no active task left — treating as flow end');
+        return { actions: [], terminal: true };
+      }
+      if (/throttl|in flight/i.test(err)) {
+        console.log('[Chatbot] advanceStep throttled, retrying...', err);
+        await new Promise((r) => setTimeout(r, 250));
+        continue;
+      }
+      console.log('[Chatbot] advanceStep failed:', err);
+      return null;
+    }
+    return null;
+  };
+
+  // ---- Server call wrapper: logs request/response/errors so nothing fails silently ----
+  const sendToServer = async (text: string, source: string) => {
+    console.log(`[Chatbot] -> chatWithUs (${source}) request:`, text);
+    console.log(`[Chatbot] active context:`, {
+      botId: webot?.botId,
+      apiBaseUrl: webot?.apiBaseUrl,
+      hasApiKey: Boolean(webot?.apiKey),
+      apiKeyPrefix: webot?.apiKey ? webot?.apiKey.slice(0, 10) + '...' : 'none',
+      appId: webot?.appId,
+    });
+    if (webot?.botId) {
+      configureChat({
+        botId: webot.botId,
+        apiBaseUrl: webot.apiBaseUrl,
+        apiKey: webot.apiKey,
+        appId: webot.appId || 'webotme-demo',
+      });
+    }
+    stopFlowRef.current = false; // new message = reset previous stop flag
+    let timedOut = false;
+    const watchdog = setTimeout(() => {
+      // If a task is running this is normal (multi-step) — don't show a false error to the user
+      if (autoTaskRef.current?.goal) return;
+      timedOut = true;
+      console.log(
+        `[Chatbot] TIMEOUT (${source}): no response from chatWithUs after ${REQUEST_TIMEOUT_MS}ms.`
+      );
+      pushLocal(
+        'bot',
+        `No response from the server after ${Math.round(REQUEST_TIMEOUT_MS / 1000)}s. The chat may be stuck — please try again.`
+      );
+    }, REQUEST_TIMEOUT_MS);
+
+    try {
+      const res: ChatResult = await chatWithUs(text);
+      clearTimeout(watchdog);
+      console.log(`[Chatbot] <- chatWithUs (${source}) result:`, res);
+      if (res && res.ok === false) {
+        const rawErr = String(res.error || 'Connection issue. Please try again.');
+        const cleanErr = rawErr
+          .replace(/https?:\/\/[^\s]+/gi, '')
+          .replace(/\b(?:render\.com|localhost|apiBaseUrl)\b/gi, '')
+          .trim();
+        console.log(`[Chatbot] chat error (${source}):`, rawErr);
+        pushLocal('bot', cleanErr || 'Connection issue. Please try again.');
+      } else if (res && res.ok === true) {
+        const hasFollowUp =
+          Boolean(res.reply) ||
+          Boolean(res.autoTask) ||
+          Boolean(res.pendingWorkflow) ||
+          Boolean(res.actions?.length);
+        if (!hasFollowUp) {
+          console.log(`[Chatbot] empty/stuck reply (${source}), full result:`, res);
+          // If a task is running, an empty reply may be part of a step — don't show an error
+          if (!timedOut && !autoTaskRef.current?.goal) {
+            pushLocal('bot', 'No reply received from the server. Please try again or contact support.');
+          }
+        } else {
+          console.log(`[Chatbot] reply (${source}):`, res.reply ?? '(no text)');
+        }
+        if (res.actions?.length) console.log(`[Chatbot] actions (${source}):`, res.actions);
+        if (res.pendingWorkflow) console.log(`[Chatbot] pendingWorkflow (${source}):`, res.pendingWorkflow);
+        if (res.autoTask) console.log(`[Chatbot] autoTask (${source}):`, res.autoTask);
+
+        // NAVIGATE safety net: agar navigate action aaya hai to seedha bhi
+        // navigate kar do (driveAutoFlow ke alawa) — taake page zaroor khule.
+        // goToRoute() de-duplicates, so duplicate push nahi hoga.
+        // NOTE: flow recording happens in driveAutoFlow (which sees the WHOLE
+        // multi-step run). Caching only this response's single action here is
+        // what used to store useless 1-step blueprints for bookings.
+        if (Array.isArray(res.actions) && res.actions.length > 0) {
+          for (const act of res.actions) {
+            if (act.type === 'navigate') {
+              const targetRoute = act.data.url;
+              if (targetRoute) {
+                void goToRoute(targetRoute, `${source}:sendToServer`);
+              }
+            }
+          }
+        }
+
+        // ---- AutoFlow: actions execute + task aage badhao ----
+        // Agar autoTask goal hai ya actions hain to driveAutoFlow start karo.
+        // Yeh loop screen par actions run karta hai aur server se next step
+        // leta rehta hai jab tak task complete na ho jaye.
+        const shouldDrive =
+          Boolean(res.autoTask?.goal) ||
+          (Array.isArray(res.actions) && res.actions.length > 0);
+        if (shouldDrive && source !== 'autoflow_step') {
+          void driveAutoFlow(res.actions, res.reply, res.autoTask);
+        }
+
+        // If the server dropped the task mid-flow (plain reply, no actions/
+        // autoTask/pendingWorkflow) the engine keeps the OLD autoTask, which
+        // left "AI is working..." stuck forever. Clear it so the indicator
+        // resets and the next message starts with a clean task state.
+        // NOTE: if the task is waiting for the user's answer (waitingForInput),
+        // don't cancel it — otherwise the user replies and the flow never resumes.
+        const staleTask = autoTaskRef.current;
+        if (
+          !res.actions?.length &&
+          !res.action &&
+          !res.autoTask &&
+          !res.pendingWorkflow &&
+          staleTask &&
+          !(staleTask as any).waitingForInput
+        ) {
+          console.log(
+            '[Chatbot] server ended the task — clearing stale autoTask:',
+            staleTask.goal
+          );
+          cancelAutoTask();
+        }
+      } else {
+        console.log(`[Chatbot] unexpected result (${source}):`, res);
+        if (!timedOut) {
+          pushLocal('bot', 'Unexpected empty response from the server. Please try again.');
+        }
+      }
+      return res;
+    } catch (e: any) {
+      clearTimeout(watchdog);
+      console.log(`[Chatbot] chatWithUs threw (${source}):`, e?.message || String(e), e);
+      if (!timedOut) {
+        pushLocal('bot', `Chat error: ${e?.message || String(e)}`);
+      }
+      return null;
+    }
+  };
+
+  // Hardcoded timeline + live server timeline, ordered by time.
+  const allMessages = useMemo(
+    () =>
+      [...localMessages, ...visibleMessages].sort(
+        (a, b) => a.createdAt - b.createdAt
+      ),
+    [localMessages, visibleMessages]
+  );
+
+  // ---- Auto scroll to latest message ----
+  const listRef = useRef<FlatList<any>>(null);
+
+  const scrollToLatest = (animated = true) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  };
+
+  useEffect(() => {
+    if (allMessages.length > 0) scrollToLatest(false);
+  }, [allMessages.length, sending]);
+
+  // Modal khulne par neeche se smooth slide-up + latest message par jao
+  useEffect(() => {
+    if (!visible) return;
+    closingRef.current = false;
+    translateY.setValue(SCREEN_H);
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 420,
+      easing: Easing.bezier(0.2, 0.9, 0.3, 1.05),
+      useNativeDriver: true,
+    }).start();
+    setTimeout(() => scrollToLatest(false), 150);
+  }, [visible]);
+
+  // Keyboard khulne par latest message scroll karo taake input ke upar nazar aaye
+  useEffect(() => {
+    if (!visible) return;
+    const evt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(evt, () => scrollToLatest(true));
+    return () => sub.remove();
+  }, [visible]);
+
+  // ---- Console log har message ka ----
+  const loggedRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    messages.forEach((m: any) => {
+      const prevText = loggedRef.current.get(m.id);
+      if (prevText !== m.text) {
+        loggedRef.current.set(m.id, m.text);
+        console.log(
+          `[Chatbot] ${m.from === 'user' ? 'USER' : 'BOT'} message:`,
+          JSON.stringify({ id: m.id, from: m.from, text: m.text })
+        );
+      }
+    });
+  }, [messages]);
+
+  // ---- Console log SDK/SSE state changes (sending, error, autoTask, pendingWorkflow) ----
+  useEffect(() => {
+    console.log(
+      '[Chatbot] state -> sending:',
+      sending,
+      '| error:',
+      error ?? null,
+      '| autoTask:',
+      autoTask?.goal ?? null,
+      '| waitingForInput:',
+      waitingForInput,
+      '| pendingWorkflow:',
+      pendingWorkflow ?? null
+    );
+  }, [sending, error, autoTask, pendingWorkflow]);
+
+  // ---- Watchdog: if `sending` stays true too long (server stuck), show a prompt in chat ----
+  // autoTask changes on every step, so the timer resets on each progress update.
+  const stuckRef = useRef(false);
+  useEffect(() => {
+    if (!sending) {
+      stuckRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (stuckRef.current) return;
+      stuckRef.current = true;
+      console.log(
+        `[Chatbot] STUCK: sending has been true for ${STUCK_MS / 1000}s with no progress. autoTask:`,
+        autoTask?.goal ?? null
+      );
+      pushLocal(
+        'bot',
+        `This step is taking longer than expected. Please check the screen to tap the next button, or let me know how you would like to proceed.`
+      );
+    }, STUCK_MS);
+    return () => clearTimeout(timer);
+  }, [sending, autoTask]);
+
+  useEffect(() => {
+    if (isExpoGo) return;
+    void Promise.resolve()
+      .then(() => {
+        configureVoice({
+          silenceTimeout: 1800,
+          speakAllReplies: true,
+          sendMessage: (text) => voiceSendRef.current(text),
+          onStateChange: (state) => {
+            if (state === 'thinking') setTextUi('');
+          },
+          onPartial: (partial) => {
+            if (!transcriptRef.current) return;
+            setTextUi(partial);
+          },
+          onUserQuery: () => {
+            setTextUi('');
+          },
+          onError: (message) => {
+            transcriptRef.current = false;
+            setVoiceError(message);
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        setVoiceError(getVoiceErrorMessage(error));
+      });
+  }, []);
+
+
+  const send = async () => {
+    const text = textUi.trim();
+    if (!text || sending) return;
+    setTextUi('');
+    setFlow('idle');
+    // NOTE: do NOT pushLocal('user', text) here. chatWithUs() (the engine)
+    // already records the user message in its own `messages`, and `allMessages`
+    // renders both — pushing it locally too showed the SAME message twice.
+    scrollToLatest(false);
+
+    // If an active server task is waiting for user input, forward directly
+    const liveTask = autoTaskRef.current as any;
+    if (liveTask?.goal && liveTask?.waitingForInput) {
+      void sendToServer(text, 'task_input');
+      return;
+    }
+
+    // ── STANDARD SERVER AUTONOMOUS FLOW (AI DECIDES EVERYTHING DYNAMICALLY) ──
+    // A cached blueprint is NOT replayed here. Blindly firing cached clicks
+    // before the server ever sees the message used to swallow the message and
+    // leave flows half-done. Instead driveAutoFlow replays the cached steps
+    // that still match the live screen and calls the server only for the steps
+    // that differ — so short flows and long bookings both work, and every
+    // message still reaches the server (which keeps the chat reply + autoTask
+    // goal correct).
+    void sendToServer(text, 'input');
+  };
+
+  // ===== STOP: in-flight request + auto task dono cancel karta hai =====
+  const stopTask = () => {
+    console.log('[Chatbot] Stop pressed — cancelling request + auto task');
+    stopFlowRef.current = true; // driveAutoFlow loop ko bhi break karo
+    transcriptRef.current = false;
+    minimizedByTaskRef.current = false;
+    if (voice.listening || voice.speaking || voice.thinking) stopVoiceSafely();
+    try {
+      stopChat(); // in-flight request abort + autoTask null
+    } catch (e) {
+      console.log('[Chatbot] stopChat failed:', e);
+    }
+    try {
+      cancelAutoTask(); // double-safety: workflow bhi cancel
+    } catch (e) {
+      console.log('[Chatbot] cancelAutoTask failed:', e);
+    }
+    pushLocal(
+      'bot',
+      'Stopped — I cancelled the current task. Tell me if you want to continue or start something else.'
+    );
+    // Chat minimize thi to wapas kholo taake user stop ka message dekh sake
+    if (!visibleRef.current) setVisible(true);
+  };
+
+  function toggleMic() {
+    setVoiceError(null);
+    if (isExpoGo) {
+      setVoiceError('Voice chat is not supported in Expo Go. Install a new APK built with expo-speech-recognition.');
+      return;
+    }
+    if (voice.listening || voice.speaking || voice.thinking) {
+      transcriptRef.current = false;
+      stopVoiceSafely();
+      setTextUi('');
+      return;
+    }
+    transcriptRef.current = true;
+    voiceSendRef.current = async (text) => {
+      const result = await sendToServer(text, 'voice');
+      return result ?? {
+        ok: false,
+        reply: '',
+        userMessage: null,
+        botMessage: null,
+        error: 'Voice message could not be sent. Please try again.',
+      };
+    };
+    try {
+      void voiceWithUs({
+        continuous: true,
+        vocabularyMap: {
+          'webotme': 'WebotMe',
+          'web ot me': 'WebotMe',
+          'webot': 'WebotMe',
+        },
+      })
+        .then((res) => {
+          transcriptRef.current = false;
+          if (!res.ok) setVoiceError(res.error ?? 'Voice failed.');
+          else setTextUi('');
+        })
+        .catch((error: unknown) => {
+          transcriptRef.current = false;
+          setVoiceError(getVoiceErrorMessage(error));
+        });
+    } catch (error) {
+      transcriptRef.current = false;
+      setVoiceError(getVoiceErrorMessage(error));
+    }
+  }
+
+  function getVoiceErrorMessage(error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (detail.includes('Cannot find native module')) {
+      return 'Voice chat is not included in this installed app build. Install a new APK built after adding expo-speech-recognition.';
+    }
+    const clean = detail
+      .replace(/https?:\/\/[^\s]+/gi, '')
+      .replace(/\b(?:render\.com|localhost)\b/gi, '')
+      .trim();
+    return clean ? `Voice notice: ${clean}` : 'Voice service unavailable. Please check your network and try again.';
+  }
+
+  function stopVoiceSafely() {
+    try {
+      stopVoice();
+    } catch (error) {
+      setVoiceError(getVoiceErrorMessage(error));
+    }
+  }
+
+  function startNewChat() {
+    console.log('[Chatbot] New chat started');
+    stopFlowRef.current = true; // break the previous driveAutoFlow loop
+    cancelAutoTask();
+    transcriptRef.current = false;
+    minimizedByTaskRef.current = false;
+    stopVoiceSafely();
+    setTextUi('');
+    setVoiceError(null);
+    loggedRef.current.clear();
+
+    const resetDone = resetSdkConversation();
+    // SDK ne reset kar diya to 0 se shuru, warna purane messages hide karo
+    setStartIndex(resetDone ? 0 : messages.length);
+    // Guided flow bhi fresh state par le aao
+    setLocalMessages([makeWelcomeMessage()]);
+    setFlow('root');
+    setBookingType(null);
+    setBookingServiceId(null);
+    setBookingDuration(null);
+    setBookingDate(null);
+  }
+
+  function openChat() {
+    // User ne khud chat kholi — auto-reopen logic ki zaroorat nahi
+    minimizedByTaskRef.current = false;
+    setVisible(true);
+  }
+
+  function closeChat() {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    // Note: Do NOT cancelAutoTask() here so the bot continues booking/advancing in the background when the user closes the modal to view the screen!
+    transcriptRef.current = false;
+    if (voice.listening || voice.speaking || voice.thinking) stopVoiceSafely();
+    Keyboard.dismiss();
+    // Smooth slide-down, phir modal unmount
+    Animated.timing(translateY, {
+      toValue: SCREEN_H,
+      duration: 260,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setVisible(false);
+    });
+  }
+  closeRef.current = closeChat;
+
+  // ---- AUTO MINIMIZE / REOPEN ----
+  // Minimize the chat as soon as a task starts so the user can see the booking
+  // steps running on screen without the chat sheet blocking the view. When the
+  // task finishes or the bot needs user input, the chat reopens automatically.
+  // autoFlowRunning is included so the chat stays minimized during driveAutoFlow
+  // (autoTask can briefly become null between steps).
+  const shouldMinimize = taskActive || autoFlowRunning;
+  useEffect(() => {
+    if (shouldMinimize) {
+      if (visibleRef.current) {
+        minimizedByTaskRef.current = true;
+        closeRef.current();
+      }
+      return;
+    }
+    if (!minimizedByTaskRef.current) return;
+    // autoTask can briefly become null between steps — wait a moment before confirming
+    const timer = setTimeout(() => {
+      if (!taskActiveRef.current && !autoFlowRunningRef.current && minimizedByTaskRef.current) {
+        minimizedByTaskRef.current = false;
+        if (!visibleRef.current) setVisible(true);
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [shouldMinimize]);
+
+  // ---- Guided flow handlers ----
+  function openPage(route: string, label: string) {
+    console.log('[Chatbot] navigate (local):', route, `(${label})`);
+    pushLocal('user', `Take me to ${label}`);
+    pushLocal('bot', `Sure! Opening ${label} for you.`);
+    setTimeout(() => {
+      closeChat();
+      try {
+        router.push(route as any);
+      } catch {
+        /* route not available in this build */
+      }
+    }, 350);
+  }
+
+  function handleAppointmentType(id: string) {
+    const opt = APPOINTMENT_TYPES.find((o) => o.id === id);
+    if (!opt) return;
+    setBookingType(id);
+    setBookingServiceId(null);
+    setBookingDuration(null);
+    setBookingDate(null);
+    pushLocal('user', opt.label);
+    pushLocal('bot', `Great — ${opt.label}. Which service would you like?`);
+    setFlow('booking_service');
+  }
+
+  function handleBookingService(id: string) {
+    const opt = getAppointmentTypeServices(bookingType || '').find((service) => service.id === id);
+    if (!opt) return;
+    pushLocal('user', opt.label);
+    setBookingServiceId(id);
+    pushLocal('bot', `How many hours would you like to book ${opt.label} for?`);
+    setFlow('booking_duration');
+  }
+
+  function handleBookingDuration(id: string) {
+    const hours = Number(id);
+    if (!BOOKING_DURATIONS.includes(hours)) return;
+    pushLocal('user', `${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    setBookingDuration(hours);
+    pushLocal('bot', 'Which day would you like the appointment?');
+    setFlow('booking_date');
+  }
+
+  function handleBookingDate(id: string) {
+    const option = getBookingDateOptions().find((date) => date.id === id);
+    if (!option) return;
+    setBookingDate(id);
+    pushLocal('user', option.label);
+    pushLocal('bot', 'What time of day works best for you?');
+    setFlow('booking_time');
+  }
+
+  function handleBookingTime(id: string) {
+    const slot = BOOKING_TIME_SLOTS.find((option) => option.id === id);
+    const type = APPOINTMENT_TYPES.find((option) => option.id === bookingType);
+    const service = getAppointmentTypeServices(bookingType || '').find(
+      (option) => option.id === bookingServiceId
+    );
+    const duration = bookingDuration;
+    if (!slot || !type || !service || !duration || !bookingDate) return;
+
+    const date = new Date(`${bookingDate}T12:00:00`);
+    const dateLabel = formatReadableDate(date);
+    const slotHours = AVAILABILITY_TIME_LABELS[slot.id as keyof typeof AVAILABILITY_TIME_LABELS];
+    pushLocal('user', slot.label);
+    pushLocal('bot', 'Thanks — I’m sending your appointment request now.');
+    setFlow('idle');
+    void sendToServer(
+      [
+        'I would like to book a new appointment.',
+        `Appointment type: ${type.label} (${type.id}).`,
+        `Service: ${service.label} (${service.id}).`,
+        `Duration: ${duration} ${duration === 1 ? 'hour' : 'hours'}.`,
+        `Date: ${dateLabel} (${bookingDate}).`,
+        `Preferred time slot: ${slot.id} (${slotHours}).`,
+        'Please complete this whole booking yourself on the screen: open the booking page, select these exact values, fill every field and keep going step by step without stopping until the request is submitted.',
+        'Do not ask me again for anything I already gave above. Ask me only if a required detail is truly missing.',
+      ].join(' '),
+      'guided_booking'
+    );
+  }
+
+  function handlePage(id: string) {
+    const page = PAGES.find((p) => p.id === id);
+    if (!page) return;
+    openPage(page.route, page.label);
+  }
+
+  function handleQuickReply(id: string) {
+    console.log('[Chatbot] quick reply tapped:', id);
+    switch (id) {
+      case 'question':
+        pushLocal(
+          'bot',
+          "Sure — I'm here to help. Please describe your question or problem in detail and I'll do my best to assist you."
+        );
+        setFlow('question');
+        break;
+      case 'book':
+        setBookingType(null);
+        setBookingServiceId(null);
+        setBookingDuration(null);
+        setBookingDate(null);
+        pushLocal(
+          'bot',
+          'I can help you book an appointment. What kind of appointment would you like to book?'
+        );
+        setFlow('booking_type');
+        break;
+      case 'navigate':
+        pushLocal(
+          'bot',
+          "Which page are you looking for? Pick one below and I'll take you there."
+        );
+        setFlow('find_page');
+        break;
+      case 'appointments':
+        openPage('/(app)/appointments', 'Appointments');
+        break;
+      case 'support':
+        setFlow('idle');
+        void sendToServer("I'd like to talk to a support agent.", 'support');
+        break;
+      case 'emergency':
+        openPage('/(app)/emergency-contact', 'Emergency Contacts');
+        break;
+      default:
+        break;
+    }
+  }
+
+  const isVoiceActive = voice.listening || voice.speaking || voice.thinking;
+  const taskProgress = autoTask?.plan?.length
+    ? ` (${autoTask.done?.length ?? 0}/${autoTask.plan.length})`
+    : '';
+  // Show stop button when a request is in-flight, a workflow is running, or the
+  // driveAutoFlow loop is active. The "AI is working" pill also connects to this.
+  const showStop = sending || taskActive || autoFlowRunning;
+  const pendingLabel = taskActive || pendingWorkflow || autoFlowRunning
+    ? 'AI is working...'
+    : 'AI is typing...';
+  const hasPendingMessage = allMessages.some((message) => message.pending);
+  const showTaskProgress = !hasPendingMessage && (sending || autoFlowRunning);
+  const placeholderText = voice.speaking
+    ? 'Bot is speaking...'
+    : voice.thinking
+      ? 'Thinking...'
+      : voice.listening
+        ? 'Listening (speak now)...'
+        : 'Type a message...';
+
+  const renderQuickReplies = () => {
+    if (flow === 'question') return null;
+
+    let options: QuickOption[] = [{ id: 'menu', label: 'Show options', icon: 'grid' }];
+    let title = '';
+    let onSelect: (id: string) => void = () => setFlow('root');
+
+    if (flow === 'root') {
+      options = MAIN_OPTIONS;
+      title = 'Quick options';
+      onSelect = handleQuickReply;
+    } else if (flow === 'booking_type') {
+      options = APPOINTMENT_TYPES;
+      title = 'Choose an appointment type';
+      onSelect = handleAppointmentType;
+    } else if (flow === 'booking_service') {
+      options = getAppointmentTypeServices(bookingType || '');
+      title = 'Choose a service';
+      onSelect = handleBookingService;
+    } else if (flow === 'booking_duration') {
+      options = BOOKING_DURATIONS.map((hours) => ({
+        id: String(hours),
+        label: `${hours} ${hours === 1 ? 'hour' : 'hours'}`,
+        icon: 'clock',
+      }));
+      title = 'Choose the number of hours';
+      onSelect = handleBookingDuration;
+    } else if (flow === 'booking_date') {
+      options = getBookingDateOptions();
+      title = 'Choose a date';
+      onSelect = handleBookingDate;
+    } else if (flow === 'booking_time') {
+      options = BOOKING_TIME_SLOTS;
+      title = 'Choose a preferred time slot';
+      onSelect = handleBookingTime;
+    } else if (flow === 'find_page') {
+      options = PAGES;
+      title = 'Choose a page';
+      onSelect = handlePage;
+    }
+
+    return (
+      <View style={styles.quickWrap}>
+        {title ? <Text style={styles.quickTitle}>{title}</Text> : null}
+        <View style={styles.chipRow}>
+          {options.map((opt) => (
+            <TouchableOpacity
+              key={opt.id}
+              style={styles.chip}
+              activeOpacity={0.8}
+              onPress={() => onSelect(opt.id)}
+            >
+              <Feather name={opt.icon as any} size={14} color="#7327C2" />
+              <Text style={styles.chipText}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Sheet ki height available space se kabhi bara nahi honi chahiye
+  // (keyboard open ya window resize par content area chhota ho jata hai)
+  const sheetH = Math.min(SHEET_H, Math.max(0, availH - 16));
+
+  return (
+    <>
+      <Animated.View
+        style={[styles.fab, { transform: pan.getTranslateTransform() }]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
+          style={styles.fabButton}
+          onPress={openChat}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Open chat"
+        >
+          <Feather name="message-circle" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Chat band ho aur task chal raha ho to status pill: progress + stop + chat kholna */}
+      {!visible && showStop ? (
+        <View pointerEvents="box-none" style={styles.statusWrap}>
+          <View style={styles.statusPill}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+            <Text style={styles.statusText} numberOfLines={1}>
+              {`AI is working...${taskProgress}`}
+            </Text>
+            <TouchableOpacity
+              onPress={openChat}
+              hitSlop={8}
+              style={styles.statusBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open chat"
+            >
+              <Feather name="message-circle" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={stopTask}
+              hitSlop={8}
+              style={[styles.statusBtn, styles.statusStopBtn]}
+              accessibilityRole="button"
+              accessibilityLabel="Stop"
+            >
+              <Feather name="x" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
+      <Modal
+        visible={visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeChat}
+      >
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* sheetArea: ye wrapper content-area (KAV padding ke baad) naapta
+              hai — keyboard/window resize par iski height chhoti hoti hai */}
+          <View
+            style={styles.sheetArea}
+            onLayout={(e) => setAvailH(e.nativeEvent.layout.height)}
+          >
+            {/* Dark backdrop jo sheet ke saath fade hota hai */}
+            <Animated.View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdropOpacity }]}
+            />
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeChat}
+              accessibilityRole="button"
+              accessibilityLabel="Close chat"
+            />
+
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  height: sheetH,
+                  transform: [{ translateY }],
+                },
+              ]}
+            >
+              {/* Header: yahan se neeche drag karo to chat close hoti hai */}
+              <View style={styles.headerWrap} {...sheetPanResponder.panHandlers}>
+                <View style={styles.grabHandle} />
+                <View style={styles.header}>
+                  <View style={styles.avatar}>
+                    <Feather name="bot" size={22} color="#7327C2" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.title}>WebotMe Demo</Text>
+                    <Text style={styles.subtitle}>Online</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={startNewChat}
+                    hitSlop={8}
+                    style={styles.headerIconBtn}
+                  >
+                    <Feather name="plus" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={closeChat}
+                    hitSlop={8}
+                    style={styles.headerIconBtn}
+                  >
+                    <Feather name="x" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.body}>
+                {allMessages.length === 0 ? (
+                  <>
+                    <Feather name="message-square" size={40} color="#E5E7EB" />
+                    <Text style={styles.emptyText}>Type below to start the chat</Text>
+                  </>
+                ) : (
+                  <FlatList
+                    ref={listRef}
+                    data={allMessages}
+                    keyExtractor={(item) => item.id}
+                    style={{ alignSelf: 'stretch' }}
+                    contentContainerStyle={{ padding: 12, gap: 8 }}
+                    keyboardShouldPersistTaps="handled"
+                    onContentSizeChange={() => scrollToLatest(false)}
+                    onLayout={() => scrollToLatest(false)}
+                    ListFooterComponent={
+                      showTaskProgress ? (
+                        <View
+                          style={[styles.bubble, styles.botBubble, styles.pendingBubble]}
+                          accessibilityRole="text"
+                          accessibilityLabel={pendingLabel}
+                        >
+                          <ActivityIndicator size="small" color="#7327C2" />
+                          <Text style={styles.pendingText}>
+                            {taskActive || autoFlowRunning ? `${pendingLabel}${taskProgress}` : 'AI is typing...'}
+                          </Text>
+                        </View>
+                      ) : null
+                    }
+                    renderItem={({ item }) => (
+                      item.pending ? (
+                        <View
+                          style={[styles.bubble, styles.botBubble, styles.pendingBubble]}
+                          accessibilityRole="text"
+                          accessibilityLabel={pendingLabel}
+                        >
+                          <ActivityIndicator size="small" color="#7327C2" />
+                          <Text style={styles.pendingText}>{pendingLabel}</Text>
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.bubble,
+                            item.from === 'user' ? styles.userBubble : styles.botBubble,
+                          ]}
+                        >
+                          {renderMessageText(
+                            item.text,
+                            item.from === 'user' ? styles.userText : styles.botText,
+                            item.from === 'user' ? styles.userBoldText : styles.botBoldText
+                          )}
+                        </View>
+                      )
+                    )}
+                  />
+                )}
+                {error ? (
+                  <View style={[styles.bubble, styles.botBubble, styles.errorBubble]}>
+                    <Text style={styles.errorText}>Chat error: {error}</Text>
+                  </View>
+                ) : null}
+                {voiceError ? (
+                  <View style={[styles.bubble, styles.botBubble, styles.errorBubble]}>
+                    <Text style={styles.errorText}>Voice error: {voiceError}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {renderQuickReplies()}
+
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={placeholderText}
+                  placeholderTextColor="#9CA3AF"
+                  value={textUi}
+                  onChangeText={setTextUi}
+                  multiline
+                  numberOfLines={3}
+                  scrollEnabled
+                  blurOnSubmit={false}
+                />
+                <TouchableOpacity
+                  style={[styles.micBtn, isVoiceActive && styles.micLive]}
+                  onPress={toggleMic}
+                  activeOpacity={0.8}
+                >
+                  <Feather name={isVoiceActive ? 'mic-off' : 'mic'} size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sendBtn, showStop && styles.stopBtn]}
+                  activeOpacity={0.8}
+                  onPress={showStop ? stopTask : send}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={showStop ? 'Stop' : 'Send'}
+                >
+                  <Feather name={showStop ? 'x' : 'send'} size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  fabButton: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusWrap: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#7327C2',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  statusText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600', maxWidth: 180 },
+  statusBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusStopBtn: { backgroundColor: '#E5484D' },
+  overlay: {
+    flex: 1,
+  },
+  sheetArea: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  headerWrap: {
+    backgroundColor: '#7327C2',
+  },
+  grabHandle: {
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#7327C2',
+  },
+  headerIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  fabLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  title: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
+  body: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  emptyText: { fontSize: 13, color: '#9CA3AF' },
+  bubble: {
+    maxWidth: '80%',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 16,
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#7327C2',
+    borderBottomRightRadius: 4,
+  },
+  botBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    borderBottomLeftRadius: 4,
+  },
+  pendingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingText: { color: '#6B7280', fontSize: 13 },
+  errorBubble: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: { color: '#B91C1C', fontSize: 13 },
+  userText: { color: '#FFFFFF', fontSize: 14 },
+  userBoldText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  botText: { color: '#111827', fontSize: 14 },
+  botBoldText: { color: '#111827', fontSize: 14, fontWeight: '700' },
+  quickWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  quickTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    marginLeft: 2,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  input: {
+    flex: 1,
+    minHeight: 72,
+    maxHeight: 120,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#7327C2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopBtn: {
+    backgroundColor: '#E5484D', // red — mic wale live colour jaisa
+  },
+  micBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#7327C2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micLive: { backgroundColor: '#E5484D' },
+});

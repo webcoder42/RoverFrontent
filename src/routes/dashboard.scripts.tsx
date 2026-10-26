@@ -44,7 +44,6 @@ import {
   Zap,
   Tag,
   Smartphone,
-  Apple,
   Rocket,
   QrCode,
   Link2,
@@ -56,6 +55,8 @@ import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import { StripeConnectCard } from "@/components/stripe/StripeConnectCard";
 import { cn } from "@/lib/utils";
 import { config, getWidgetScriptUrl } from "@/lib/config";
+import { fetchEmbedKey, EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
+import { MOBILE_APP_OPTIONS, type MobileAppId } from "@/lib/mobileSetup";
 import QRCode from "qrcode";
 import { CURRENCY_LIST } from "@/lib/currency";
 import { useChatbotsStore, type Chatbot, type Template } from "@/store/chatbots";
@@ -83,7 +84,7 @@ import {
 import { FlowBuilder } from "@/components/flow/FlowBuilder";
 
 export const Route = createFileRoute("/dashboard/scripts")({
-  head: () => ({ meta: [{ title: "Generated Scripts — Webotme" }] }),
+  head: () => ({ meta: [{ title: "Generated Scripts â€” Webotme" }] }),
   component: ScriptsPage,
 });
 
@@ -322,7 +323,7 @@ const emptyDraft: EditDraft = {
     customFields: [] as Array<{ label: string; field: string }>,
   },
   name: "",
-  welcome: "Hi 👋 How can I help you today?",
+  welcome: "Hi ðŸ‘‹ How can I help you today?",
   description: "A helpful AI assistant for my site.",
   logo: undefined,
   primary: "#D94A2D",
@@ -743,10 +744,10 @@ const isTemplateBotCheck = (bot: Chatbot): boolean => {
 };
 
 const templateIcons: Record<string, string> = {
-  healthbuddy: "🏥",
-  fitguide: "💪",
-  petpedia: "🐾",
-  babycare: "👶",
+  healthbuddy: "ðŸ¥",
+  fitguide: "ðŸ’ª",
+  petpedia: "ðŸ¾",
+  babycare: "ðŸ‘¶",
 };
 const templateGradients: Record<string, string> = {
   healthbuddy: "from-emerald-500 to-teal-600",
@@ -756,171 +757,6 @@ const templateGradients: Record<string, string> = {
 };
 
 type IntegrationPlatform = "web" | "mobile";
-
-type MobileAppId =
-  | "android-kotlin"
-  | "android-java"
-  | "ios-swift"
-  | "flutter"
-  | "react-native"
-  | "dotnet-maui"
-  | "kotlin-multiplatform"
-  | "native-script";
-
-interface MobileAppOption {
-  id: MobileAppId;
-  title: string;
-  language: string;
-  framework: string;
-  platform: string;
-  description: string;
-  publishTarget: string;
-  icon: LucideIcon;
-}
-
-const MOBILE_APP_OPTIONS: MobileAppOption[] = [
-  {
-    id: "android-kotlin",
-    title: "Android App",
-    language: "Kotlin",
-    framework: "Kotlin with Jetpack Compose or XML Views",
-    platform: "Android",
-    description: "Build a fully native Android chatbot with Kotlin.",
-    publishTarget:
-      "Test on a device, then publish a signed Android App Bundle (AAB) to Google Play.",
-    icon: Smartphone,
-  },
-  {
-    id: "android-java",
-    title: "Android with Java",
-    language: "Java",
-    framework: "Java with the Android SDK",
-    platform: "Android",
-    description: "Use Java when your existing Android project already uses it.",
-    publishTarget:
-      "Test on a device, then publish a signed Android App Bundle (AAB) to Google Play.",
-    icon: Smartphone,
-  },
-  {
-    id: "ios-swift",
-    title: "iOS App",
-    language: "Swift",
-    framework: "Swift with SwiftUI or UIKit",
-    platform: "iOS",
-    description: "Add the chatbot to a native iPhone or iPad app.",
-    publishTarget: "Archive a signed build in Xcode and upload it through App Store Connect.",
-    icon: Apple,
-  },
-  {
-    id: "flutter",
-    title: "Flutter App",
-    language: "Dart",
-    framework: "Flutter with Dart",
-    platform: "Android + iOS",
-    description: "Build one Flutter codebase for Android and iOS.",
-    publishTarget: "Create Play Store and App Store builds from the same Flutter project.",
-    icon: Layers,
-  },
-  {
-    id: "react-native",
-    title: "React Native",
-    language: "TypeScript",
-    framework: "React Native with Expo or the native CLI",
-    platform: "Android + iOS",
-    description: "Use React Native components to build for both app stores.",
-    publishTarget: "Generate an Android App Bundle and an iOS archive from your project.",
-    icon: Code2,
-  },
-  {
-    id: "dotnet-maui",
-    title: ".NET MAUI",
-    language: "C#",
-    framework: ".NET MAUI",
-    platform: "Android + iOS",
-    description: "Share a C# codebase across Android, iOS, Windows and macOS.",
-    publishTarget: "Package signed Android and iOS builds from Visual Studio or the .NET CLI.",
-    icon: Braces,
-  },
-  {
-    id: "kotlin-multiplatform",
-    title: "Kotlin Multiplatform",
-    language: "Kotlin",
-    framework: "Kotlin Multiplatform",
-    platform: "Android + iOS",
-    description: "Share Kotlin business and networking code across mobile apps.",
-    publishTarget: "Build and sign the generated Android and iOS application projects.",
-    icon: Globe,
-  },
-  {
-    id: "native-script",
-    title: "NativeScript",
-    language: "TypeScript",
-    framework: "NativeScript with TypeScript",
-    platform: "Android + iOS",
-    description: "Build native mobile UI using a TypeScript-based workflow.",
-    publishTarget: "Create native Android and iOS binaries and submit them to each store.",
-    icon: Globe,
-  },
-];
-
-const MOBILE_STEP_ICONS = [Bot, Shield, Code2, MessageSquareText, Rocket] as const;
-
-const getMobileSetupSteps = (app: MobileAppOption) => {
-  if (app.id === "react-native") {
-    return [
-      {
-        title: "Select your chatbot",
-        detail:
-          "Use this bot ID in the Expo app. The same bot, training and AutoFlow are used as the web widget.",
-      },
-      {
-        title: "Use the native chat endpoint",
-        detail:
-          "The app sends its current native screen context to WebotMe. No API secret is placed in the app.",
-      },
-      {
-        title: "Add the local TypeScript client",
-        detail:
-          "Copy the local native-sdk source into the Expo project during this first integration phase. It is not published as an npm package yet.",
-      },
-      {
-        title: "Register native screens and actions",
-        detail:
-          "Expose visible text, buttons, forms and routes so AutoFlow can choose the next native action.",
-      },
-      {
-        title: "Test AutoFlow end to end",
-        detail:
-          "Verify chat, navigation, forms, confirmation, checkout handoff and session persistence before publishing a package.",
-      },
-    ];
-  }
-
-  return [
-    {
-      title: "Select your chatbot",
-      detail: "Open a chatbot card after setup and use its bot ID to connect the conversation.",
-    },
-    {
-      title: "Create a secure backend",
-      detail:
-        "Store the Webotme API key on your server. Never place the secret key inside the app bundle.",
-    },
-    {
-      title: `Add an API client in ${app.language}`,
-      detail: `Use ${app.framework} to send chat requests from your backend to the Webotme API.`,
-    },
-    {
-      title: "Build the chat screen",
-      detail:
-        "Show messages, loading indicators, errors, and a message input using native app components.",
-    },
-    {
-      title: "Test and publish",
-      detail: app.publishTarget,
-    },
-  ];
-};
 
 interface CardIntegration {
   platform: IntegrationPlatform;
@@ -983,10 +819,28 @@ function MobileAppSetup({
   const [linkCopied, setLinkCopied] = useState(false);
 
   // Standalone (non-iframe) chat URL that can be shared, QR'd or deep-linked.
-  const chatUrl = `${config.chatBaseUrl}/chat/${botId}`;
+  // It carries the embed key (?k=) so a pasted link opens a working chat
+  // without the widget loader ever being involved.
+  const baseChatUrl = `${config.chatBaseUrl}/chat/${botId}`;
+  const [chatUrl, setChatUrl] = useState("");
 
   useEffect(() => {
     let active = true;
+    fetchEmbedKey(botId)
+      .then((key) => {
+        if (active) setChatUrl(`${baseChatUrl}?k=${encodeURIComponent(key)}`);
+      })
+      .catch(() => {
+        if (active) setChatUrl(baseChatUrl);
+      });
+    return () => {
+      active = false;
+    };
+  }, [botId, baseChatUrl]);
+
+  useEffect(() => {
+    let active = true;
+    if (!chatUrl) return;
     QRCode.toDataURL(chatUrl, {
       width: 220,
       margin: 1,
@@ -1004,6 +858,10 @@ function MobileAppSetup({
   }, [chatUrl]);
 
   const copyChatLink = async () => {
+    if (!chatUrl) {
+      toast.error("Preparing the chat linkâ€¦");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(chatUrl);
     } catch {
@@ -1015,23 +873,34 @@ function MobileAppSetup({
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied!");
+    } catch {
+      window.prompt("Copy this", text);
+    }
+  };
+
+  const NATIVE_ENDPOINT = "/api/chatbot/public/" + botId + "/native-chat/v1";
+
   return (
-    <div className="mt-3 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-3">
+    <div className="mt-3 overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-b from-violet-500/[0.07] via-violet-500/[0.03] to-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600">
             App integration
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Choose how you are building {botName} without a WebView.
+            Connect {botName} to your mobile app — one codebase for Android &amp; iOS.
           </p>
         </div>
-        <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-[9px] font-semibold text-violet-600">
-          Native SDK / API
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[9px] font-semibold text-violet-600">
+          <Smartphone className="h-2.5 w-2.5" /> React Native SDK
         </span>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
         {MOBILE_APP_OPTIONS.map((option) => {
           const OptionIcon = option.icon;
           const selected = selectedApp === option.id;
@@ -1042,39 +911,61 @@ function MobileAppSetup({
               aria-pressed={selected}
               onClick={() => onSelectApp(option.id)}
               className={cn(
-                "flex min-h-[62px] items-center gap-2 rounded-xl border p-2.5 text-left transition-all",
+                "group relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all",
                 selected
-                  ? "border-primary bg-primary/[0.07] text-foreground shadow-soft"
-                  : "border-border/70 bg-card hover:border-primary/40 hover:bg-accent/25",
+                  ? "border-violet-500/60 bg-violet-500/10 shadow-soft"
+                  : "border-border/70 bg-card hover:border-violet-500/40 hover:bg-accent/30",
               )}
             >
-              <span
-                className={cn(
-                  "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
-                  selected
-                    ? "bg-gradient-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                <OptionIcon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[11px] font-semibold">{option.title}</span>
-                <span className="block truncate text-[10px] text-muted-foreground">
-                  {option.language} · {option.platform}
+              <span className="flex w-full items-center gap-2">
+                <span
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-colors",
+                    selected
+                      ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-soft"
+                      : "bg-muted text-muted-foreground group-hover:text-violet-600",
+                  )}
+                >
+                  <OptionIcon className="h-4.5 w-4.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold">{option.title}</span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {option.framework}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
+                    selected
+                      ? "border-violet-500 bg-violet-500 text-white"
+                      : "border-border text-transparent",
+                  )}
+                >
+                  <Check className="h-3 w-3" />
                 </span>
               </span>
-              {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+              <span className="text-[10px] leading-4 text-muted-foreground">
+                {option.description}
+              </span>
+              <span className="flex flex-wrap gap-1">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                  {option.language}
+                </span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                  {option.platform}
+                </span>
+              </span>
             </button>
           );
         })}
       </div>
 
       {selectedOption ? (
-        <div className="mt-3 rounded-xl border border-border/60 bg-card p-3">
+        <div className="mt-3 rounded-xl border border-border/60 bg-card p-3.5">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-soft">
                 <selectedOption.icon className="h-4 w-4" />
               </span>
               <div className="min-w-0">
@@ -1084,53 +975,87 @@ function MobileAppSetup({
                 </p>
               </div>
             </div>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
-              {selectedOption.language}
-            </span>
-          </div>
-          <div className="mt-2 rounded-lg bg-muted/40 px-2.5 py-2 text-[10px] text-muted-foreground">
-            Bot ID: <span className="font-mono text-foreground/80">{botId}</span>
-          </div>
-          <ol className="mt-2 space-y-1.5">
-            {getMobileSetupSteps(selectedOption).map((step, index) => {
-              const StepIcon = MOBILE_STEP_ICONS[index] || Check;
-              return (
-                <li key={step.title} className="flex gap-2.5">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                    <StepIcon className="h-3 w-3" />
-                  </span>
-                  <div className="min-w-0 pt-0.5">
-                    <p className="text-[11px] font-semibold">
-                      {index + 1}. {step.title}
-                    </p>
-                    <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
-                      {step.detail}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-          {selectedApp === "react-native" && (
-            <div className="mt-3 rounded-lg border border-primary/20 bg-muted/40 p-2.5">
-              <p className="text-[10px] font-semibold text-foreground">Native endpoint</p>
-              <code className="mt-1 block break-all text-[10px] leading-4 text-muted-foreground">
-                POST /api/chatbot/public/{botId}/native-chat/v1
-              </code>
-              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-                Send message, sessionId and screenContext. The response always carries a{" "}
-                <code className="font-mono">text</code> field plus a{" "}
-                <code className="font-mono">version</code>, and errors use a stable{" "}
-                <code className="font-mono">code</code>/<code className="font-mono">message</code>{" "}
-                shape. Call the unversioned path only for older builds.
-              </p>
+            <div className="flex shrink-0 gap-1.5">
+              <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-[9px] font-semibold text-violet-600">
+                {selectedOption.language}
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[9px] font-semibold text-muted-foreground">
+                {selectedOption.platform}
+              </span>
             </div>
-          )}
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-violet-500/25 bg-violet-500/[0.07] px-2.5 py-2">
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest text-violet-600">
+              Bot ID
+            </span>
+            <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80">
+              {botId}
+            </code>
+            <button
+              onClick={() => copyText(botId)}
+              className="shrink-0 rounded-md bg-muted px-2 py-1 text-[9px] font-semibold text-foreground transition-colors hover:bg-muted/70"
+            >
+              Copy
+            </button>
+          </div>
+
+          <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
+            <Link
+              to="/docs"
+              hash="setup-webview"
+              className="flex items-center justify-between gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5 text-left transition-colors hover:bg-violet-500/15"
+            >
+              <span className="flex items-center gap-2 text-[11px] font-semibold text-violet-600">
+                <span className="grid h-5 w-5 place-items-center rounded-md bg-violet-500 text-white">
+                  <Smartphone className="h-3 w-3" />
+                </span>
+                WebView setup
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-violet-600" />
+            </Link>
+
+            <Link
+              to="/docs"
+              hash="setup-sdk"
+              className="flex items-center justify-between gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5 text-left transition-colors hover:bg-violet-500/15"
+            >
+              <span className="flex items-center gap-2 text-[11px] font-semibold text-violet-600">
+                <span className="grid h-5 w-5 place-items-center rounded-md bg-violet-500 text-white">
+                  <Rocket className="h-3 w-3" />
+                </span>
+                WebotMe SDK setup
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-violet-600" />
+            </Link>
+          </div>
+
+          <div className="mt-3.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.06] p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold text-violet-600">Native endpoint</p>
+              <button
+                onClick={() => copyText("POST " + NATIVE_ENDPOINT)}
+                className="rounded-md bg-muted px-2 py-0.5 text-[9px] font-semibold text-foreground transition-colors hover:bg-muted/70"
+              >
+                Copy
+              </button>
+            </div>
+            <code className="mt-1 block break-all text-[10px] leading-4 text-foreground/80">
+              POST {NATIVE_ENDPOINT}
+            </code>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              Send message, sessionId and screenContext. The response always carries a{" "}
+              <code className="font-mono">text</code> field plus a{" "}
+              <code className="font-mono">version</code>, and errors use a stable{" "}
+              <code className="font-mono">code</code>/<code className="font-mono">message</code>{" "}
+              shape. Call the unversioned path only for older builds.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-violet-500/30 bg-card/60 px-3 py-3 text-[10px] leading-4 text-muted-foreground">
           <Smartphone className="h-4 w-4 shrink-0 text-violet-500" />
-          Select an app technology above to see its setup steps.
+          Pick React Native or Expo above to see the step-by-step setup for {botName}.
         </div>
       )}
 
@@ -1181,7 +1106,7 @@ function MobileAppSetup({
           </div>
         ) : (
           <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-[10px] text-muted-foreground">
-            <QrCode className="h-4 w-4" /> Generating QR…
+            <QrCode className="h-4 w-4" /> Generating QRâ€¦
           </div>
         )}
       </div>
@@ -1433,16 +1358,17 @@ function ScriptsPage() {
     const customCss = opts?.widgetCustomCss || "";
 
     return `<!-- ${botName} chatbot widget -->
-<script async src="${getWidgetScriptUrl()}" data-bot-id="${botId}" data-api-host="${config.apiBaseUrl}" data-chat-host="${config.chatBaseUrl}"></script>
+<!-- Replace ${EMBED_KEY_PLACEHOLDER} with your Webotme API key (copy it below). -->
+<script async src="${getWidgetScriptUrl()}" data-bot-id="${botId}" data-key="${EMBED_KEY_PLACEHOLDER}"></script>
 
 <!-- ================================================================
   Webotme Widget Custom CSS
-  Add CSS in this block to position, resize and style your widget —
+  Add CSS in this block to position, resize and style your widget â€”
   these styles apply automatically.
 
   Selectors:
-    #rover-chatbot-bubble  → launcher button / icon
-    #rover-chatbot-frame   → chat panel
+    #rover-chatbot-bubble  â†’ launcher button / icon
+    #rover-chatbot-frame   â†’ chat panel
 
   Optionally you can override from the script tag itself:
   data-widget-position="top-left"  data-widget-open-mode="sidebar"
@@ -1451,7 +1377,7 @@ function ScriptsPage() {
   data-widget-launcher-style="pill"
 ================================================================= -->
 <style data-rover-custom-css="true">
-  /* Add your own CSS here — e.g. move the widget up or make it bigger */
+  /* Add your own CSS here â€” e.g. move the widget up or make it bigger */
   /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
   /* #rover-chatbot-frame { width: 480px; height: 640px; } */
 ${
@@ -1482,6 +1408,16 @@ ${
     await new Promise((r) => setTimeout(r, 400));
 
     const currentBot = chatbots.find((cb) => cb.id === botId);
+    setGenStage((prev) => ({ ...prev, [botId]: "Preparing your API key..." }));
+    // The snippet only carries a placeholder, so make sure the bot actually has
+    // a key the owner can copy â€” otherwise they would paste a dead script.
+    try {
+      await fetchEmbedKey(botId);
+    } catch (err: any) {
+      toast.error(err.message || "Could not load the embed key");
+      setGenerating((prev) => ({ ...prev, [botId]: false }));
+      return;
+    }
     const scriptText = buildEmbedScript(botId, botName, currentBot || undefined);
 
     try {
@@ -1493,7 +1429,7 @@ ${
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to save script");
       update(botId, { embedScript: scriptText });
-      toast.success("Script generated!");
+      toast.success("Script generated! Copy your API key and paste it over the placeholder.");
     } catch (err: any) {
       toast.error(err.message || "Could not save script");
     } finally {
@@ -1521,7 +1457,16 @@ ${
       const botId = data.chatbot?._id || data.chatbot?.id;
       let scriptText = data.embedScript || "";
 
-      if (!scriptText && botId) {
+      // Regenerate whenever the stored snippet is missing `data-key`, or still
+      // carries a real key instead of the copy-then-paste placeholder.
+      if (
+        botId &&
+        (!scriptText ||
+          !scriptText.includes("data-key") ||
+          !scriptText.includes(EMBED_KEY_PLACEHOLDER))
+      ) {
+        // Ensure the bot has a key the owner can copy out of the dashboard.
+        await fetchEmbedKey(botId);
         scriptText = buildEmbedScript(botId, data.chatbot.name, {
           widgetLauncher: data.chatbot.widget?.launcher,
           widgetLauncherText: data.chatbot.widget?.launcherText,
@@ -2132,8 +2077,8 @@ ${
 
       const toastId = toast.loading(
         isSingleFlow
-          ? `Generating ${currentSlug} booking flow with AI…`
-          : "Generating journey flow with Groq / Gemini AI…",
+          ? `Generating ${currentSlug} booking flow with AIâ€¦`
+          : "Generating journey flow with Groq / Gemini AIâ€¦",
       );
       const cats = [
         ...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])]),
@@ -2148,7 +2093,7 @@ ${
           // for multi-category types pass whatever the user configured.
           categories: cats.length > 0 ? cats : ["Web Dev", "App Dev", "ChatBot"],
           description: draft.description || draft.welcome,
-          flowSlug: currentSlug, // ← tell the server which journey to build
+          flowSlug: currentSlug, // â† tell the server which journey to build
           preferredProvider: "groq",
         }),
       });
@@ -2357,7 +2302,7 @@ ${
     }
     if (result.length === 0) {
       for (const line of lines) {
-        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|—).*)?$/);
+        const m = line.match(/^\d+\.\s+([A-Za-z].*?)(?:\s*\(.*?\))?(?:\s+(?:SKU|Price|â€”).*)?$/);
         if (m) {
           const name = m[1].trim();
           if (name.length < 80 && !result.includes(name)) result.push(name);
@@ -2647,7 +2592,7 @@ ${
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search by chatbot name…"
+                placeholder="Search by chatbot nameâ€¦"
                 className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
@@ -2672,7 +2617,7 @@ ${
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm">Loading…</p>
+              <p className="text-sm">Loadingâ€¦</p>
             </div>
           ) : (
             <div className="space-y-12">
@@ -2693,9 +2638,17 @@ ${
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.04 }}
-                          className="flex h-full flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
+                          className="relative flex h-full flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-soft"
                         >
-                          <div className="flex items-center gap-3">
+                          <Link
+                            to="/api-keys/$botId"
+                            params={{ botId: b.id }}
+                            title="API key & documentation"
+                            className="absolute right-0 top-0 z-10 inline-flex h-8 w-8 items-center justify-center rounded-bl-xl rounded-tr-2xl bg-slate-900 text-white shadow-soft transition-colors hover:bg-primary"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                          <div className="flex items-center gap-3 pr-9">
                             <div
                               className="grid h-10 w-10 place-items-center rounded-xl text-white shadow-soft shrink-0"
                               style={{
@@ -2900,14 +2853,6 @@ ${
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
-                            <Link
-                              to="/api-keys/$botId"
-                              params={{ botId: b.id }}
-                              title="Open API key for this chatbot"
-                              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary p-0 text-primary-foreground shadow-soft transition hover:brightness-110"
-                            >
-                              <ArrowUpRight className="h-4 w-4" />
-                            </Link>
                           </div>
                         </motion.div>
                       );
@@ -2937,7 +2882,7 @@ ${
                             className={`bg-gradient-to-r ${templateGradients[t.slug] || "from-primary to-indigo-600"} px-5 py-4`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className="text-3xl">{templateIcons[t.slug] || "🤖"}</span>
+                              <span className="text-3xl">{templateIcons[t.slug] || "ðŸ¤–"}</span>
                               <div>
                                 <h3 className="text-lg font-bold text-white">{t.name}</h3>
                                 <p className="text-xs text-white/80">
@@ -2963,7 +2908,7 @@ ${
                             <div className="mt-auto pt-4">
                               {isGen ? (
                                 <div className="flex items-center justify-center gap-2 rounded-xl bg-muted py-3 text-sm text-muted-foreground">
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Creating bot…
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Creating botâ€¦
                                 </div>
                               ) : (
                                 <button
@@ -3303,7 +3248,7 @@ ${
                       </div>
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                          Border radius — {draft.radius}px
+                          Border radius â€” {draft.radius}px
                         </label>
                         <input
                           type="range"
@@ -3503,7 +3448,7 @@ ${
                   )}
                   {editStep === 2 && (
                     <>
-                      {/* ── Data Collection Connection (Order System) ── */}
+                      {/* â”€â”€ Data Collection Connection (Order System) â”€â”€ */}
                       <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="flex items-center gap-2">
@@ -3529,7 +3474,7 @@ ${
                         </div>
 
                         <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                          Give the connection string (URI) of your database collection below —
+                          Give the connection string (URI) of your database collection below â€”
                           Webotme will automatically detect its columns and fetch any data from it
                           (items, products, services, bookings, etc.) to answer customers. Orders
                           you take are saved here too.
@@ -3584,7 +3529,7 @@ ${
                                 What do you sell?
                               </label>
                               <p className="mb-2 text-[11px] text-muted-foreground">
-                                Describe what you offer or the bookings customers can place — e.g.
+                                Describe what you offer or the bookings customers can place â€” e.g.
                                 Physical Products, Software, Services, Appointments. e.g. Physical
                                 Products, Software, Services, Appointments.
                               </p>
@@ -3758,7 +3703,7 @@ ${
                                   </div>
                                 )}
 
-                                {/* Product columns — auto-detected from the collection */}
+                                {/* Product columns â€” auto-detected from the collection */}
                                 <DetectedCatalogColumns
                                   mapping={draft.productMapping}
                                   catalogFields={draft.catalogFields}
@@ -3795,7 +3740,7 @@ ${
                   )}
                   {editStep === 3 && (
                     <>
-                      {/* ── Orders & Chat Storage Database Connection ── */}
+                      {/* â”€â”€ Orders & Chat Storage Database Connection â”€â”€ */}
                       <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
@@ -4069,7 +4014,7 @@ ${
                                 }
                                 className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
                               >
-                                <option value="">Select storage target purpose…</option>
+                                <option value="">Select storage target purposeâ€¦</option>
                                 <option value="user_chat">
                                   User Chat (Store user messages & chat logs)
                                 </option>
@@ -4090,7 +4035,7 @@ ${
                   )}
                   {editStep === 4 && (
                     <>
-                      {/* ── Connected Database Sync Banner ── */}
+                      {/* â”€â”€ Connected Database Sync Banner â”€â”€ */}
                       {(draft.collectionConnected ||
                         draft.collectionTable ||
                         draft.collectionUri) && (
@@ -4129,12 +4074,12 @@ ${
                             <Sparkles className={cn("h-4 w-4", syncingDB && "animate-spin")} />
                             {syncingDB
                               ? "Analyzing DB Schema..."
-                              : "✨ AI Auto-Detect & Build Flow"}
+                              : "âœ¨ AI Auto-Detect & Build Flow"}
                           </button>
                         </div>
                       )}
 
-                      {/* ── Detected DB Schema Chips ── */}
+                      {/* â”€â”€ Detected DB Schema Chips â”€â”€ */}
                       {dbSchemaMeta && (
                         <div className="rounded-xl border border-border/80 bg-card p-3 flex flex-wrap items-center gap-2 text-xs">
                           <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
@@ -4149,22 +4094,22 @@ ${
                             )}
                           >
                             {dbSchemaMeta.isProductCatalog
-                              ? "🛒 Product Catalog"
-                              : "📅 Service / Booking"}
+                              ? "ðŸ›’ Product Catalog"
+                              : "ðŸ“… Service / Booking"}
                           </span>
                           {dbSchemaMeta.hasBrand && (
                             <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-blue-500/30 bg-blue-500/10 text-blue-600">
-                              🏷️ Brand Field Detected
+                              ðŸ·ï¸ Brand Field Detected
                             </span>
                           )}
                           {dbSchemaMeta.hasPrice && (
                             <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-amber-500/30 bg-amber-500/10 text-amber-600">
-                              💲 Price Field Detected
+                              ðŸ’² Price Field Detected
                             </span>
                           )}
                           {dbSchemaMeta.hasImage && (
                             <span className="rounded-lg px-2 py-0.5 font-semibold text-[11px] border border-indigo-500/30 bg-indigo-500/10 text-indigo-600">
-                              🖼️ Image Field Detected
+                              ðŸ–¼ï¸ Image Field Detected
                             </span>
                           )}
                           {dbSchemaMeta.sampleCount > 0 && (
@@ -4175,7 +4120,7 @@ ${
                         </div>
                       )}
 
-                      {/* ── Flow Mode Toggle (Custom vs Auto) ── */}
+                      {/* â”€â”€ Flow Mode Toggle (Custom vs Auto) â”€â”€ */}
                       <div className="grid gap-3 sm:grid-cols-2">
                         {draft.flowMode !== "auto" && (
                           <button
@@ -4194,7 +4139,7 @@ ${
                               Custom Flow
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              Pick a built-in journey — E-Commerce, Service Booking, Book a Table,
+                              Pick a built-in journey â€” E-Commerce, Service Booking, Book a Table,
                               etc.
                             </span>
                           </button>
@@ -4222,7 +4167,7 @@ ${
                             Auto Flow
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            AI analyzes your website live — reads slots, alerts, buttons and fills
+                            AI analyzes your website live â€” reads slots, alerts, buttons and fills
                             forms itself.
                           </span>
                         </button>
@@ -4258,7 +4203,7 @@ ${
                         </div>
                       )}
 
-                      {/* ── Auto Flow Summary (detected live website data) ── */}
+                      {/* â”€â”€ Auto Flow Summary (detected live website data) â”€â”€ */}
                       {draft.flowMode === "auto" && (
                         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
                           <div className="flex items-start gap-3">
@@ -4345,7 +4290,7 @@ ${
 
                       {draft.flowMode === "custom" && (
                         <>
-                          {/* ── Default Flow Library Section ── */}
+                          {/* â”€â”€ Default Flow Library Section â”€â”€ */}
                           <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                             <div className="flex items-center gap-2 mb-3">
                               <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -4354,7 +4299,7 @@ ${
                               <div>
                                 <h3 className="text-sm font-semibold">Default Flow Library</h3>
                                 <p className="text-[11px] text-muted-foreground">
-                                  Pick a built-in journey (saved as knowledge.trainingFlow) — the
+                                  Pick a built-in journey (saved as knowledge.trainingFlow) â€” the
                                   widget runs it end-to-end in chat. Selecting a flow overwrites the
                                   flow below.
                                 </p>
@@ -4364,7 +4309,7 @@ ${
                             {flowsLoading ? (
                               <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card p-3 text-xs text-muted-foreground">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading default
-                                flows…
+                                flowsâ€¦
                               </div>
                             ) : (
                               <>
@@ -4408,7 +4353,7 @@ ${
                                         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                                           {f.stepsCount ?? "?"} steps
                                           {f.flowKind === "multi-category"
-                                            ? " · multi-category"
+                                            ? " Â· multi-category"
                                             : ""}
                                         </span>
                                       </button>
@@ -4421,11 +4366,11 @@ ${
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                       <h4 className="text-sm font-semibold flex items-center gap-2">
                                         <Sparkles className="h-4 w-4 text-primary" />
-                                        {selectedFlow.name} — Flow Preview
+                                        {selectedFlow.name} â€” Flow Preview
                                       </h4>
                                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                                         {flowPreview.categories.length > 0
-                                          ? `categories: ${flowPreview.categories.join(" · ")}`
+                                          ? `categories: ${flowPreview.categories.join(" Â· ")}`
                                           : `${flowPreview.steps.length} steps`}
                                       </span>
                                     </div>
@@ -4470,7 +4415,7 @@ ${
                             )}
                           </div>
 
-                          {/* ── Training Sheet Files & File Categories Section ── */}
+                          {/* â”€â”€ Training Sheet Files & File Categories Section â”€â”€ */}
                           <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-4">
                             <div className="flex items-center gap-2">
                               <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -4738,7 +4683,7 @@ ${
                                             };
                                         // Add to multi-category flows or convert legacy format
                                         if (flowObj.steps) {
-                                          // Legacy single flow → convert to multi-flow
+                                          // Legacy single flow â†’ convert to multi-flow
                                           flowObj = {};
                                         }
                                         flowObj[newCatName] = catFlow;
@@ -4880,7 +4825,7 @@ ${
                             </div>
                           </div>
 
-                          {/* ── Flow Builder ── */}
+                          {/* â”€â”€ Flow Builder â”€â”€ */}
                           <div className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-3">
                             <div className="flex items-center justify-between flex-wrap gap-2">
                               <div>
@@ -4967,7 +4912,7 @@ ${
                           </div>
                         </div>
 
-                        {/* ── Display Currency Dropdown Selection ── */}
+                        {/* â”€â”€ Display Currency Dropdown Selection â”€â”€ */}
                         <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-primary" />
@@ -4977,7 +4922,7 @@ ${
                           </div>
                           <p className="text-[11px] text-muted-foreground">
                             Select the currency to format product prices shown in the chatbot window
-                            (e.g. USD $, PKR Rs, EUR €, GBP £, AED, SAR).
+                            (e.g. USD $, PKR Rs, EUR â‚¬, GBP Â£, AED, SAR).
                           </p>
                           <select
                             value={draft.currency}
@@ -5033,7 +4978,7 @@ ${
                             </div>
                             <p className="text-xs text-muted-foreground">
                               Order emails will be received on these emails in any order. You can
-                              add any other email of your choice — except the email used to create
+                              add any other email of your choice â€” except the email used to create
                               this account, which already receives orders.
                             </p>
                           </>
@@ -5347,7 +5292,7 @@ ${
                               <div className="grid gap-4 md:grid-cols-2">
                                 <div>
                                   <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                                    Panel width — {draft.widgetWidth}px
+                                    Panel width â€” {draft.widgetWidth}px
                                   </label>
                                   <input
                                     type="range"
@@ -5365,7 +5310,7 @@ ${
                                 </div>
                                 <div>
                                   <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                                    Panel height — {draft.widgetHeight}px
+                                    Panel height â€” {draft.widgetHeight}px
                                   </label>
                                   <input
                                     type="range"
@@ -5398,7 +5343,7 @@ ${
                                 }
                               />
                               <p className="mt-1 text-[10px] text-muted-foreground">
-                                These styles are injected with the widget script — no extra CSS
+                                These styles are injected with the widget script â€” no extra CSS
                                 needed on your site.
                               </p>
                             </div>
@@ -5534,7 +5479,7 @@ ${
                           </div>
                           <div>
                             <label className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                              Border radius — {draft.radius}px
+                              Border radius â€” {draft.radius}px
                             </label>
                             <input
                               type="range"
@@ -5597,7 +5542,7 @@ ${
                         <div className="space-y-6">
                           <h2 className="text-lg font-semibold">Training Knowledge</h2>
 
-                          {/* ── Existing Knowledge Files ── */}
+                          {/* â”€â”€ Existing Knowledge Files â”€â”€ */}
                           <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
                             <h3 className="text-sm font-semibold mb-2">General Knowledge Files</h3>
                             {draft.knowledgeFiles.length > 0 && (
@@ -5640,7 +5585,7 @@ ${
                             <textarea
                               value={manualKnowledgeContent}
                               onChange={(e) => setManualKnowledgeContent(e.target.value)}
-                              placeholder="Paste knowledge content here…"
+                              placeholder="Paste knowledge content hereâ€¦"
                               rows={3}
                               className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
@@ -5656,7 +5601,7 @@ ${
                             </label>
                           </div>
 
-                          {/* ── Knowledge Base ── */}
+                          {/* â”€â”€ Knowledge Base â”€â”€ */}
                           <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
                             <h3 className="text-sm font-semibold mb-2">Knowledge Base Files</h3>
                             {draft.knowledgeBase.length > 0 && (
@@ -5702,7 +5647,7 @@ ${
                             <textarea
                               value={manualKBContent}
                               onChange={(e) => setManualKBContent(e.target.value)}
-                              placeholder="Paste knowledge base content here…"
+                              placeholder="Paste knowledge base content hereâ€¦"
                               rows={3}
                               className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
@@ -5720,7 +5665,7 @@ ${
                             </label>
                           </div>
 
-                          {/* ── Training Knowledge ── */}
+                          {/* â”€â”€ Training Knowledge â”€â”€ */}
                           <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
                             <h3 className="text-sm font-semibold mb-2">Training Knowledge Files</h3>
                             {draft.trainingKnowledge.length > 0 && (
@@ -5766,7 +5711,7 @@ ${
                             <textarea
                               value={manualTKContent}
                               onChange={(e) => setManualTKContent(e.target.value)}
-                              placeholder="Paste training knowledge content here…"
+                              placeholder="Paste training knowledge content hereâ€¦"
                               rows={3}
                               className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
@@ -5784,7 +5729,7 @@ ${
                             </label>
                           </div>
 
-                          {/* ── Training Sheet ── */}
+                          {/* â”€â”€ Training Sheet â”€â”€ */}
                           <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
                             <h3 className="text-sm font-semibold mb-2">Training Sheet Files</h3>
                             {draft.trainingSheet.length > 0 && (
@@ -5813,7 +5758,7 @@ ${
                                 ))}
                               </div>
                             )}
-                            {/* ── Interactive File Categories Editor ── */}
+                            {/* â”€â”€ Interactive File Categories Editor â”€â”€ */}
                             <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2.5">
                               <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-bold flex items-center gap-1.5 text-foreground">
@@ -5941,7 +5886,7 @@ ${
                             <textarea
                               value={manualTSContent}
                               onChange={(e) => setManualTSContent(e.target.value)}
-                              placeholder="Paste training sheet content here…"
+                              placeholder="Paste training sheet content hereâ€¦"
                               rows={3}
                               className="mt-2 min-h-[80px] w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
@@ -5989,7 +5934,7 @@ ${
                           </h3>
                           <p className="mt-1 text-xs text-muted-foreground">
                             Whenever an order or service request comes through this chatbot, the
-                            notification emails follow this setup — no matter which website the
+                            notification emails follow this setup â€” no matter which website the
                             widget is installed on.
                           </p>
                         </div>
@@ -6053,7 +5998,7 @@ ${
                                 <Shield className="h-4 w-4 text-primary" /> Use platform email
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Emails are sent from the Webotme system — no extra setup needed.
+                                Emails are sent from the Webotme system â€” no extra setup needed.
                               </p>
                             </button>
                             <button
@@ -6069,8 +6014,8 @@ ${
                                 <Mail className="h-4 w-4 text-primary" /> My own business email
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Emails are sent from one of your connected addresses — customers see
-                                your brand.
+                                Emails are sent from one of your connected addresses â€” customers
+                                see your brand.
                               </p>
                             </button>
                           </div>
@@ -6113,7 +6058,7 @@ ${
                                         </div>
                                         <div className="text-[11px] text-muted-foreground">
                                           {cfg.type === "smtp" ? "Business SMTP" : "Resend API"}
-                                          {cfg.fromName ? ` • ${cfg.fromName}` : ""}
+                                          {cfg.fromName ? ` â€¢ ${cfg.fromName}` : ""}
                                         </div>
                                       </div>
                                       {selected && (
@@ -6124,8 +6069,8 @@ ${
                                 })}
                                 {!connectedEmails.some((c) => c.verified) && (
                                   <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                                    None of these are verified yet — test them in Settings → Email
-                                    setup, otherwise the platform fallback is used.
+                                    None of these are verified yet â€” test them in Settings â†’
+                                    Email setup, otherwise the platform fallback is used.
                                   </p>
                                 )}
                                 <a
@@ -6138,8 +6083,8 @@ ${
                             ) : (
                               <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400 space-y-2">
                                 <p>
-                                  First set up your email — you haven&apos;t connected any business
-                                  email yet. Connect one, then select it here.
+                                  First set up your email â€” you haven&apos;t connected any
+                                  business email yet. Connect one, then select it here.
                                 </p>
                                 <a
                                   href="/dashboard/settings?tab=email"
@@ -6152,7 +6097,7 @@ ${
                         </div>
 
                         <p className="rounded-xl border border-border/60 bg-card/70 p-3 text-[11px] text-muted-foreground">
-                          💡 These settings apply only to this chatbot. For your other agency
+                          ðŸ’¡ These settings apply only to this chatbot. For your other agency
                           chatbots, use the same step in each bot&apos;s editor.
                         </p>
                       </div>
@@ -6168,8 +6113,8 @@ ${
                   <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-600 dark:text-emerald-400">
                     <Zap className="h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Auto Flow bot — design &amp; theme preview only. The conversation runs live on
-                      your website.
+                      Auto Flow bot â€” design &amp; theme preview only. The conversation runs live
+                      on your website.
                     </span>
                   </div>
                 )}
@@ -6449,7 +6394,7 @@ ${
                       onClick={next}
                       className="flex-1 rounded-lg bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-soft hover:brightness-110 transition-all"
                     >
-                      {tourStep < 5 ? "Next →" : "Finish"}
+                      {tourStep < 5 ? "Next â†’" : "Finish"}
                     </button>
                   </div>
                   {tourStep > 1 && (
@@ -6539,7 +6484,7 @@ ${
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">WordPress</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Go to <strong>Appearance → Theme File Editor</strong> →{" "}
+                    Go to <strong>Appearance â†’ Theme File Editor</strong> â†’{" "}
                     <strong>footer.php</strong>, paste the script before{" "}
                     <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
                       &lt;?php wp_footer(); ?&gt;
@@ -6550,7 +6495,7 @@ ${
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">Shopify</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Go to <strong>Online Store → Themes → Edit code</strong> →{" "}
+                    Go to <strong>Online Store â†’ Themes â†’ Edit code</strong> â†’{" "}
                     <strong>theme.liquid</strong>, paste the script before{" "}
                     <code className="rounded bg-muted px-1 py-0.5 text-[10px]">&lt;/body&gt;</code>.
                   </p>
@@ -6558,7 +6503,7 @@ ${
                 <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
                   <p className="font-medium text-xs">Wix</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Go to <strong>Settings → Tracking & Analytics</strong>, click{" "}
+                    Go to <strong>Settings â†’ Tracking & Analytics</strong>, click{" "}
                     <strong>+ New Tool</strong>, choose <strong>Custom</strong>, paste the script
                     and set it to load on <strong>All Pages</strong> in <strong>Body - end</strong>.
                   </p>

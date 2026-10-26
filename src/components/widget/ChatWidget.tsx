@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { config } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import StripePaymentForm from "@/components/widget/StripePaymentForm";
 import { createVoiceEngine } from "@/lib/voice";
@@ -47,8 +46,17 @@ const getVisitorId = () => {
 
 const makeSessionId = (visitorId: string) => `${visitorId}::${Date.now().toString(36)}`;
 
+// Embed key handed over by the widget loader (?k= on the iframe URL).
+// It authenticates the public widget endpoints without ever exposing a
+// backend host — every request below stays same-origin.
+const getEmbedKey = () => {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("k") || "";
+};
+
 export function ChatWidget({ botId }: { botId: string }) {
   const id = botId;
+  const embedHeaders = { "x-api-key": getEmbedKey() };
   const [bot, setBot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -149,6 +157,9 @@ export function ChatWidget({ botId }: { botId: string }) {
   const taskSigRef = useRef("");
   const taskStallRef = useRef(0);
   const taskLastActionsRef = useRef("");
+  // Label of the most recently dispatched action — attached to action results
+  // so the server agent knows WHICH action failed when a result has no requestId.
+  const lastActionLabelRef = useRef("");
 
   // ── Multi-step workflow helpers ─────────────────────────────────────────
   // Compound commands ("plan page may jao or pro plan active kro") are split
@@ -366,9 +377,23 @@ export function ChatWidget({ botId }: { botId: string }) {
         }
       } else if (d.type === "__rover_identity" && d.identity) {
         pageSnapshotRef.current = { ...(pageSnapshotRef.current || {}), identity: d.identity };
-      } else if (d.type === "__rover_action_result" && d.requestId) {
-        // Forward result into chat so AI receives it on next send
-        inboxRef.current = [...inboxRef.current.slice(-20), d];
+      } else if (d.type === "__rover_action_result") {
+        // Normalize the host-page result into the shape the server agent
+        // expects ({success, action, error}) so failures/stalls actually
+        // reach the AI on the next step. Previously results were DROPPED
+        // unless a requestId was present — but dispatch never sent one.
+        const res = d.result || {};
+        const normalized = {
+          success: Boolean(res.success),
+          action: String(d.requestId || lastActionLabelRef.current || ""),
+          error: res.success
+            ? undefined
+            : String(res.reason || res.error || "action failed on page"),
+        };
+        inboxRef.current = [
+          ...inboxRef.current.slice(-20),
+          { type: "__rover_action_result", requestId: d.requestId, result: normalized },
+        ];
         setInbox([...inboxRef.current]);
       } else if (d.type === "__rover_pong") {
         // parent is alive
@@ -394,7 +419,7 @@ export function ChatWidget({ botId }: { botId: string }) {
 
   // Fetch chatbot settings & start a fresh session
   useEffect(() => {
-    fetch(`${config.apiBaseUrl}/api/chatbot/public/${id}`)
+    fetch(`/api/chatbot/public/${id}`, { headers: embedHeaders })
       .then((r) => {
         if (!r.ok) throw new Error("Chatbot not found or inactive");
         return r.json();
@@ -495,7 +520,7 @@ export function ChatWidget({ botId }: { botId: string }) {
     try {
       await fetch(`/api/chatbot/public/${id}/session/new`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...embedHeaders },
         body: JSON.stringify({
           sessionId: newSessionId,
           oldSessionId: sessionId || undefined,
@@ -550,6 +575,7 @@ export function ChatWidget({ botId }: { botId: string }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...embedHeaders,
         },
         body: JSON.stringify({
           botId: id,
@@ -648,11 +674,16 @@ export function ChatWidget({ botId }: { botId: string }) {
         for (let i = 0; i < actionsToExecute.length; i++) {
           const item = actionsToExecute[i];
           const actionType = item.action === "fill_input" ? "fill" : item.type || item.action;
+          const actionReqId = `act_${Date.now()}_${i}`;
+          lastActionLabelRef.current = String(
+            item.data?.text || item.data?.label || item.data?.selector || actionType || "",
+          );
           try {
             window.parent?.postMessage(
               {
                 type: "__rover_action",
                 __rover_action: true,
+                requestId: actionReqId,
                 action: {
                   type: actionType,
                   route: item.data?.url || item.data?.route,

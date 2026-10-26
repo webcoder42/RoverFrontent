@@ -6,12 +6,10 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  // VITE_API_BASE_URL is the *shipped* backend URL (it ends up in the generated
-  // embed script and share links), so it must stay pointed at production.
-  // The dev proxy is a separate concern: set VITE_DEV_API_PROXY to keep local
-  // server work visible in `npm run dev`.
-  const devProxyTarget =
-    env.VITE_DEV_API_PROXY || "http://localhost:3000";
+  // In production the browser only ever talks to this origin (the gateway);
+  // Vercel rewrites forward /api and /static. In dev the same paths are
+  // proxied to the backend so local server work stays visible in `npm run dev`.
+  const devProxyTarget = env.VITE_DEV_API_PROXY || "http://localhost:3000";
 
   return {
     envPrefix: ["VITE_", "PADDLE_"],
@@ -27,23 +25,24 @@ export default defineConfig(({ mode }) => {
         "@tanstack/react-router",
       ],
     },
-    plugins: [
-      TanStackRouterVite(),
-      react(),
-      tailwindcss(),
-      tsconfigPaths()
-    ],
+    plugins: [TanStackRouterVite(), react(), tailwindcss(), tsconfigPaths()],
     server: {
       port: 5174,
       host: true,
       proxy: {
         // Use '/api/' (with trailing slash) so the SPA route '/api-keys/…' is
         // NOT silently proxied to the backend — it must stay on the SPA.
-        '/api/': {
+        "/api/": {
           target: devProxyTarget,
           changeOrigin: true,
-        }
-      }
-    }
+        },
+        // Same-origin gateway in production, so dev needs the static loader
+        // (widget.js, rover-autoflow/*) forwarded to the backend too.
+        "/static/": {
+          target: devProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
   };
 });

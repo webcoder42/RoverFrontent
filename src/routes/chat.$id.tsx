@@ -19,8 +19,12 @@ function ShareableChatPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Keep any query string — in particular `?k=` (the embed key) the widget or
+  // a dashboard share link appended, so a copied link still opens a working chat.
   const shareUrl =
-    typeof window === "undefined" ? `/chat/${id}` : `${window.location.origin}/chat/${id}`;
+    typeof window === "undefined"
+      ? `/chat/${id}`
+      : `${window.location.origin}/chat/${id}${window.location.search}`;
 
   const copyLink = async () => {
     try {

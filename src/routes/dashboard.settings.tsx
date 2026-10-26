@@ -25,11 +25,16 @@ import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/settings")({
-  head: () => ({ meta: [{ title: "Settings — Webotme" }] }),
+  head: () => ({ meta: [{ title: "Settings ï¿½ Webotme" }] }),
   component: SettingsPage,
 });
 
-type SettingsTab = "profile" | "coupons" | "connected" | "email" | "notifications";
+type SettingsTab =
+  | "profile"
+  | "coupons"
+  | "connected"
+  | "email"
+  | "notifications";
 type EmailType = "smtp" | "resend";
 
 const SETTINGS_TABS: { key: SettingsTab; label: string; icon: typeof User }[] = [
@@ -152,13 +157,13 @@ function CouponsTab() {
           <Ticket className="h-4 w-4 text-primary" /> Coupons &amp; offers
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Every discount code issued to your account — active, expired and redeemed history.
+          Every discount code issued to your account ï¿½ active, expired and redeemed history.
         </p>
       </div>
 
       {coupons === null ? (
         <div className="rounded-2xl border border-border/60 bg-card p-8 text-center text-sm text-muted-foreground shadow-soft">
-          Loading coupons…
+          Loading couponsï¿½
         </div>
       ) : coupons.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/70 bg-card/50 p-10 text-center shadow-soft">
@@ -205,8 +210,8 @@ function CouponsTab() {
                   </button>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                     <span>{c.title || sourceLabel(c.source)}</span>
-                    <span>·</span>
-                    <span>Issued {c.createdAt ? formatDate(c.createdAt) : "—"}</span>
+                    <span>ï¿½</span>
+                    <span>Issued {c.createdAt ? formatDate(c.createdAt) : "ï¿½"}</span>
                   </div>
                 </div>
 
@@ -334,7 +339,7 @@ function SettingsPage() {
         if (first?.fromName && !fromName) setFromName(first.fromName);
       }
     } catch {
-      // silent — form stays empty
+      // silent ï¿½ form stays empty
     } finally {
       setEmailLoading(false);
     }
@@ -375,11 +380,11 @@ function SettingsPage() {
         setProviderLabel("");
         setDetectNote(
           data.message ||
-            "Couldn't detect automatically — please pick your provider below or enter settings manually.",
+            "Couldn't detect automatically ï¿½ please pick your provider below or enter settings manually.",
         );
       }
     } catch (error: any) {
-      setDetectNote(error.message || "Auto-detection failed — please pick your provider below.");
+      setDetectNote(error.message || "Auto-detection failed ï¿½ please pick your provider below.");
     } finally {
       setDetecting(false);
     }
@@ -455,7 +460,7 @@ function SettingsPage() {
       if (editingEmailId) body.id = editingEmailId;
       if (emailType === "smtp") {
         if (!bizEmail.trim() || !bizEmail.includes("@")) throw new Error("Business email is required");
-        if (!smtpHost.trim()) throw new Error("SMTP host is required — select your provider or enter it manually");
+        if (!smtpHost.trim()) throw new Error("SMTP host is required ï¿½ select your provider or enter it manually");
         const hasSavedPass = editingCfg?.type === "smtp";
         if (!smtpPass && !hasSavedPass) throw new Error("Email password is required");
         body.provider = providerKey;
@@ -553,7 +558,7 @@ function SettingsPage() {
       if (editingEmailId && editingEmailId === id) cancelEditConfig();
       await loadEmailConfig();
       toast.success(
-        id ? "Saved email removed" : "Custom email removed — using system default again",
+        id ? "Saved email removed" : "Custom email removed ï¿½ using system default again",
       );
     } catch (error: any) {
       toast.error(error.message || "Failed to remove email setup");
@@ -790,8 +795,8 @@ function SettingsPage() {
 
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Connect your own business email so every order confirmation &amp; notification your
-                chatbots send arrives from <strong>your own address</strong> — not ours. Just enter
-                your email; we auto-detect the provider (Zoho, Hostinger, Google Workspace, GoDaddy…).
+                chatbots send arrives from <strong>your own address</strong> ï¿½ not ours. Just enter
+                your email; we auto-detect the provider (Zoho, Hostinger, Google Workspace, GoDaddyï¿½).
                 You can save multiple emails and pick which one each chatbot uses.
               </p>
 
@@ -830,8 +835,8 @@ function SettingsPage() {
                           </div>
                           <div className="text-muted-foreground">
                             Type: {cfg.type === "smtp" ? "Business email (SMTP)" : "Resend API"}
-                            {cfg.fromName ? ` • Sender name: ${cfg.fromName}` : ""}
-                            {cfg.lastVerifiedAt ? ` • Verified ${formatDate(cfg.lastVerifiedAt)}` : ""}
+                            {cfg.fromName ? ` ï¿½ Sender name: ${cfg.fromName}` : ""}
+                            {cfg.lastVerifiedAt ? ` ï¿½ Verified ${formatDate(cfg.lastVerifiedAt)}` : ""}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -871,7 +876,7 @@ function SettingsPage() {
               {editingEmailId ? (
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3">
                   <p className="text-xs font-semibold text-foreground">
-                    Editing a saved email — leave the password field empty to keep the stored one.
+                    Editing a saved email ï¿½ leave the password field empty to keep the stored one.
                   </p>
                   <button
                     type="button"
@@ -928,7 +933,7 @@ function SettingsPage() {
                     <KeyRound className="h-4 w-4 text-primary" /> Resend API key
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Best deliverability — requires a domain verified at resend.com.
+                    Best deliverability ï¿½ requires a domain verified at resend.com.
                   </p>
                 </button>
               </div>
@@ -941,7 +946,7 @@ function SettingsPage() {
                       Your business email
                       {detecting && (
                         <span className="inline-flex items-center gap-1 font-normal text-muted-foreground">
-                          <RefreshCw className="h-3 w-3 animate-spin" /> Detecting…
+                          <RefreshCw className="h-3 w-3 animate-spin" /> Detectingï¿½
                         </span>
                       )}
                     </span>
@@ -956,7 +961,7 @@ function SettingsPage() {
 
                   {providerLabel && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      <BadgeCheck className="h-3.5 w-3.5" /> {providerLabel} detected — settings filled automatically
+                      <BadgeCheck className="h-3.5 w-3.5" /> {providerLabel} detected ï¿½ settings filled automatically
                     </div>
                   )}
                   {detectNote && (
@@ -1020,7 +1025,7 @@ function SettingsPage() {
                       <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
                         Email password / app password
                         {emailCfg?.type === "smtp" && (
-                          <span className="font-normal text-muted-foreground"> (saved — leave empty to keep)</span>
+                          <span className="font-normal text-muted-foreground"> (saved ï¿½ leave empty to keep)</span>
                         )}
                       </span>
                       <input
@@ -1029,7 +1034,7 @@ function SettingsPage() {
                         className="input font-mono"
                         type="password"
                         autoComplete="new-password"
-                        placeholder={emailCfg?.type === "smtp" ? "••••••••" : "Your mail password"}
+                        placeholder={emailCfg?.type === "smtp" ? "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" : "Your mail password"}
                       />
                     </label>
                     <label className="block">
@@ -1104,7 +1109,7 @@ function SettingsPage() {
                       Resend API key
                       {emailCfg?.type === "resend" && (
                         <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-600">
-                          saved — leave empty to keep
+                          saved ï¿½ leave empty to keep
                         </span>
                       )}
                     </span>
@@ -1114,7 +1119,7 @@ function SettingsPage() {
                       className="input font-mono"
                       type="password"
                       autoComplete="off"
-                      placeholder={emailCfg?.type === "resend" ? "re_••••••••" : "re_123abc..."}
+                      placeholder={emailCfg?.type === "resend" ? "re_ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" : "re_123abc..."}
                     />
                   </label>
 

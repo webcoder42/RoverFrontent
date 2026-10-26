@@ -32,6 +32,7 @@ import {
   Tooltip,
 } from "recharts";
 import { config } from "@/lib/config";
+import { EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
 
 export const Route = createFileRoute("/console/$botId")({
   head: () => ({ meta: [{ title: "Analytics Console — WeBotMe" }] }),
@@ -822,7 +823,12 @@ function SettingsTab({
   // Dashboard's own embed script — paste anywhere (even inside a button);
   // clicking it opens this analytics dashboard.
   const dashboardScript = `<script src="${config.apiBaseUrl}/static/console-widget.js" data-console="${botId}" data-app="${window.location.origin}" defer></script>`;
-  const scriptTag = `<script src="${config.apiBaseUrl}/static/widget.js" data-bot="${chatbotId}" defer></script>`;
+
+  // Widget embed snippet: bot id + a placeholder for the owner's API key. The
+  // real key is never written into a snippet — it is copied from the dashboard
+  // and pasted over the placeholder — so this needs no fetch at all.
+  const scriptTag = `<script async src="${config.apiBaseUrl}/static/widget.js" data-bot-id="${chatbotId}" data-key="${EMBED_KEY_PLACEHOLDER}"></script>`;
+  const scriptHint = "";
 
   // ── Activation flow state ──
   const [phase, setPhase] = useState<"idle" | "working" | "done">(activated ? "done" : "idle");
@@ -1114,9 +1120,13 @@ function SettingsTab({
         <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Chatbot embed script</label>
         <div className="mt-2 flex items-start gap-2">
           <pre className="flex-1 overflow-x-auto whitespace-pre-wrap rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-slate-300">
-            {scriptTag}
+            {scriptTag || scriptHint}
           </pre>
-          <button onClick={() => copy("script", scriptTag)} className="rounded-lg border border-slate-700 p-2.5 text-slate-400 hover:text-white">
+          <button
+            onClick={() => scriptTag && copy("script", scriptTag)}
+            disabled={!scriptTag}
+            className="rounded-lg border border-slate-700 p-2.5 text-slate-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
             {copied === "script" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </button>
         </div>

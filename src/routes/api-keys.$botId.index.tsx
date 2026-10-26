@@ -8,6 +8,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Globe,
   KeyRound,
   Loader2,
   MoreVertical,
@@ -43,6 +44,7 @@ interface KeyInfo {
   maskedKey: string;
   fullKey?: string;
   createdAt: string | null;
+  boundDomains: string[];
 }
 
 const EMPTY_KEY: KeyInfo = {
@@ -52,6 +54,7 @@ const EMPTY_KEY: KeyInfo = {
   description: "",
   maskedKey: "",
   createdAt: null,
+  boundDomains: [],
 };
 
 const apiUrl = (botId: string) => `/api/chatbot/${botId}/api-key`;
@@ -84,6 +87,7 @@ function ApiKeysPage() {
           description: data.description || "",
           maskedKey: data.maskedKey || "",
           createdAt: data.createdAt || null,
+          boundDomains: Array.isArray(data.boundDomains) ? data.boundDomains : [],
         });
       }
     } catch {
@@ -129,6 +133,7 @@ function ApiKeysPage() {
         maskedKey: data.maskedKey,
         fullKey: data.key,
         createdAt: data.createdAt,
+        boundDomains: [],
       });
       setName("");
       setDescription("");
@@ -573,6 +578,36 @@ function ApiKeysPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Registered websites — this key only works on these sites */}
+                  {hasKey && (
+                    <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                          <Globe className="h-3.5 w-3.5 text-primary" />
+                          Registered websites
+                        </span>
+                        {keyInfo.boundDomains.length === 0 ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            Not pinned yet — the first site that uses this key gets registered automatically.
+                          </span>
+                        ) : (
+                          keyInfo.boundDomains.map((d) => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card px-2.5 py-0.5 font-mono text-[11px] text-foreground/80"
+                            >
+                              {d}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                        Sirf in websites par yehi key chalegi — kisi aur site par paste karne par kaam
+                        nahi karegi. Naya site jorna ho to key rotate (Create Key) karein.
+                      </p>
                     </div>
                   )}
 

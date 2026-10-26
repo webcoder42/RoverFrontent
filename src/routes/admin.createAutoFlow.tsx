@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { cn } from "@/lib/utils";
+import { config } from "@/lib/config";
+import { EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
 
 export const Route = createFileRoute("/admin/createAutoFlow")({
   head: () => ({ meta: [{ title: "Create Auto Flow Bot — Rover" }] }),
@@ -251,7 +253,7 @@ function CreateAutoFlowBot() {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
               <p className="text-sm font-semibold mb-2">Embed Script</p>
               <code className="block rounded-lg bg-background p-3 text-xs font-mono overflow-x-auto">
-                {`<script async src="https://rover-uoik.onrender.com/static/widget.js" data-bot-id="${botId}" data-auto-flow="true"></script>`}
+                {`<script async src="${config.apiBaseUrl}/static/widget.js" data-bot-id="${botId}" data-key="${EMBED_KEY_PLACEHOLDER}" data-auto-flow="true"></script>`}
               </code>
             </div>
           </div>
