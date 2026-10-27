@@ -2763,19 +2763,27 @@ function WidgetSetupTool() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch("/api/docs/widget-setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = (await res.json().catch(() => null)) as WidgetSetupResponse | null;
-      if (!res.ok || !data?.code) {
-        toast.error(data?.message || "Could not set up the file. Please try again.");
-        return;
+      // A very long file comes back cut off, so keep asking for the rest and
+      // stitch the pieces together - one round-trip at a time.
+      let acc = "";
+      let truncated = true;
+      for (let round = 0; round < 4 && truncated; round += 1) {
+        const res = await fetch("/api/docs/widget-setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(round === 0 ? { code } : { code, resume: acc }),
+        });
+        const data = (await res.json().catch(() => null)) as WidgetSetupResponse | null;
+        if (!res.ok || !data?.code) {
+          toast.error(data?.message || "Could not set up the file. Please try again.");
+          return;
+        }
+        acc = data.code;
+        truncated = Boolean(data.truncated);
+        setResult(acc);
       }
-      setResult(data.code);
-      if (data.truncated) {
-        toast.success("Almost there - the file came back cut off, press Setup once more");
+      if (truncated) {
+        toast.error("The file came back cut off - press Setup once more and it will finish");
       } else {
         toast.success("Your file is ready to copy");
       }
@@ -2839,8 +2847,8 @@ function WidgetSetupTool() {
 
       {busy && (
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Reading your file and wiring it up. A big file can take half a minute, so leave this tab
-          open.
+          Reading your file and wiring it up. A big file takes a couple of passes, so leave this tab
+          open until the copy box stops updating.
         </p>
       )}
 
