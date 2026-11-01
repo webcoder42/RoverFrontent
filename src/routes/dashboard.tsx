@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { isAuthenticated } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: ({ location }) => {
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/dashboard")({
       });
     }
   },
+  head: () => noindexHead("Dashboard — Webotme"),
   component: DashboardLayout,
 });
 

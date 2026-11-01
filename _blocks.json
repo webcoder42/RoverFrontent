@@ -1,0 +1,309 @@
+{
+  "main-body": {
+    "from": 1556,
+    "to": 1946,
+    "lines": 391,
+    "usedScope": [
+      "templates",
+      "loading",
+      "q",
+      "setQ",
+      "filter",
+      "setFilter",
+      "generating",
+      "genStage",
+      "cssOpen",
+      "setCssOpen",
+      "setPreview",
+      "setDeleteTarget",
+      "tourStep",
+      "setTourStep",
+      "setHelpOpen",
+      "getCardIntegration",
+      "changeCardIntegration",
+      "selectCardMobileApp",
+      "filtered",
+      "templateOptions",
+      "splitEmbedScript",
+      "handleGenerate",
+      "handleTemplateGenerate",
+      "openEditor",
+      "chatbots"
+    ],
+    "usedImports": [
+      "import { Link } from \"@tanstack/react-router\";",
+      "import { motion, AnimatePresence } from \"motion/react\";",
+      "import { Bot, Sparkles, Copy, Eye, Code2, Loader2, Pencil, Trash2, Search, Filter, HardDrive, ArrowRight, ChevronDown, Shield, ArrowUpCircle, BarChart3 } from \"lucide-react\";",
+      "import { PageTransition } from \"@/components/common/PageTransition\";",
+      "import { formatDate } from \"@/lib/format\";",
+      "import { toast } from \"sonner\";",
+      "import { templateIcons, templateGradients } from \"@/lib/scripts/constants\";",
+      "import { IntegrationModeTabs } from \"@/components/scripts/IntegrationModeTabs\";",
+      "import { MobileAppSetup } from \"@/components/scripts/MobileAppSetup\";"
+    ]
+  },
+  "PreviewDialog": {
+    "from": 1947,
+    "to": 1983,
+    "lines": 37,
+    "usedScope": [
+      "preview",
+      "setPreview"
+    ],
+    "usedImports": [
+      "import { LiveBotPreview } from \"@/components/create/LiveBotPreview\";",
+      "import { Dialog, DialogContent, DialogHeader, DialogTitle } from \"@/components/ui/dialog\";"
+    ]
+  },
+  "EditDialog-chrome": {
+    "from": 1985,
+    "to": 2308,
+    "lines": 324,
+    "usedScope": [
+      "editingBot",
+      "editStep",
+      "setEditStep",
+      "draft",
+      "setDraft",
+      "editSteps",
+      "editStepIndex",
+      "closeEditor",
+      "onLogo"
+    ],
+    "usedImports": [
+      "import { Bot, Check, Upload } from \"lucide-react\";",
+      "import { cn } from \"@/lib/utils\";",
+      "import { type Chatbot, type Template } from \"@/store/chatbots\";",
+      "import { Dialog, DialogContent, DialogHeader, DialogTitle } from \"@/components/ui/dialog\";",
+      "import { fonts, bubbles, defaultIcons } from \"@/lib/scripts/constants\";"
+    ]
+  },
+  "EditStep1": {
+    "from": 2309,
+    "to": 2448,
+    "lines": 140,
+    "usedScope": [
+      "editStep",
+      "draft",
+      "setDraft"
+    ],
+    "usedImports": [
+      "import { Bot, MessageSquareText, Globe, Layers } from \"lucide-react\";",
+      "import { type Chatbot } from \"@/store/chatbots\";",
+      "import { categoryOptions } from \"@/lib/scripts/constants\";"
+    ]
+  },
+  "EditStep2": {
+    "from": 2449,
+    "to": 2740,
+    "lines": 292,
+    "usedScope": [
+      "editStep",
+      "draft",
+      "setDraft",
+      "runCatalogTest"
+    ],
+    "usedImports": [
+      "import { Check, Database, ShoppingCart } from \"lucide-react\";",
+      "import { DetectedCatalogColumns } from \"@/components/common/DetectedCatalogColumns\";",
+      "import { databaseTypeOptions } from \"@/lib/scripts/constants\";"
+    ]
+  },
+  "EditStep3": {
+    "from": 2741,
+    "to": 3035,
+    "lines": 295,
+    "usedScope": [
+      "loading",
+      "editStep",
+      "draft",
+      "setDraft"
+    ],
+    "usedImports": [
+      "import { Check, Database, User } from \"lucide-react\";",
+      "import { StripeConnectCard } from \"@/components/stripe/StripeConnectCard\";",
+      "import { toast } from \"sonner\";",
+      "import { databaseTypeOptions } from \"@/lib/scripts/constants\";",
+      "import { getAuthHeaders } from \"@/lib/scripts/helpers\";"
+    ]
+  },
+  "EditStep4": {
+    "from": 3036,
+    "to": 3887,
+    "lines": 852,
+    "usedScope": [
+      "filter",
+      "editingBot",
+      "editStep",
+      "autoFlowScan",
+      "draft",
+      "setDraft",
+      "syncingDB",
+      "dbSchemaMeta",
+      "defaultFlows",
+      "flowsLoading",
+      "selectFlow",
+      "selectedFlow",
+      "flowPreview",
+      "activeFlowSlug",
+      "diagramFlow",
+      "syncCategoriesAndFlowFromDB",
+      "generatingFlow",
+      "generateAIFlowWithGroqGemini",
+      "remove"
+    ],
+    "usedImports": [
+      "import { Link } from \"@tanstack/react-router\";",
+      "import { Sparkles, Loader2, Trash2, ChevronRight, FileText, Database, Phone, ArrowRight, Braces, Layers, Zap } from \"lucide-react\";",
+      "import { cn } from \"@/lib/utils\";",
+      "import { toast } from \"sonner\";",
+      "import { FlowDiagram } from \"@/components/flow/FlowDiagram\";",
+      "import { FlowBuilder } from \"@/components/flow/FlowBuilder\";",
+      "import { getAuthHeaders, isServiceBookingFlowJson } from \"@/lib/scripts/helpers\";"
+    ]
+  },
+  "EditStep5": {
+    "from": 3888,
+    "to": 4538,
+    "lines": 651,
+    "usedScope": [
+      "isTemplateBot",
+      "editStep",
+      "draft",
+      "setDraft",
+      "parseServicesFromDescription",
+      "onLogo"
+    ],
+    "usedImports": [
+      "import { Bot, Upload, ChevronRight, DollarSign } from \"lucide-react\";",
+      "import { CURRENCY_LIST } from \"@/lib/currency\";",
+      "import { type Chatbot, type Template } from \"@/store/chatbots\";",
+      "import { fonts, bubbles, defaultIcons } from \"@/lib/scripts/constants\";"
+    ]
+  },
+  "EditStep6": {
+    "from": 4539,
+    "to": 4924,
+    "lines": 386,
+    "usedScope": [
+      "isTemplateBot",
+      "editStep",
+      "draft",
+      "setDraft",
+      "manualKnowledgeName",
+      "setManualKnowledgeName",
+      "manualKnowledgeContent",
+      "setManualKnowledgeContent",
+      "manualKBName",
+      "setManualKBName",
+      "manualKBContent",
+      "setManualKBContent",
+      "manualTKName",
+      "setManualTKName",
+      "manualTKContent",
+      "setManualTKContent",
+      "manualTSName",
+      "setManualTSName",
+      "manualTSContent",
+      "setManualTSContent",
+      "setSelectedFileForView",
+      "uploading",
+      "uploadProgress",
+      "uploadStatus",
+      "handleViewFile",
+      "addKnowledgeFiles",
+      "addManualKnowledge",
+      "removeKnowledgeFile",
+      "uploadEditFileType",
+      "addManualEditFileType",
+      "removeEditFileType"
+    ],
+    "usedImports": [
+      "import { Eye, Trash2, Upload, FileText } from \"lucide-react\";"
+    ]
+  },
+  "EditStep7": {
+    "from": 4925,
+    "to": 5211,
+    "lines": 287,
+    "usedScope": [
+      "preview",
+      "editStep",
+      "setEditStep",
+      "draft",
+      "setDraft",
+      "savingEdit",
+      "connectedEmails",
+      "editSteps",
+      "editStepIndex",
+      "isLastEditStep",
+      "closeEditor",
+      "handleSaveEdit",
+      "chatbots"
+    ],
+    "usedImports": [
+      "import { Bot, Loader2, Check, ChevronRight, ChevronLeft, Mail, ArrowRight, Shield, Zap } from \"lucide-react\";",
+      "import { LiveBotPreview } from \"@/components/create/LiveBotPreview\";",
+      "import { Dialog, DialogContent, DialogFooter } from \"@/components/ui/dialog\";",
+      "import { Switch } from \"@/components/ui/switch\";"
+    ]
+  },
+  "DeleteDialog": {
+    "from": 5213,
+    "to": 5238,
+    "lines": 26,
+    "usedScope": [
+      "deleteTarget",
+      "setDeleteTarget",
+      "deleting",
+      "handleDelete"
+    ],
+    "usedImports": [
+      "import { Loader2 } from \"lucide-react\";",
+      "import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from \"@/components/ui/dialog\";"
+    ]
+  },
+  "ViewKbDialog": {
+    "from": 5240,
+    "to": 5284,
+    "lines": 45,
+    "usedScope": [
+      "selectedFileForView",
+      "setSelectedFileForView"
+    ],
+    "usedImports": [
+      "import { FileText } from \"lucide-react\";",
+      "import { Dialog, DialogContent, DialogHeader, DialogTitle } from \"@/components/ui/dialog\";"
+    ]
+  },
+  "TutorialOverlay": {
+    "from": 5285,
+    "to": 5413,
+    "lines": 129,
+    "usedScope": [
+      "preview",
+      "tourStep",
+      "setTourStep",
+      "tourRect"
+    ],
+    "usedImports": [
+      "import { motion, AnimatePresence } from \"motion/react\";",
+      "import { Bot, Copy } from \"lucide-react\";",
+      "import { type Chatbot } from \"@/store/chatbots\";"
+    ]
+  },
+  "HelpModal": {
+    "from": 5414,
+    "to": 5535,
+    "lines": 122,
+    "usedScope": [
+      "helpOpen",
+      "setHelpOpen"
+    ],
+    "usedImports": [
+      "import { Bot, Copy, Smartphone } from \"lucide-react\";",
+      "import { type Chatbot } from \"@/store/chatbots\";",
+      "import { Dialog, DialogContent, DialogHeader, DialogTitle } from \"@/components/ui/dialog\";"
+    ]
+  }
+}

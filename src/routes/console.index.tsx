@@ -3,12 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { BarChart3, ArrowRight, KeyRound, Loader2 } from "lucide-react";
 import { config } from "@/lib/config";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/console/")({
   validateSearch: (search: Record<string, unknown>): { key?: string } => ({
     key: typeof search.key === "string" ? search.key : undefined,
   }),
-  head: () => ({ meta: [{ title: "Analytics Console — WeBotMe" }] }),
+  head: () => noindexHead("Analytics Console — WeBotMe"),
   component: ConsoleGate,
 });
 

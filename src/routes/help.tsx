@@ -4,9 +4,16 @@ import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, BadgeCheck, Bot, Loader2, Mic, Paperclip, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/help")({
-  head: () => ({ meta: [{ title: "Help — Webotme" }] }),
+  head: () =>
+    seoHead({
+      title: "Help & Support — Webotme",
+      description:
+        "Get help with Webotme — how to install the widget, create API keys, train your bot, connect databases and manage your AI chatbot.",
+      path: "/help",
+    }),
   component: HelpChatPage,
 });
 

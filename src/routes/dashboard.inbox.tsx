@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import {
   Search,
@@ -35,9 +35,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/inbox")({
-  head: () => ({ meta: [{ title: "Installer — Webotme" }] }),
+  head: () => noindexHead("Installer — Webotme"),
   component: InboxPage,
 });
 

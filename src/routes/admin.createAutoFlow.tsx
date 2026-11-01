@@ -14,9 +14,10 @@ import { PageTransition } from "@/components/common/PageTransition";
 import { cn } from "@/lib/utils";
 import { config } from "@/lib/config";
 import { EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/createAutoFlow")({
-  head: () => ({ meta: [{ title: "Create Auto Flow Bot — Rover" }] }),
+  head: () => noindexHead("Create Auto Flow Bot — Rover"),
   component: CreateAutoFlowBot,
 });
 

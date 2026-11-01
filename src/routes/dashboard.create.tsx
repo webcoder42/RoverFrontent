@@ -52,9 +52,10 @@ import {
 import { useDraftBotStore } from "@/store/draftBot";
 import { useChatbotsStore, type Template } from "@/store/chatbots";
 import { toast } from "sonner";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/create")({
-  head: () => ({ meta: [{ title: "Create Chatbot � Webotme" }] }),
+  head: () => noindexHead("Create Chatbot — Webotme"),
   component: CreateBot,
 });
 

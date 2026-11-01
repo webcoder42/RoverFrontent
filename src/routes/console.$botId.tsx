@@ -33,9 +33,10 @@ import {
 } from "recharts";
 import { config } from "@/lib/config";
 import { EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/console/$botId")({
-  head: () => ({ meta: [{ title: "Analytics Console — WeBotMe" }] }),
+  head: () => noindexHead("Analytics Console — Webotme"),
   component: ConsoleDashboard,
 });
 

@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalSection, LegalShell } from "@/components/common/SiteFooter";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/data-deletion")({
-  head: () => ({ meta: [{ title: "User Data Deletion — WeBotMe" }] }),
+  head: () =>
+    seoHead({
+      title: "User Data Deletion — Webotme",
+      description:
+        "How to request deletion of your personal data from Webotme. Follow the steps to have your account and associated data removed.",
+      path: "/data-deletion",
+    }),
   component: () => (
     <LegalShell
       title="User Data Deletion"

@@ -6,9 +6,10 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { formatDate } from "@/lib/format";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/storage")({
-  head: () => ({ meta: [{ title: "Storage Manage — Admin" }] }),
+  head: () => noindexHead("Storage Manage — Admin"),
   component: AdminStorage,
 });
 

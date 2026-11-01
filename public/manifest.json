@@ -1,0 +1,24 @@
+{
+  "name": "Webotme — AI Chatbot Builder",
+  "short_name": "Webotme",
+  "description": "Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

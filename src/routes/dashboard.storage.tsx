@@ -7,9 +7,10 @@ import {
 import { motion } from "motion/react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { clearAuth, getAuthHeaders } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/storage")({
-  head: () => ({ meta: [{ title: "Storage — Webotme" }] }),
+  head: () => noindexHead("Storage — Webotme"),
   component: StoragePage,
 });
 

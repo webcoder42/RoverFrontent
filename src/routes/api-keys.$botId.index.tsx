@@ -30,9 +30,10 @@ import { getAuthHeaders } from "@/lib/auth";
 import { toast } from "sonner";
 import { useChatbotsStore } from "@/store/chatbots";
 import { formatDate } from "@/lib/format";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/api-keys/$botId/")({
-  head: () => ({ meta: [{ title: "API Keys — Webotme" }] }),
+  head: () => noindexHead("API Keys — Webotme"),
   component: ApiKeysPage,
 });
 

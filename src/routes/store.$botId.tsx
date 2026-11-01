@@ -18,9 +18,17 @@ import {
   Loader2,
 } from "lucide-react";
 import { config } from "@/lib/config";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/store/$botId")({
-  head: () => ({ meta: [{ title: "Store — WeBotMe" }] }),
+  head: () =>
+    seoHead({
+      title: "Store — Webotme",
+      description:
+        "Browse and shop products directly through the Webotme AI chatbot store. Add items to your cart and complete your order in chat.",
+      path: "/store",
+      robots: "index, follow",
+    }),
   component: StorefrontPage,
 });
 

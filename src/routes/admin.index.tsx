@@ -6,9 +6,10 @@ import { Users, Bot, MessageSquareText, Code2, Activity, Shield, UserCheck } fro
 import { PageTransition } from "@/components/common/PageTransition";
 import { AnimatedCounter } from "@/components/common/AnimatedCounter";
 import { formatDate } from "@/lib/format";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/")({
-  head: () => ({ meta: [{ title: "Admin Dashboard — Webotme" }] }),
+  head: () => noindexHead("Admin Dashboard — Webotme"),
   component: AdminDashboard,
 });
 

@@ -60,9 +60,10 @@ import { PageTransition } from "@/components/common/PageTransition";
 import { cn } from "@/lib/utils";
 import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import { demoDataForFlow, FLOW_TONE_HEX } from "@/lib/flowDemoData";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/flows")({
-  head: () => ({ meta: [{ title: "Flow Builder — Admin" }] }),
+  head: () => noindexHead("Flow Builder — Admin"),
   component: AdminFlows,
 });
 

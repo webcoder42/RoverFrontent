@@ -7,6 +7,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { toast } from "sonner";
 import { useChatbotsStore } from "@/store/chatbots";
 import { MOBILE_APP_OPTIONS, type MobileAppId } from "@/lib/mobileSetup";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/app-setup/$botId")({
   beforeLoad: ({ location }) => {
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/app-setup/$botId")({
       });
     }
   },
-  head: () => ({ meta: [{ title: "Setup your chatbot — Webotme" }] }),
+  head: () => noindexHead("Setup your chatbot — Webotme"),
   validateSearch: (search: Record<string, unknown>): { app?: string } => ({
     app: typeof search.app === "string" ? search.app : undefined,
   }),

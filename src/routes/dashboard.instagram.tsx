@@ -8,9 +8,10 @@ import {
 } from "@/components/instagram/ConnectInstagramCard";
 import { BotCustomizationPanel } from "@/components/instagram/BotCustomizationPanel";
 import { getAuthHeaders } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/instagram")({
-  head: () => ({ meta: [{ title: "Instagram Bot — Webotme" }] }),
+  head: () => noindexHead("Instagram Bot — Webotme"),
   component: InstagramBotPage,
 });
 

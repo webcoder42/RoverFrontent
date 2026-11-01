@@ -9,9 +9,10 @@ import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import CouponBanner from "@/components/dashboard/CouponBanner";
 import { formatDate } from "@/lib/format";
 import { getStoredUser } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/")({
-  head: () => ({ meta: [{ title: "Overview — Webotme" }] }),
+  head: () => noindexHead("Overview — Webotme"),
   component: Overview,
 });
 

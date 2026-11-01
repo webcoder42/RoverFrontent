@@ -14,7 +14,9 @@ import {
 import logo from "@/asset/logo.png";
 import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs";
 import { GradientButton } from "@/components/common/GradientButton";
+import { VerifyEmailCard } from "@/components/auth/VerifyEmailCard";
 import { isAuthenticated } from "@/lib/auth";
+import { seoHead } from "@/lib/seo";
 import { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/login")({
@@ -27,17 +29,25 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { mode?: string } => ({
     mode: typeof search.mode === "string" ? search.mode : undefined,
   }),
-  head: () => ({
-    meta: [
-      { title: "Sign in — Webotme" },
-      {
-        name: "description",
-        content: "Sign in to manage AI chatbots, FAQs, templates, and embed scripts.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: "Sign in — Webotme",
+      description:
+        "Sign in to Webotme to manage AI chatbots, conversation flows, templates, knowledge base and embed scripts for your website.",
+      path: "/login",
+    }),
   component: LoginPage,
 });
+
+/** Shapes returned by /api/auth/register and /api/auth/login. */
+interface AuthApiResponse {
+  message?: string;
+  token?: string;
+  user?: Record<string, unknown>;
+  requiresVerification?: boolean;
+  verificationEmailSent?: boolean;
+  cooldownSeconds?: number;
+}
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -56,6 +66,10 @@ function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // Set while the code-entry screen is showing: which flow got us here.
+  const [verifyFlow, setVerifyFlow] = useState<null | "register" | "login">(null);
+  // Server-side resend wait handed back with the login 403 (0/undefined = default).
+  const [loginCooldown, setLoginCooldown] = useState<number | undefined>(undefined);
 
   const purposeOptions = [
     "Agency Chatbot",
@@ -90,7 +104,10 @@ function LoginPage() {
     "Other",
   ];
 
-  const safeJson = async (response: Response, retryFn?: () => Promise<Response>): Promise<any> => {
+  const safeJson = async (
+    response: Response,
+    retryFn?: () => Promise<Response>,
+  ): Promise<AuthApiResponse> => {
     const text = await response.text();
     if (!text || text.trim() === "") {
       if (retryFn) {
@@ -134,11 +151,26 @@ function LoginPage() {
       const res = await makeRequest();
       const data = await safeJson(res, makeRequest);
 
+      // Credentials were right but the login needs its emailed code: swap the
+      // form for the code screen instead of surfacing this as an error.
+      if (isLogin && res.status === 403 && data.requiresVerification) {
+        setLoginCooldown(Number(data.cooldownSeconds) || undefined);
+        setVerifyFlow("login");
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.message || "Something went wrong");
       }
 
       if (!isLogin) {
+        // New accounts must confirm the emailed code before a session exists.
+        if (data.requiresVerification) {
+          setVerifyFlow("register");
+          return;
+        }
+
+        // Fallback for a server that does not gate registration yet.
         const loginRes = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -147,23 +179,44 @@ function LoginPage() {
         const loginData = await safeJson(loginRes);
         if (!loginRes.ok)
           throw new Error(loginData.message || "Registration successful but auto-login failed");
+        if (!loginData.token || !loginData.user) {
+          throw new Error("Registration successful but auto-login failed");
+        }
 
         localStorage.setItem("token", loginData.token);
         localStorage.setItem("user", JSON.stringify(loginData.user));
         setStep(6);
         return;
       } else {
+        if (!data.token || !data.user) {
+          throw new Error(data.message || "Login failed. Please try again.");
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
       navigate({ to: storedUser?.role === "admin" ? "/admin" : "/dashboard" });
-    } catch (err: any) {
-      setErrorMsg(err.message);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Called by VerifyEmailCard once the server accepts the code. The server
+  // returns a fresh session, so verification and sign-in happen together.
+  const handleVerified = (session: { token: string; user: Record<string, unknown> }) => {
+    localStorage.setItem("token", session.token);
+    localStorage.setItem("user", JSON.stringify(session.user));
+    const cameFromRegister = verifyFlow === "register";
+    setVerifyFlow(null);
+    if (cameFromRegister) {
+      setStep(6);
+      return;
+    }
+    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    navigate({ to: storedUser?.role === "admin" ? "/admin" : "/dashboard" });
   };
 
   const togglePurpose = (val: string) => {
@@ -179,12 +232,14 @@ function LoginPage() {
     setIsLogin(true);
     setStep(1);
     setErrorMsg("");
+    setVerifyFlow(null);
   };
 
   const switchToRegister = () => {
     setIsLogin(false);
     setStep(1);
     setErrorMsg("");
+    setVerifyFlow(null);
     setPurpose([]);
     setProfession("");
     setWorkType("");
@@ -297,7 +352,11 @@ function LoginPage() {
           <div className="animate-blob animation-delay-2000 pointer-events-none absolute -right-20 bottom-24 h-96 w-96 rounded-full bg-amber-500/25 blur-[120px]" />
           <div className="animate-blob animation-delay-4000 pointer-events-none absolute bottom-1/3 left-1/3 h-72 w-72 rounded-full bg-yellow-600/15 blur-[100px]" />
 
-          <img src={logo} alt="Webotme" className="relative h-14 w-auto self-start object-contain" />
+          <img
+            src={logo}
+            alt="Webotme"
+            className="relative h-14 w-auto self-start object-contain"
+          />
 
           <div className="relative max-w-lg">
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white xl:text-5xl">
@@ -308,8 +367,8 @@ function LoginPage() {
               in minutes.
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-white/70 md:text-base">
-              Zero code, your own flows, your own database and email — with real orders and
-              instant notifications.
+              Zero code, your own flows, your own database and email — with real orders and instant
+              notifications.
             </p>
             <ul className="mt-8 space-y-3">
               {[
@@ -339,8 +398,12 @@ function LoginPage() {
                 <Bot className="h-4 w-4 text-primary-foreground" />
               </div>
               <div>
-                <div className="text-xs font-bold leading-tight text-white">No code. No dependency.</div>
-                <div className="text-[11px] font-medium text-amber-200/90">Your own store — fully independent, inside chat.</div>
+                <div className="text-xs font-bold leading-tight text-white">
+                  No code. No dependency.
+                </div>
+                <div className="text-[11px] font-medium text-amber-200/90">
+                  Your own store — fully independent, inside chat.
+                </div>
               </div>
               <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-300" />
             </div>
@@ -358,9 +421,15 @@ function LoginPage() {
           </motion.div>
 
           <div className="relative flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-white/45">
-            <a href="/terms" className="transition-colors hover:text-white/90">Terms of Service</a>
-            <a href="/privacy" className="transition-colors hover:text-white/90">Privacy Policy</a>
-            <a href="/refunds" className="transition-colors hover:text-white/90">Refund Policy</a>
+            <a href="/terms" className="transition-colors hover:text-white/90">
+              Terms of Service
+            </a>
+            <a href="/privacy" className="transition-colors hover:text-white/90">
+              Privacy Policy
+            </a>
+            <a href="/refunds" className="transition-colors hover:text-white/90">
+              Refund Policy
+            </a>
             <span>© {new Date().getFullYear()} WeBotMe</span>
           </div>
         </div>
@@ -370,9 +439,15 @@ function LoginPage() {
           <BackgroundBlobs />
           <Particles count={24} />
           <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 px-4 py-3 text-[11px] text-muted-foreground/70 lg:hidden">
-            <a href="/terms" className="transition-colors hover:text-primary">Terms of Service</a>
-            <a href="/privacy" className="transition-colors hover:text-primary">Privacy Policy</a>
-            <a href="/refunds" className="transition-colors hover:text-primary">Refund Policy</a>
+            <a href="/terms" className="transition-colors hover:text-primary">
+              Terms of Service
+            </a>
+            <a href="/privacy" className="transition-colors hover:text-primary">
+              Privacy Policy
+            </a>
+            <a href="/refunds" className="transition-colors hover:text-primary">
+              Refund Policy
+            </a>
             <span>© {new Date().getFullYear()} WeBotMe</span>
           </div>
 
@@ -400,7 +475,7 @@ function LoginPage() {
               </div>
             </div>
 
-            {!isLogin && step > 1 && step < 6 && (
+            {!verifyFlow && !isLogin && step > 1 && step < 6 && (
               <div className="mt-4 flex items-center gap-1.5">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <div
@@ -417,319 +492,337 @@ function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={submit} className="mt-8 space-y-4">
-              <AnimatePresence mode="wait">
-                {isLogin ? (
-                  <motion.div
-                    key="login"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-4"
-                  >
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Email
-                      </span>
-                      <div className="relative">
-                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          placeholder="you@company.com"
-                        />
-                      </div>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                        Password
-                      </span>
-                      <div className="relative">
-                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="password"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </label>
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="flex items-center gap-2 text-muted-foreground">
-                        <input
-                          type="checkbox"
-                          defaultChecked
-                          className="h-3.5 w-3.5 rounded border-border accent-[oklch(0.55_0.2_35)]"
-                        />
-                        Remember me
-                      </label>
-                      <a className="font-medium text-primary hover:underline" href="#">
-                        Forgot password?
-                      </a>
-                    </div>
-                    <GradientButton
-                      type="submit"
-                      disabled={loading}
-                      className="h-11 w-full text-sm"
+            {verifyFlow ? (
+              <div className="mt-8">
+                <VerifyEmailCard
+                  email={email}
+                  mode={verifyFlow}
+                  initialCooldownSeconds={verifyFlow === "login" ? loginCooldown : undefined}
+                  onVerified={handleVerified}
+                  onChangeEmail={() => {
+                    setVerifyFlow(null);
+                    setErrorMsg("");
+                    if (verifyFlow === "register") setStep(1);
+                  }}
+                />
+              </div>
+            ) : (
+              <form onSubmit={submit} className="mt-8 space-y-4">
+                <AnimatePresence mode="wait">
+                  {isLogin ? (
+                    <motion.div
+                      key="login"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-4"
                     >
-                      {loading ? "Please wait..." : "Sign in to Console"}
-                    </GradientButton>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key={`step-${step}`}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {step === 1 && (
-                      <div className="space-y-4">
-                        <label className="block">
-                          <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Username
-                          </span>
-                          <div className="relative">
-                            <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                              type="text"
-                              required
-                              value={username}
-                              onChange={(e) => setUsername(e.target.value)}
-                              className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                              placeholder="Webotmeadmin"
-                            />
-                          </div>
-                        </label>
-                        <label className="block">
-                          <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Email
-                          </span>
-                          <div className="relative">
-                            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                              type="email"
-                              required
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                              placeholder="you@company.com"
-                            />
-                          </div>
-                        </label>
-                        <label className="block">
-                          <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
-                            Password
-                          </span>
-                          <div className="relative">
-                            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                              type="password"
-                              required
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                              placeholder="•••••••• (min 6 chars)"
-                            />
-                          </div>
-                        </label>
-                        <GradientButton
-                          type="button"
-                          onClick={() => canContinueStep1 && setStep(2)}
-                          disabled={!canContinueStep1}
-                          className="h-11 w-full text-sm"
-                        >
-                          Continue <ArrowRight className="ml-1.5 h-4 w-4" />
-                        </GradientButton>
-                      </div>
-                    )}
-
-                    {step === 2 && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold">
-                            What will you use Webotme for?
-                          </div>
-                          <p className="text-xs text-muted-foreground">Select all that apply</p>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                          Email
+                        </span>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            placeholder="you@company.com"
+                          />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                          {purposeOptions.map((opt) => (
-                            <button
-                              key={opt}
-                              type="button"
-                              onClick={() => togglePurpose(opt)}
-                              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium transition-all text-left ${
-                                purpose.includes(opt)
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
-                              }`}
-                            >
-                              <div
-                                className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                          Password
+                        </span>
+                        <div className="relative">
+                          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            placeholder="••••••••"
+                          />
+                        </div>
+                      </label>
+                      <div className="flex items-center justify-between text-xs">
+                        <label className="flex items-center gap-2 text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            defaultChecked
+                            className="h-3.5 w-3.5 rounded border-border accent-[oklch(0.55_0.2_35)]"
+                          />
+                          Remember me
+                        </label>
+                        <a className="font-medium text-primary hover:underline" href="#">
+                          Forgot password?
+                        </a>
+                      </div>
+                      <GradientButton
+                        type="submit"
+                        disabled={loading}
+                        className="h-11 w-full text-sm"
+                      >
+                        {loading ? "Please wait..." : "Sign in to Console"}
+                      </GradientButton>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key={`step-${step}`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {step === 1 && (
+                        <div className="space-y-4">
+                          <label className="block">
+                            <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Username
+                            </span>
+                            <div className="relative">
+                              <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <input
+                                type="text"
+                                required
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="Webotmeadmin"
+                              />
+                            </div>
+                          </label>
+                          <label className="block">
+                            <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Email
+                            </span>
+                            <div className="relative">
+                              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <input
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="you@company.com"
+                              />
+                            </div>
+                          </label>
+                          <label className="block">
+                            <span className="mb-1.5 block text-xs font-semibold text-foreground/80">
+                              Password
+                            </span>
+                            <div className="relative">
+                              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <input
+                                type="password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="h-11 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="•••••••• (min 6 chars)"
+                              />
+                            </div>
+                          </label>
+                          <GradientButton
+                            type="button"
+                            onClick={() => canContinueStep1 && setStep(2)}
+                            disabled={!canContinueStep1}
+                            className="h-11 w-full text-sm"
+                          >
+                            Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                          </GradientButton>
+                        </div>
+                      )}
+
+                      {step === 2 && (
+                        <div className="space-y-4">
+                          <div>
+                            <div className="text-sm font-semibold">
+                              What will you use Webotme for?
+                            </div>
+                            <p className="text-xs text-muted-foreground">Select all that apply</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                            {purposeOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => togglePurpose(opt)}
+                                className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium transition-all text-left ${
                                   purpose.includes(opt)
-                                    ? "border-primary bg-primary text-white"
-                                    : "border-border"
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
                                 }`}
                               >
-                                {purpose.includes(opt) && <Check className="h-3 w-3" />}
-                              </div>
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setStep(1)}
-                            className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <GradientButton
-                            type="button"
-                            onClick={() => canContinueStep2 && setStep(3)}
-                            disabled={!canContinueStep2}
-                            className="h-11 flex-1 text-sm"
-                          >
-                            Continue <ArrowRight className="ml-1.5 h-4 w-4" />
-                          </GradientButton>
-                        </div>
-                      </div>
-                    )}
-
-                    {step === 3 && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold">Who are you?</div>
-                          <p className="text-xs text-muted-foreground">Select your role</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {professionOptions.map((opt) => (
+                                <div
+                                  className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${
+                                    purpose.includes(opt)
+                                      ? "border-primary bg-primary text-white"
+                                      : "border-border"
+                                  }`}
+                                >
+                                  {purpose.includes(opt) && <Check className="h-3 w-3" />}
+                                </div>
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
                             <button
-                              key={opt}
                               type="button"
-                              onClick={() => setProfession(opt)}
-                              className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
-                                profession === opt
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
-                              }`}
+                              onClick={() => setStep(1)}
+                              className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
                             >
-                              {opt}
+                              <ChevronLeft className="h-4 w-4" />
                             </button>
-                          ))}
+                            <GradientButton
+                              type="button"
+                              onClick={() => canContinueStep2 && setStep(3)}
+                              disabled={!canContinueStep2}
+                              className="h-11 flex-1 text-sm"
+                            >
+                              Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                            </GradientButton>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setStep(2)}
-                            className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <GradientButton
-                            type="button"
-                            onClick={() => canContinueStep3 && setStep(4)}
-                            disabled={!canContinueStep3}
-                            className="h-11 flex-1 text-sm"
-                          >
-                            Continue <ArrowRight className="ml-1.5 h-4 w-4" />
-                          </GradientButton>
-                        </div>
-                      </div>
-                    )}
+                      )}
 
-                    {step === 4 && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold">Work for?</div>
-                          <p className="text-xs text-muted-foreground">Select your work type</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {workOptions.map((opt) => (
+                      {step === 3 && (
+                        <div className="space-y-4">
+                          <div>
+                            <div className="text-sm font-semibold">Who are you?</div>
+                            <p className="text-xs text-muted-foreground">Select your role</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {professionOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setProfession(opt)}
+                                className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
+                                  profession === opt
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
                             <button
-                              key={opt}
                               type="button"
-                              onClick={() => setWorkType(opt)}
-                              className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
-                                workType === opt
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
-                              }`}
+                              onClick={() => setStep(2)}
+                              className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
                             >
-                              {opt}
+                              <ChevronLeft className="h-4 w-4" />
                             </button>
-                          ))}
+                            <GradientButton
+                              type="button"
+                              onClick={() => canContinueStep3 && setStep(4)}
+                              disabled={!canContinueStep3}
+                              className="h-11 flex-1 text-sm"
+                            >
+                              Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                            </GradientButton>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setStep(3)}
-                            className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <GradientButton
-                            type="button"
-                            onClick={() => canContinueStep4 && setStep(5)}
-                            disabled={!canContinueStep4}
-                            className="h-11 flex-1 text-sm"
-                          >
-                            Continue <ArrowRight className="ml-1.5 h-4 w-4" />
-                          </GradientButton>
-                        </div>
-                      </div>
-                    )}
+                      )}
 
-                    {step === 5 && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold">Where did you hear about us?</div>
-                          <p className="text-xs text-muted-foreground">Select one option</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {heardOptions.map((opt) => (
+                      {step === 4 && (
+                        <div className="space-y-4">
+                          <div>
+                            <div className="text-sm font-semibold">Work for?</div>
+                            <p className="text-xs text-muted-foreground">Select your work type</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {workOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setWorkType(opt)}
+                                className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
+                                  workType === opt
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
                             <button
-                              key={opt}
                               type="button"
-                              onClick={() => setHeardFrom(opt)}
-                              className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
-                                heardFrom === opt
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
-                              }`}
+                              onClick={() => setStep(3)}
+                              className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
                             >
-                              {opt}
+                              <ChevronLeft className="h-4 w-4" />
                             </button>
-                          ))}
+                            <GradientButton
+                              type="button"
+                              onClick={() => canContinueStep4 && setStep(5)}
+                              disabled={!canContinueStep4}
+                              className="h-11 flex-1 text-sm"
+                            >
+                              Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                            </GradientButton>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setStep(4)}
-                            className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <GradientButton
-                            type="submit"
-                            disabled={loading || !heardFrom}
-                            className="h-11 flex-1 text-sm"
-                          >
-                            {loading ? "Creating account..." : "Create Account"}
-                          </GradientButton>
+                      )}
+
+                      {step === 5 && (
+                        <div className="space-y-4">
+                          <div>
+                            <div className="text-sm font-semibold">
+                              Where did you hear about us?
+                            </div>
+                            <p className="text-xs text-muted-foreground">Select one option</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {heardOptions.map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setHeardFrom(opt)}
+                                className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all ${
+                                  heardFrom === opt
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-card/60 text-muted-foreground hover:border-foreground/30"
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setStep(4)}
+                              className="h-11 rounded-xl border border-border bg-card/60 px-4 text-sm hover:bg-accent"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <GradientButton
+                              type="submit"
+                              disabled={loading || !heardFrom}
+                              className="h-11 flex-1 text-sm"
+                            >
+                              {loading ? "Creating account..." : "Create Account"}
+                            </GradientButton>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </form>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </form>
+            )}
 
             <div className="mt-6 text-center text-xs text-muted-foreground">
               {isLogin ? (

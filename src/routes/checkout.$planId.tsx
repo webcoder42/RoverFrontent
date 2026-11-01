@@ -20,6 +20,7 @@ import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs"
 import { PaymentCheckout, type PaymentProvider } from "@/components/payments/PaymentCheckout";
 import { isAuthenticated, getStoredToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { noindexHead } from "@/lib/seo";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/checkout/$planId")({
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/checkout/$planId")({
       throw redirect({ to: "/" });
     }
   },
-  head: () => ({ meta: [{ title: "Checkout — Webotme" }] }),
+  head: () => noindexHead("Checkout — Webotme"),
   component: CheckoutPage,
 });
 

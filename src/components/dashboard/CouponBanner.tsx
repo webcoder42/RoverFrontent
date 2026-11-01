@@ -10,6 +10,8 @@ interface CouponData {
   code: string;
   percentOff: number;
   planKey: "any" | "starter" | "pro" | "advanced";
+  planName?: string | null;
+  planBillingInterval?: "month" | "year" | null;
   used: boolean;
   expiresAt: string | null;
   source: string;
@@ -17,6 +19,11 @@ interface CouponData {
 
 const planLabel = (key: string) =>
   key === "advanced" ? "Premium" : key === "pro" ? "Pro" : key === "starter" ? "Starter" : "any plan";
+
+const couponPlanLabel = (coupon: CouponData) =>
+  coupon.planName
+    ? `${coupon.planName} (${coupon.planBillingInterval === "year" ? "Yearly" : "Monthly"})`
+    : planLabel(coupon.planKey);
 
 export default function CouponBanner() {
   const [coupon, setCoupon] = useState<CouponData | null>(null);
@@ -97,7 +104,7 @@ export default function CouponBanner() {
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                One-time {coupon.percentOff}% discount on the {planLabel(coupon.planKey)} plan.
+                One-time {coupon.percentOff}% discount on the {couponPlanLabel(coupon)} plan.
               </p>
               {daysLeft !== null && (
                 <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-600">
@@ -135,7 +142,7 @@ export default function CouponBanner() {
                 )}
               </button>
               <p className="mt-1 text-xs text-muted-foreground">
-                Use it on the {planLabel(coupon.planKey)} plan
+                Use it on the {couponPlanLabel(coupon)} plan
                 {daysLeft !== null
                   ? ` — removed in ${daysLeft <= 0 ? "less than a day" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`}!`
                   : " — no expiry"}
@@ -194,7 +201,7 @@ export default function CouponBanner() {
               <p className="mt-1.5 text-sm text-muted-foreground">
                 Congrats 🎉 Get{" "}
                 <span className="font-bold text-primary">{coupon.percentOff}% discount</span> on the{" "}
-                <span className="font-bold">{planLabel(coupon.planKey)} plan</span>.
+                <span className="font-bold">{couponPlanLabel(coupon)} plan</span>.
               </p>
 
               <button

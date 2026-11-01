@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  HeadContent,
   Outlet,
   Link,
   createRootRouteWithContext,
@@ -8,6 +9,11 @@ import {
 } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
+import {
+  SITE_NAME,
+  organizationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -83,6 +89,26 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  head: () => ({
+    meta: [
+      { charSet: "utf-8" },
+      { name: "viewport", content: "width=device-width, initial-scale=1.0" },
+      { title: `${SITE_NAME} — AI chatbots for any website, zero code` },
+      {
+        name: "description",
+        content:
+          "Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding.",
+      },
+      { name: "robots", content: "index, follow" },
+      { name: "application-name", content: SITE_NAME },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@graph": [organizationJsonLd, websiteJsonLd],
+        } as unknown as Record<string, never>,
+      },
+    ],
+  }),
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
@@ -93,6 +119,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <HeadContent />
       <Outlet />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>

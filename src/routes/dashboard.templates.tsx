@@ -4,9 +4,10 @@ import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { LiveBotPreview } from "@/components/create/LiveBotPreview";
 import type { Template } from "@/store/chatbots";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/templates")({
-  head: () => ({ meta: [{ title: "Templates — Webotme" }] }),
+  head: () => noindexHead("Templates — Webotme"),
   component: TemplatesPage,
 });
 
@@ -47,7 +48,7 @@ function TemplatesPage() {
               <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">{t.tag}</span>
             </div>
             <div className="flex-1">
-              <LiveBotPreview name={t.name} welcome="Hi there 👋" primary={t.primary} secondary={t.secondary} bubble={t.bubble} radius={t.radius} template={t.name} />
+              <LiveBotPreview name={t.name} welcome="Hi there ??" primary={t.primary} secondary={t.secondary} bubble={t.bubble} radius={t.radius} template={t.name} />
             </div>
             <div className="mt-5 flex items-center gap-2">
               <Link to="/dashboard/create" className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">

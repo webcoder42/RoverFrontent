@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Users, Search, X, Bot, HardDrive, Cpu, Database, MessageSquare, Shield, TrendingUp, Loader2, ArrowUpCircle } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { formatDate } from "@/lib/format";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/users")({
-  head: () => ({ meta: [{ title: "All Users — Admin" }] }),
+  head: () => noindexHead("All Users — Admin"),
   component: AdminUsers,
 });
 

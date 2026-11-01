@@ -17,12 +17,13 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { cn } from "@/lib/utils";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/autoFlowScan")({
   validateSearch: (search: Record<string, unknown>) => ({
     botId: typeof search.botId === "string" ? search.botId : "",
   }),
-  head: () => ({ meta: [{ title: "Scan Status — Rover" }] }),
+  head: () => noindexHead("Scan Status — Rover"),
   component: ScanStatusPage,
 });
 

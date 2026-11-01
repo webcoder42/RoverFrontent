@@ -19,9 +19,10 @@ import {
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { GradientButton } from "@/components/common/GradientButton";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/plans")({
-  head: () => ({ meta: [{ title: "Subscription Plans — Admin" }] }),
+  head: () => noindexHead("Subscription Plans — Admin"),
   component: AdminPlans,
 });
 
@@ -29,6 +30,7 @@ interface Plan {
   _id: string;
   name: string;
   price: number;
+  billingInterval: "month" | "year";
   totalChatbots: number;
   bookingAgency: number;
   databaseAccess: boolean;
@@ -42,22 +44,6 @@ interface Plan {
   createdAt: string;
 }
 
-const sandboxCatalogPricing: Record<
-  string,
-  { displayName: string; monthly: number; yearly: number }
-> = {
-  free: { displayName: "Starter", monthly: 0, yearly: 0 },
-  starter: { displayName: "Starter", monthly: 0, yearly: 0 },
-  pro: { displayName: "Pro", monthly: 20, yearly: 200 },
-  premium: { displayName: "Advanced", monthly: 30, yearly: 300 },
-  advanced: { displayName: "Advanced", monthly: 30, yearly: 300 },
-  prinum: { displayName: "Advanced", monthly: 30, yearly: 300 },
-};
-
-function getSandboxCatalogPricing(plan: Plan) {
-  return sandboxCatalogPricing[plan.name.trim().toLowerCase()];
-}
-
 function AdminPlans() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +53,7 @@ function AdminPlans() {
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   const [totalChatbots, setTotalChatbots] = useState("1");
   const [bookingAgency, setBookingAgency] = useState("0");
   const [databaseAccess, setDatabaseAccess] = useState(false);
@@ -102,6 +89,7 @@ function AdminPlans() {
   const resetForm = () => {
     setName("");
     setPrice("");
+    setBillingInterval("month");
     setTotalChatbots("1");
     setBookingAgency("0");
     setDatabaseAccess(false);
@@ -120,6 +108,9 @@ function AdminPlans() {
   const handleEdit = (plan: Plan) => {
     setName(plan.name);
     setPrice(String(plan.price));
+    const interval = plan.billingInterval === "year" ? "year" : "month";
+    setBillingInterval(interval);
+    setExpiresInDays(interval === "year" ? "365" : "30");
     setTotalChatbots(String(plan.totalChatbots));
     setBookingAgency(String(plan.bookingAgency));
     setDatabaseAccess(plan.databaseAccess);
@@ -145,6 +136,7 @@ function AdminPlans() {
       const body = JSON.stringify({
         name,
         price: Number(price),
+        billingInterval,
         totalChatbots: Number(totalChatbots),
         bookingAgency: Number(bookingAgency),
         databaseAccess,
@@ -245,6 +237,23 @@ function AdminPlans() {
                 className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Billing Interval
+              </span>
+              <select
+                value={billingInterval}
+                onChange={(e) => {
+                  const interval = e.target.value as "month" | "year";
+                  setBillingInterval(interval);
+                  setExpiresInDays(interval === "year" ? "365" : "30");
+                }}
+                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="month">Monthly</option>
+                <option value="year">Yearly</option>
+              </select>
+            </label>
             {Number(price) === 0 ? (
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -267,7 +276,7 @@ function AdminPlans() {
                     value={expiresInDays}
                     onChange={(e) => setExpiresInDays(e.target.value)}
                     min="1"
-                    placeholder="30"
+                    placeholder={billingInterval === "year" ? "365" : "30"}
                     className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </label>
@@ -482,30 +491,19 @@ function AdminPlans() {
               className="group relative rounded-2xl border border-border/60 bg-card p-5 shadow-soft hover:shadow-md transition-shadow"
             >
               {(() => {
-                const catalogPricing = getSandboxCatalogPricing(plan);
-                const displayName = catalogPricing?.displayName || plan.name;
                 return (
                   <>
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-base font-bold">{displayName}</h3>
+                        <h3 className="text-base font-bold">{plan.name}</h3>
                         <div className="mt-1 flex items-baseline gap-1">
-                          <span className="text-2xl font-bold">
-                            ${catalogPricing?.monthly ?? plan.price}
-                          </span>
+                          <span className="text-2xl font-bold">${plan.price}</span>
                           <span className="text-xs text-muted-foreground">
-                            {catalogPricing
-                              ? "/month"
-                              : plan.price > 0
-                                ? `/${(plan as any).expiresInDays ?? 30} days`
-                                : "Lifetime"}
+                            {plan.price > 0
+                              ? `/${plan.billingInterval === "year" ? "year" : "month"}`
+                              : "Lifetime"}
                           </span>
                         </div>
-                        {catalogPricing && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Yearly: ${catalogPricing.yearly}
-                          </p>
-                        )}
                       </div>
                       <div className="flex gap-1">
                         <button

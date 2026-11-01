@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Topbar } from "@/components/layout/Topbar";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: () => {
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/admin")({
       throw redirect({ to: "/dashboard" });
     }
   },
+  head: () => noindexHead("Admin — Webotme"),
   component: AdminLayout,
 });
 

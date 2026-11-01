@@ -38,10 +38,17 @@ import DEMO_CHATBOT_WIDGET from "@/lib/demo/ChatbotWidget.demo.txt?raw";
 import { EMBED_KEY_PLACEHOLDER } from "@/lib/embedKey";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { seoHead } from "@/lib/seo";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/docs")({
-  head: () => ({ meta: [{ title: "Documentation — Webotme" }] }),
+  head: () =>
+    seoHead({
+      title: "Documentation — Webotme",
+      description:
+        "Complete Webotme documentation — how to create chatbots, design conversation flows, connect MongoDB/MySQL, set up SMTP email, install the embed widget and use the API.",
+      path: "/docs",
+    }),
   component: DocsPage,
 });
 

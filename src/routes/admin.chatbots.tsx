@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Bot, Search, X, HardDrive, MessageSquare, ShoppingCart, FileText, Database, Cpu, Globe, Layers, CreditCard, Download, User, Calendar } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
 import { formatDate } from "@/lib/format";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/chatbots")({
-  head: () => ({ meta: [{ title: "All Chatbots — Admin" }] }),
+  head: () => noindexHead("All Chatbots — Admin"),
   component: AdminChatbots,
 });
 

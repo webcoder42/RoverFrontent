@@ -1,7 +1,8 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/api-keys/$botId")({
-  head: () => ({ meta: [{ title: "API Console — Webotme" }] }),
+  head: () => noindexHead("API Console — Webotme"),
   component: ApiKeysStepLayout,
 });
 

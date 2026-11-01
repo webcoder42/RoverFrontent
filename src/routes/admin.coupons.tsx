@@ -10,12 +10,14 @@ import {
   RefreshCw,
   PlusCircle,
   Infinity as InfinityIcon,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageTransition } from "@/components/common/PageTransition";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/coupons")({
-  head: () => ({ meta: [{ title: "Coupons — Admin" }] }),
+  head: () => noindexHead("Coupons — Admin"),
   component: AdminCoupons,
 });
 
@@ -32,6 +34,7 @@ interface CouponRow {
   notes: string;
   createdAt: string;
   userId: { _id?: string; username?: string; email?: string } | null;
+  planId?: { name?: string; billingInterval?: "month" | "year" } | null;
 }
 
 interface UserOption {
@@ -40,8 +43,22 @@ interface UserOption {
   email: string;
 }
 
+interface PlanOption {
+  _id: string;
+  name: string;
+  billingInterval?: "month" | "year";
+}
+
 const planLabel = (k: string) =>
   k === "advanced" ? "Premium" : k === "pro" ? "Pro" : k === "starter" ? "Starter" : "Any plan";
+
+const couponPlanLabel = (
+  planKey: string,
+  plan?: { name?: string; billingInterval?: "month" | "year" } | null,
+) =>
+  plan?.name
+    ? `${plan.name} (${plan.billingInterval === "year" ? "Yearly" : "Monthly"})`
+    : planLabel(planKey);
 
 function fmt(d: string | null | undefined): string {
   if (!d) return "—";
@@ -68,6 +85,11 @@ const statusStyles: Record<Status, string> = {
 function AdminCoupons() {
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+  const [availablePercentages, setAvailablePercentages] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [issuing, setIssuing] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -76,7 +98,7 @@ function AdminCoupons() {
   // issue form
   const [fUser, setFUser] = useState("");
   const [fPlan, setFPlan] = useState("any");
-  const [fPercent, setFPercent] = useState("50");
+  const [fPercent, setFPercent] = useState("");
   const [fDays, setFDays] = useState("");
   const [fTitle, setFTitle] = useState("");
   const [fNotes, setFNotes] = useState("");
@@ -89,16 +111,67 @@ function AdminCoupons() {
   const load = () => {
     fetch("/api/admin/coupons", { headers: headers() })
       .then((r) => r.json())
-      .then((data) => setCoupons(Array.isArray(data?.coupons) ? data.coupons : []))
+      .then((data) => {
+        setCoupons(Array.isArray(data?.coupons) ? data.coupons : []);
+        const percentages = Array.isArray(data?.availablePercentages)
+          ? data.availablePercentages.filter(
+              (percentage: unknown) =>
+                typeof percentage === "number" &&
+                Number.isFinite(percentage) &&
+                percentage >= 1 &&
+                percentage <= 100,
+            )
+          : [];
+        setAvailablePercentages(percentages);
+        setFPercent((current) =>
+          percentages.includes(Number(current)) ? current : String(percentages[0] ?? ""),
+        );
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-    fetch("/api/admin/users", { headers: headers() })
-      .then((r) => r.json())
-      .then((data) => setUsers(Array.isArray(data?.users) ? data.users : []))
-      .catch(() => {});
+    fetch("/api/plans", { headers: headers() })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load plans");
+        return r.json();
+      })
+      .then((data) => setPlans(Array.isArray(data) ? data : []))
+      .catch((error) => {
+        setPlans([]);
+        toast.error(error instanceof Error ? error.message : "Failed to load plans");
+      });
   };
 
   useEffect(load, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setUsersLoading(true);
+      setUsersError("");
+      try {
+        const query = userSearch.trim();
+        const response = await fetch(
+          `/api/admin/users${query ? `?search=${encodeURIComponent(query)}` : ""}`,
+          { headers: headers(), signal: controller.signal },
+        );
+        if (!response.ok) throw new Error("Failed to load users");
+        const data = await response.json();
+        if (!Array.isArray(data?.users)) throw new Error("Invalid users response");
+        setUsers(data.users);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setUsers([]);
+        setUsersError(error instanceof Error ? error.message : "Failed to load users");
+      } finally {
+        if (!controller.signal.aborted) setUsersLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [userSearch]);
 
   const stats = {
     total: coupons.length,
@@ -109,6 +182,9 @@ function AdminCoupons() {
 
   const issue = async () => {
     if (!fUser) return toast.error("Select a user first");
+    if (!fPercent || !availablePercentages.includes(Number(fPercent))) {
+      return toast.error("Select a configured discount percentage");
+    }
     setIssuing(true);
     try {
       const res = await fetch("/api/admin/coupons", {
@@ -116,7 +192,7 @@ function AdminCoupons() {
         headers: headers(),
         body: JSON.stringify({
           userId: fUser,
-          planKey: fPlan,
+          ...(fPlan === "any" ? { planKey: "any" } : { planId: fPlan }),
           percentOff: fPercent,
           validDays: fDays,
           title: fTitle,
@@ -207,34 +283,64 @@ function AdminCoupons() {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="block">
             <span className="mb-1 block text-xs font-semibold">User *</span>
+            <div className="relative mb-2">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={userSearch}
+                onChange={(e) => {
+                  setUserSearch(e.target.value);
+                  setFUser("");
+                }}
+                placeholder="Search by name or email..."
+                className={`${inputCls} pl-9`}
+                aria-label="Search users by name or email"
+              />
+            </div>
             <select value={fUser} onChange={(e) => setFUser(e.target.value)} className={inputCls}>
-              <option value="">— Select user —</option>
+              <option value="">{usersLoading ? "Loading users..." : "— Select user —"}</option>
               {users.map((u) => (
                 <option key={u._id} value={u._id}>
                   {u.username} ({u.email})
                 </option>
               ))}
             </select>
+            {usersError && (
+              <span className="mt-1 block text-xs text-destructive">{usersError}</span>
+            )}
+            {!usersLoading && !usersError && users.length === 0 && userSearch.trim() && (
+              <span className="mt-1 block text-xs text-muted-foreground">No users found.</span>
+            )}
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold">Plan</span>
             <select value={fPlan} onChange={(e) => setFPlan(e.target.value)} className={inputCls}>
               <option value="any">Any plan</option>
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-              <option value="advanced">Premium</option>
+              {plans.map((plan) => (
+                <option key={plan._id} value={plan._id}>
+                  {plan.name} ({plan.billingInterval === "year" ? "Yearly" : "Monthly"})
+                </option>
+              ))}
             </select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold">Discount %</span>
-            <input
-              type="number"
-              min={1}
-              max={100}
+            <select
               value={fPercent}
               onChange={(e) => setFPercent(e.target.value)}
               className={inputCls}
-            />
+              disabled={availablePercentages.length === 0}
+            >
+              {availablePercentages.length === 0 ? (
+                <option value="">No discount rates configured</option>
+              ) : (
+                availablePercentages.map((percentage) => (
+                  <option key={percentage} value={percentage}>
+                    {percentage}%
+                  </option>
+                ))
+              )}
+            </select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold">
@@ -328,7 +434,7 @@ function AdminCoupons() {
                         <div className="text-[11px] text-muted-foreground">{c.userId?.email}</div>
                       </td>
                       <td className="px-4 py-3 font-bold text-primary">{c.percentOff}%</td>
-                      <td className="px-4 py-3">{planLabel(c.planKey)}</td>
+                      <td className="px-4 py-3">{couponPlanLabel(c.planKey, c.planId)}</td>
                       <td className="px-4 py-3">
                         <div>{c.title || c.source}</div>
                         {c.notes && (

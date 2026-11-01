@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Bot, Check, Link2, Share2 } from "lucide-react";
 import { ChatWidget } from "@/components/widget/ChatWidget";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/chat/$id")({
+  head: () => noindexHead("Chat — Webotme"),
   component: ShareableChatPage,
 });
 

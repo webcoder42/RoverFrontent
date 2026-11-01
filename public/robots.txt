@@ -1,0 +1,39 @@
+# Webotme — https://rover-frontent.vercel.app
+User-agent: *
+Allow: /
+Allow: /plans
+Allow: /login
+Allow: /help
+Allow: /docs
+Allow: /terms
+Allow: /privacy
+Allow: /refunds
+Allow: /data-deletion
+Allow: /welcome
+Allow: /store/*
+Allow: /chat/*
+
+# Private app surfaces — never index
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /console
+Disallow: /console/
+Disallow: /api-keys
+Disallow: /api-keys/
+Disallow: /app-setup
+Disallow: /app-setup/
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /embed
+Disallow: /embed/
+
+# Non-public API and static routes
+Disallow: /api/
+Disallow: /static/
+
+# Clean URL params we do not want crawled as separate pages
+Clean-param: k
+
+Sitemap: https://rover-frontent.vercel.app/sitemap.xml

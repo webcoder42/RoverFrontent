@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { getAuthHeaders } from "@/lib/auth";
 import { toast } from "sonner";
 import { useChatbotsStore } from "@/store/chatbots";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/api-keys/$botId/analytics")({
-  head: () => ({ meta: [{ title: "Analytics Key — Webotme" }] }),
+  head: () => noindexHead("Analytics Key — Webotme"),
   component: AnalyticsKeyPage,
 });
 

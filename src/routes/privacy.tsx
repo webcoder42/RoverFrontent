@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalSection, LegalShell } from "@/components/common/SiteFooter";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({ meta: [{ title: "Privacy Policy — WeBotMe" }] }),
+  head: () =>
+    seoHead({
+      title: "Privacy Policy — Webotme",
+      description:
+        "Webotme Privacy Policy — what data we collect, how we use it, and the choices you have regarding your personal information.",
+      path: "/privacy",
+    }),
   component: () => (
     <LegalShell
       title="Privacy Policy"

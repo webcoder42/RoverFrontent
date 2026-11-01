@@ -8,9 +8,10 @@ import {
 } from "@/components/facebook/ConnectFacebookCard";
 import { FacebookBotCustomizationPanel } from "@/components/facebook/BotCustomizationPanel";
 import { getAuthHeaders } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/facebook")({
-  head: () => ({ meta: [{ title: "Facebook Bot — Webotme" }] }),
+  head: () => noindexHead("Facebook Bot — Webotme"),
   component: FacebookBotPage,
 });
 

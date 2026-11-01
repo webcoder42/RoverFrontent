@@ -8,9 +8,10 @@ import {
 } from "@/components/whatsapp/ConnectWhatsAppCard";
 import { WhatsAppBotCustomizationPanel } from "@/components/whatsapp/BotCustomizationPanel";
 import { getAuthHeaders } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/whatsapp")({
-  head: () => ({ meta: [{ title: "WhatsApp Bot — Webotme" }] }),
+  head: () => noindexHead("WhatsApp Bot — Webotme"),
   component: WhatsAppBotPage,
 });
 

@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles,
@@ -29,19 +29,56 @@ import {
   getPaddleSuccessUrl,
   getPaddlePriceId,
   getPlanTierForPlan,
-  hasYearlyPaddlePrices,
   initializePaddleClient,
   setPaddleCheckoutListener,
   type BillingInterval,
 } from "@/lib/paddle";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { BackgroundBlobs, Particles } from "@/components/common/BackgroundBlobs";
 import { SiteFooter } from "@/components/common/SiteFooter";
+import { seoHead } from "@/lib/seo";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/plans")({
-  head: () => ({ meta: [{ title: "Subscription Plans — Webotme" }] }),
+  head: () =>
+    seoHead({
+      title: "Pricing & Subscription Plans — Webotme",
+      description:
+        "Simple, transparent pricing for Webotme. Start free with the Starter plan, or unlock more chatbots, database access and API limits with Pro and Advanced. Cancel anytime.",
+      path: "/plans",
+      jsonLd: {
+        "@type": "Product",
+        name: "Webotme Subscription Plans",
+        description:
+          "AI chatbot builder subscription plans — Starter (free), Pro ($20/mo) and Advanced ($30/mo).",
+        brand: { "@type": "Brand", name: "Webotme" },
+        offers: [
+          {
+            "@type": "Offer",
+            name: "Starter",
+            price: "0",
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+          {
+            "@type": "Offer",
+            name: "Pro",
+            price: "20",
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+          {
+            "@type": "Offer",
+            name: "Advanced",
+            price: "30",
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+        ],
+      },
+    }),
   component: PlansPage,
 });
 
@@ -49,6 +86,7 @@ interface Plan {
   _id: string;
   name: string;
   price: number;
+  billingInterval?: BillingInterval;
   totalChatbots: number;
   bookingAgency: number;
   databaseAccess: boolean;
@@ -69,7 +107,7 @@ interface PurchaseRecord {
   planPrice: number;
   currency: string;
   status: "active" | "cancelled" | "expired";
-  paymentMethod: "free" | "paypal";
+  paymentMethod: "free" | "paypal" | "paddle";
   paymentStatus: "free" | "paid" | "pending";
   paypalOrderId?: string | null;
   paypalCaptureId?: string | null;
@@ -143,22 +181,30 @@ function InfoTip({
   if (!info) return null;
   const Icon = info.icon;
   return (
-    <span
-      className="relative inline-flex items-center"
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
+    <Popover
+      open={active}
+      onOpenChange={(open) => (open ? onHover() : onLeave())}
     >
-      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-primary cursor-help transition-colors" />
-      {active && (
-        <span className="absolute top-full left-1/2 z-50 mt-2 w-56 -translate-x-1/2 rounded-xl border border-border/60 bg-popover p-3 text-xs shadow-lg">
-          <span className="mb-1 flex items-center gap-1.5 font-semibold text-foreground">
-            <Icon className="h-3.5 w-3.5 text-primary" /> {info.label}
-          </span>
-          <span className="text-muted-foreground">{info.desc}</span>
-          <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-2.5 w-2.5 rotate-45 border-l border-t border-border/60 bg-popover" />
-        </span>
-      )}
-    </span>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`More about ${info.label}`}
+          className="inline-flex items-center rounded-sm text-muted-foreground/60 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="center"
+        className="w-56 rounded-xl border-border/60 p-3 text-xs shadow-lg"
+      >
+        <div className="mb-1 flex items-center gap-1.5 font-semibold">
+          <Icon className="h-3.5 w-3.5 text-primary" /> {info.label}
+        </div>
+        <p className="text-muted-foreground">{info.desc}</p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -167,6 +213,7 @@ const fallbackPlans: Plan[] = [
     _id: "free",
     name: "Starter",
     price: 0,
+    billingInterval: "month",
     totalChatbots: 1,
     bookingAgency: 0,
     databaseAccess: false,
@@ -183,6 +230,7 @@ const fallbackPlans: Plan[] = [
     _id: "pro",
     name: "Pro",
     price: 20,
+    billingInterval: "month",
     totalChatbots: 10,
     bookingAgency: 5,
     databaseAccess: true,
@@ -199,6 +247,7 @@ const fallbackPlans: Plan[] = [
     _id: "premium",
     name: "Advanced",
     price: 30,
+    billingInterval: "month",
     totalChatbots: 10,
     bookingAgency: 10,
     databaseAccess: true,
@@ -223,6 +272,9 @@ function PlansPage() {
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  const intervalPlans = plans.filter(
+    (plan) => (plan.billingInterval ?? "month") === billingInterval,
+  );
   const [paddle, setPaddle] = useState<Awaited<ReturnType<typeof initializePaddleClient>> | null>(
     null,
   );
@@ -253,6 +305,13 @@ function PlansPage() {
     expiresAt: string | null;
   }
   const [welcomeCoupon, setWelcomeCoupon] = useState<WelcomeCoupon | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    percentOff: number;
+    planKey: WelcomeCoupon["planKey"];
+  } | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) return;
@@ -261,7 +320,11 @@ function PlansPage() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => r.json())
-      .then((data) => setWelcomeCoupon(data?.coupon ?? null))
+      .then((data) => {
+        const coupon = data?.coupon ?? null;
+        setWelcomeCoupon(coupon);
+        if (coupon?.code) setCouponCode((current) => current || coupon.code);
+      })
       .catch(() => {});
   }, []);
 
@@ -272,6 +335,49 @@ function PlansPage() {
     (!welcomeCoupon.expiresAt || new Date(welcomeCoupon.expiresAt).getTime() > nowMs)
       ? welcomeCoupon
       : null;
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      setPaddleError("Enter a coupon code first.");
+      return;
+    }
+    if (!isAuthenticated()) {
+      setPaddleError("Log in to apply a coupon.");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setPaddleError(null);
+    try {
+      const token = getStoredToken();
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: ["Bearer", token].join(" ") } : {}),
+        },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || "Unable to apply coupon");
+      }
+
+      setCouponCode(code);
+      setAppliedCoupon({
+        code,
+        percentOff: Number(data.percentOff),
+        planKey: data.planKey,
+      });
+      toast.success(`${data.percentOff}% coupon applied. Choose an eligible plan to continue.`);
+    } catch (error) {
+      setAppliedCoupon(null);
+      setPaddleError(error instanceof Error ? error.message : "Unable to apply coupon");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
 
   const loadPaymentFailure = useCallback(() => {
     const token = getStoredToken();
@@ -291,7 +397,13 @@ function PlansPage() {
       return;
     }
 
-    const paddlePriceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
+    let paddlePriceId: string | null;
+    try {
+      paddlePriceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
+    } catch (error) {
+      setPaddleError(error instanceof Error ? error.message : "Paddle price is not configured");
+      return;
+    }
     if (paddlePriceId) {
       if (paddleCheckoutOpening.current) return;
       paddleCheckoutOpening.current = true;
@@ -301,8 +413,7 @@ function PlansPage() {
         const userId = getStoredUser()?.id;
 
         let discountId: string | undefined;
-        const planTier = getPlanTierForPlan(plan.name);
-        if (activeCoupon && (activeCoupon.planKey === "any" || activeCoupon.planKey === planTier)) {
+        if (appliedCoupon) {
           try {
             const token = getStoredToken();
             const vres = await fetch("/api/coupons/validate", {
@@ -311,49 +422,19 @@ function PlansPage() {
                 "Content-Type": "application/json",
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({ code: activeCoupon.code, planKey: planTier }),
+              body: JSON.stringify({
+                code: appliedCoupon.code,
+                planKey: getPlanTierForPlan(plan.name),
+                planId: plan._id,
+              }),
             });
             const vdata = await vres.json();
-            if (vres.ok && vdata?.ok && vdata.discountId) {
-              const discountedCents = Math.round(plan.price * (1 - activeCoupon.percentOff / 100) * 100);
-              if (discountedCents <= 0) {
-                // 100% off → redeem for free (Paddle can't charge $0, so we activate directly).
-                paddleCheckoutOpening.current = false;
-                setActivatingId(plan._id);
-                try {
-                  const token = getStoredToken();
-                  const rres = await fetch("/api/coupons/redeem-free", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    body: JSON.stringify({ code: activeCoupon.code, planId: plan._id }),
-                  });
-                  const rdata = await rres.json();
-                  if (!rres.ok || !rdata?.ok) {
-                    throw new Error(rdata?.message || "Failed to redeem 100% coupon");
-                  }
-                  toast.success(`You're now on the ${plan.name} plan — 100% off!`);
-                  setActivePlanId(plan._id);
-                  navigate({ to: "/dashboard" });
-                } catch (redeemErr) {
-                  setPaddleError(
-                    redeemErr instanceof Error ? redeemErr.message : "Unable to redeem coupon",
-                  );
-                } finally {
-                  setActivatingId(null);
-                }
-                return;
-              }
-              if (discountedCents < 70) {
-                throw new Error(
-                  "This discount makes the payment lower than Paddle's minimum charge of $0.70. Please contact support for a smaller discount.",
-                );
-              }
-              discountId = String(vdata.discountId);
+            if (!vres.ok || !vdata?.ok || !vdata.discountId) {
+              throw new Error(vdata?.message || "Unable to validate coupon for this plan");
             }
+            discountId = String(vdata.discountId);
           } catch (error) {
+            paddleCheckoutOpening.current = false;
             setPaddleError(error instanceof Error ? error.message : "Unable to validate coupon");
             return;
           }
@@ -373,13 +454,22 @@ function PlansPage() {
             planName: plan.name,
             billingInterval,
             ...(typeof userId === "string" && userId ? { userId } : {}),
-            ...(discountId ? { couponCode: activeCoupon?.code } : {}),
+            ...(discountId ? { couponCode: appliedCoupon?.code } : {}),
           },
         });
       } catch (error) {
         paddleCheckoutOpening.current = false;
         setPaddleError(error instanceof Error ? error.message : "Unable to open Paddle checkout");
       }
+      return;
+    }
+
+    if (plan.price > 0 || appliedCoupon) {
+      setPaddleError(
+        appliedCoupon
+          ? "This plan has no Paddle checkout price, so the coupon cannot be used."
+          : "Paddle checkout is not configured for this paid plan.",
+      );
       return;
     }
 
@@ -509,9 +599,24 @@ function PlansPage() {
   useEffect(() => {
     if (!paddle) return;
     let cancelled = false;
-    const paidPlans = plans.filter((plan) =>
-      getPaddlePriceId(plan._id, billingInterval, plan.name),
-    );
+    const missingPriceMessages: string[] = [];
+    const paidPlans = plans.filter((plan) => {
+      if ((plan.billingInterval ?? "month") !== billingInterval) return false;
+      try {
+        return Boolean(getPaddlePriceId(plan._id, billingInterval, plan.name));
+      } catch (error) {
+        if (error instanceof Error) {
+          missingPriceMessages.push(error.message);
+          return false;
+        }
+        throw error;
+      }
+    });
+    if (missingPriceMessages.length > 0) {
+      setPaddleError([...new Set(missingPriceMessages)].join(". "));
+    } else {
+      setPaddleError(null);
+    }
     Promise.all(
       paidPlans.map(async (plan) => {
         const priceId = getPaddlePriceId(plan._id, billingInterval, plan.name);
@@ -570,25 +675,49 @@ function PlansPage() {
           <p className="mt-3 text-muted-foreground max-w-lg mx-auto">
             Pick the perfect plan for your needs. Upgrade anytime.
           </p>
-          <div className="mx-auto mt-6 inline-flex rounded-xl border border-border/60 bg-card/70 p-1">
-            {(["month", ...(hasYearlyPaddlePrices ? ["year"] : [])] as BillingInterval[]).map(
-              (interval) => (
-                <button
-                  key={interval}
-                  type="button"
-                  onClick={() => setBillingInterval(interval)}
-                  className={cn(
-                    "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
-                    billingInterval === interval
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {interval === "month" ? "Monthly" : "Yearly"}
-                </button>
-              ),
-            )}
+          <div className="mx-auto mt-7 inline-flex items-center gap-1 rounded-2xl border border-border/70 bg-card/80 p-1.5 shadow-lg shadow-primary/5 backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setBillingInterval("month")}
+              aria-pressed={billingInterval === "month"}
+              className={cn(
+                "rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
+                billingInterval === "month"
+                  ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingInterval("year")}
+              aria-pressed={billingInterval === "year"}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all",
+                billingInterval === "year"
+                  ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Yearly
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-extrabold tracking-wide",
+                  billingInterval === "year"
+                    ? "bg-white/20 text-primary-foreground"
+                    : "bg-emerald-500/10 text-emerald-600",
+                )}
+              >
+                20% OFF
+              </span>
+            </button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {billingInterval === "year"
+              ? "Save 20% with annual billing. Billed once per year."
+              : "Flexible monthly billing. Switch to yearly and save 20%."}
+          </p>
           {showPaymentFailure && paymentFailure && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -627,7 +756,7 @@ function PlansPage() {
 
       {/* Plans grid */}
       <div className="relative z-10 mx-auto max-w-5xl px-4 pb-20">
-        {activeCoupon && (
+        {(activeCoupon || appliedCoupon) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -635,40 +764,61 @@ function PlansPage() {
           >
             <span className="text-lg leading-none">🎉</span>
             <span>
-              <strong>Welcome offer:</strong>{" "}
-              <span className="font-bold text-primary">{activeCoupon.percentOff}% off</span> the{" "}
-              <strong>
-                {activeCoupon.planKey === "advanced"
-                  ? "Premium"
-                  : activeCoupon.planKey === "pro"
-                    ? "Pro"
-                    : activeCoupon.planKey === "starter"
-                      ? "Starter"
-                      : "any"}{" "}
-              </strong>
-              plan — auto-applied at checkout.
-            </span>
-            <span className="ml-auto inline-flex items-center gap-2 text-xs text-muted-foreground">
-              <code className="rounded-md border border-border/70 bg-card px-2 py-0.5 font-bold tracking-wider text-foreground">
-                {activeCoupon.code}
-              </code>
-              {activeCoupon.expiresAt
-                ? `valid till ${new Date(activeCoupon.expiresAt).toLocaleDateString()}`
-                : "lifetime coupon"}
+              {appliedCoupon ? (
+                <>
+                  <strong>Coupon applied:</strong>{" "}
+                  <span className="font-bold text-primary">{appliedCoupon.percentOff}% off</span>.
+                  Choose an eligible plan to continue to Paddle checkout.
+                </>
+              ) : (
+                <>
+                  <strong>Coupon available:</strong> enter the code and apply it before checkout.
+                </>
+              )}
             </span>
           </motion.div>
+        )}
+        {isAuthenticated() && (
+          <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-border/60 bg-card/80 p-4 shadow-soft">
+            <label className="min-w-[220px] flex-1">
+              <span className="mb-1 block text-xs font-semibold">Coupon code</span>
+              <input
+                value={couponCode}
+                onChange={(event) => {
+                  setCouponCode(event.target.value.toUpperCase());
+                  setAppliedCoupon(null);
+                  setPaddleError(null);
+                }}
+                placeholder="Enter your coupon code"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={applyCoupon}
+              disabled={applyingCoupon || !couponCode.trim()}
+              className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/15 disabled:opacity-60"
+            >
+              {applyingCoupon ? "Applying..." : appliedCoupon ? "Apply again" : "Apply coupon"}
+            </button>
+            {activeCoupon?.expiresAt && (
+              <span className="w-full text-xs text-muted-foreground">
+                Available coupon expires {new Date(activeCoupon.expiresAt).toLocaleDateString()}.
+              </span>
+            )}
+          </div>
         )}
         {loading ? (
           <div className="flex h-48 items-center justify-center text-muted-foreground">
             Loading plans...
           </div>
-        ) : plans.length === 0 ? (
+        ) : intervalPlans.length === 0 ? (
           <div className="flex h-48 items-center justify-center rounded-2xl border border-border/60 bg-card/50 text-sm text-muted-foreground">
-            No plans available yet.
+            No {billingInterval === "month" ? "monthly" : "yearly"} plans available yet.
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
-            {plans.map((plan, i) => (
+            {intervalPlans.map((plan, i) => (
               <motion.div
                 key={plan._id}
                 initial={{ opacity: 0, y: 24 }}
@@ -684,20 +834,34 @@ function PlansPage() {
                 <div className="px-6 pt-8 pb-6">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-xl font-bold">{plan.name}</h3>
-                    {activePlanId === plan._id && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-600">
-                        <ShieldCheck className="h-3 w-3" /> Active
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {billingInterval === "year" && plan.price > 0 && (
+                        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-600">
+                          SAVE 20%
+                        </span>
+                      )}
+                      {activePlanId === plan._id && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-600">
+                          <ShieldCheck className="h-3 w-3" /> Active
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-1">
                     <span className="text-4xl font-extrabold tracking-tight">
-                      {formattedPrices[plan._id] || (plan.price > 0 ? "Loading price…" : "Free")}
+                      {plan.price > 0
+                        ? formattedPrices[plan._id] || `$${plan.price.toFixed(2)}`
+                        : "Free"}
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      {formattedPrices[plan._id] ? `/${billingInterval}` : "Lifetime"}
+                      {plan.price > 0 ? `/${billingInterval}` : "Lifetime"}
                     </span>
                   </div>
+                  {billingInterval === "year" && plan.price > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Billed annually · 12-month plan
+                    </p>
+                  )}
                 </div>
 
                 {/* Features */}
@@ -802,9 +966,7 @@ function PlansPage() {
                       ) : (
                         <ArrowRight className="h-4 w-4" />
                       )}
-                      {formattedPrices[plan._id]
-                        ? `Subscribe to ${plan.name}`
-                        : `Start ${plan.name}`}
+                      Subscribe
                     </button>
                   )}
                 </div>
@@ -877,7 +1039,9 @@ function PlansPage() {
                           >
                             {rec.paymentMethod === "paypal"
                               ? "PayPal · "
-                              : ""}
+                              : rec.paymentMethod === "paddle"
+                                ? "Paddle · "
+                                : ""}
                             {rec.paymentStatus === "paid"
                               ? "Paid"
                               : rec.paymentStatus === "pending"

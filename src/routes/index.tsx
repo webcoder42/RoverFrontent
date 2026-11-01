@@ -7,7 +7,12 @@ import {
 } from "lucide-react";
 import logo from "@/asset/logo.png";
 import { isAuthenticated } from "@/lib/auth";
+import { seoHead, SITE_URL } from "@/lib/seo";
 import { useEffect, useState, type ReactNode } from "react";
+
+const LANDING_TITLE = "Webotme — AI chatbots for any website, zero code";
+const LANDING_DESCRIPTION =
+  "Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding.";
 
 export const Route = createFileRoute("/")({
   beforeLoad: () => {
@@ -16,16 +21,103 @@ export const Route = createFileRoute("/")({
       throw redirect({ to: user?.role === "admin" ? "/admin" : "/dashboard" });
     }
   },
-  head: () => ({
-    meta: [
-      { title: "Webotme — AI chatbots for any website, zero code" },
-      {
-        name: "description",
-        content:
-          "Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding.",
-      },
-    ],
-  }),
+  head: () =>
+    seoHead({
+      title: LANDING_TITLE,
+      description: LANDING_DESCRIPTION,
+      path: "/",
+      jsonLd: [
+        {
+          "@type": "SoftwareApplication",
+          name: "Webotme",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          url: SITE_URL,
+          description: LANDING_DESCRIPTION,
+          offers: [
+            {
+              "@type": "Offer",
+              name: "Starter",
+              price: "0",
+              priceCurrency: "USD",
+            },
+            {
+              "@type": "Offer",
+              name: "Pro",
+              price: "20",
+              priceCurrency: "USD",
+            },
+            {
+              "@type": "Offer",
+              name: "Advanced",
+              price: "30",
+              priceCurrency: "USD",
+            },
+          ],
+          featureList: [
+            "Zero-code embed",
+            "Custom conversation flows",
+            "Own database connectivity",
+            "Own SMTP email setup",
+            "Telegram bot support",
+            "Orders inside chat",
+          ],
+        },
+        {
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "Do I need to know coding?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "No. You configure everything from the dashboard — training content, conversation flows, themes and email setup. At the end you copy one small script and paste it into your website.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can my chatbot take real orders?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. Enable the order system and customers can browse products or request services inside the chat, leave their details and place an order. Every order lands in your dashboard and triggers emails instantly.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Which payment methods are supported?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Cash on Delivery, card payments via Stripe checkout, bank transfer instructions — you choose which options appear in your bot's flow.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can I connect my own database?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Absolutely. Connect MongoDB or MySQL collections and the bot answers product, price and availability questions directly from your live data instead of static text.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Will emails come from my own business address?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. Add your SMTP credentials once and every customer confirmation plus owner notification goes out through your own domain — no Webotme branding required.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Does it work on mobile websites?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "The widget is fully responsive on phones, tablets and desktops. The Telegram version works anywhere Telegram does.",
+              },
+            },
+          ],
+        },
+      ],
+    }),
   component: LandingPage,
 });
 

@@ -4,8 +4,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Webotme</title>
+  <meta name="theme-color" content="#0a0a0b" />
+  <title>Webotme — AI chatbots for any website, zero code</title>
+  <meta name="description"
+    content="Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding." />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="Webotme" />
+  <meta name="application-name" content="Webotme" />
+  <link rel="canonical" href="https://rover-frontent.vercel.app/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Webotme" />
+  <meta property="og:title" content="Webotme — AI chatbots for any website, zero code" />
+  <meta property="og:description"
+    content="Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding." />
+  <meta property="og:url" content="https://rover-frontent.vercel.app/" />
+  <meta property="og:image" content="https://rover-frontent.vercel.app/og-image.png" />
+  <meta property="og:image:alt" content="Webotme — AI chatbots for any website, zero code" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@webotme" />
+  <meta name="twitter:title" content="Webotme — AI chatbots for any website, zero code" />
+  <meta name="twitter:description"
+    content="Build an AI chatbot for your website in minutes. Your own flows, your own database, your own email, orders inside chat — one simple script, no coding." />
+  <meta name="twitter:image" content="https://rover-frontent.vercel.app/og-image.png" />
+
+  <!-- Icons & manifest -->
   <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://rover-uoik.onrender.com" crossorigin />
+
+  <!-- Structured data: Organization + WebSite -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://rover-frontent.vercel.app/#organization",
+        "name": "Webotme",
+        "url": "https://rover-frontent.vercel.app/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://rover-frontent.vercel.app/logo.png",
+          "width": 512,
+          "height": 512
+        },
+        "email": "bizy83724@gmail.com"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://rover-frontent.vercel.app/#website",
+        "name": "Webotme",
+        "url": "https://rover-frontent.vercel.app/",
+        "description": "Webotme is a no-code AI chatbot builder that lets you design conversation flows, connect your own database and email, and take orders inside a chat widget on any website.",
+        "publisher": { "@id": "https://rover-frontent.vercel.app/#organization" },
+        "inLanguage": "en"
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
@@ -13,29 +77,6 @@
 
   <script type="module" src="/src/main.tsx"></script>
   <!-- MYT chatbot widget -->
-<!-- Replace PASTE_YOUR_WEBOTME_API_KEY with your Webotme API key (copy it below). -->
-<script async src="/static/widget.js?v=20261017-key" data-bot-id="6ab5e568c4e5d771acaddf53" data-key="wbm_a9598d03_1af388d69e6da6a868d13b6e703882b435a1f44b8ccc68ee"></script>
 
-<!-- ================================================================
-  Webotme Widget Custom CSS
-  Add CSS in this block to position, resize and style your widget —
-  these styles apply automatically.
-
-  Selectors:
-    #rover-chatbot-bubble  → launcher button / icon
-    #rover-chatbot-frame   → chat panel
-
-  Optionally you can override from the script tag itself:
-  data-widget-position="top-left"  data-widget-open-mode="sidebar"
-  data-widget-width="480"          data-widget-height="640"
-  data-widget-launcher="button"    data-widget-launcher-text="Chat with us"
-  data-widget-launcher-style="pill"
-================================================================= -->
-<style data-rover-custom-css="true">
-  /* Add your own CSS here — e.g. move the widget up or make it bigger */
-  /* #rover-chatbot-bubble { bottom: 80px; right: 40px; } */
-  /* #rover-chatbot-frame { width: 480px; height: 640px; } */
-  /* -- saved custom CSS will appear here -- */
-</style>
 </body>
 </html>

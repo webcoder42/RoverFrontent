@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalSection, LegalShell } from "@/components/common/SiteFooter";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({ meta: [{ title: "Terms of Service — WeBotMe" }] }),
+  head: () =>
+    seoHead({
+      title: "Terms of Service — Webotme",
+      description:
+        "Terms of Service for Webotme — the rules and agreements governing your use of the Webotme AI chatbot builder platform.",
+      path: "/terms",
+    }),
   component: () => (
     <LegalShell
       title="Terms of Service"

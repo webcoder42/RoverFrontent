@@ -5,9 +5,10 @@ import { PageTransition } from "@/components/common/PageTransition";
 import { ConnectBotForm } from "@/components/telegram/ConnectBotForm";
 import { MyBots, type ConnectedBot } from "@/components/telegram/MyBots";
 import { getStoredUser, getAuthHeaders } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/dashboard/telegram")({
-  head: () => ({ meta: [{ title: "Telegram Bot — Webotme" }] }),
+  head: () => noindexHead("Telegram Bot — Webotme"),
   component: TelegramBotPage,
 });
 

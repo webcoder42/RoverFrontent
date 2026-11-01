@@ -10,9 +10,10 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin/purchases")({
-  head: () => ({ meta: [{ title: "Plan Purchases — Admin" }] }),
+  head: () => noindexHead("Plan Purchases — Admin"),
   component: AdminPurchases,
 });
 

@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { BarChart3, BookOpen, DollarSign, KeyRound, LayoutDashboard, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAuthenticated, getStoredToken, getStoredUser, clearAuth } from "@/lib/auth";
+import { noindexHead } from "@/lib/seo";
 import logo from "@/asset/logo.png";
 
 export const Route = createFileRoute("/api-keys")({
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/api-keys")({
       });
     }
   },
+  head: () => noindexHead("API Keys — Webotme"),
   component: ApiKeysLayout,
 });
 

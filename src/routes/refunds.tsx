@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalSection, LegalShell } from "@/components/common/SiteFooter";
+import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/refunds")({
-  head: () => ({ meta: [{ title: "Refund Policy — WeBotMe" }] }),
+  head: () =>
+    seoHead({
+      title: "Refund Policy — Webotme",
+      description:
+        "Webotme Refund Policy — how cancellations and refunds work for monthly and yearly subscription plans.",
+      path: "/refunds",
+    }),
   component: () => (
     <LegalShell
       title="Refund Policy"

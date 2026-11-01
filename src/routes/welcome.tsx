@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/welcome")({
-  head: () => ({ meta: [{ title: "Welcome — Webotme" }] }),
+  head: () => noindexHead("Welcome — Webotme"),
   component: WelcomePage,
 });
 
