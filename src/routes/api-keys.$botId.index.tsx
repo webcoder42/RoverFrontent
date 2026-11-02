@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -78,7 +79,7 @@ function ApiKeysPage() {
 
   const fetchKey = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(botId), { headers: getAuthHeaders() });
+      const res = await apiFetch(apiUrl(botId), { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setKeyInfo({
@@ -111,7 +112,7 @@ function ApiKeysPage() {
     }
     setCreating(true);
     try {
-      const res = await fetch(apiUrl(botId), {
+      const res = await apiFetch(apiUrl(botId), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: trimmed, description: description.trim() }),
@@ -150,7 +151,7 @@ function ApiKeysPage() {
     if (keyInfo.fullKey) return keyInfo.fullKey;
     setRevealing(true);
     try {
-      const res = await fetch(`${apiUrl(botId)}/reveal`, {
+      const res = await apiFetch(`${apiUrl(botId)}/reveal`, {
         method: "POST",
         headers: getAuthHeaders(),
       });
@@ -187,7 +188,7 @@ function ApiKeysPage() {
     );
     if (!ok) return;
     try {
-      const res = await fetch(apiUrl(botId), {
+      const res = await apiFetch(apiUrl(botId), {
         method: "DELETE",
         headers: getAuthHeaders(),
       });

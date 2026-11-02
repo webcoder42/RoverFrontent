@@ -1,4 +1,5 @@
-﻿import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Sparkles,
@@ -62,7 +63,7 @@ function CheckoutPage() {
     const token = getStoredToken();
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
-    fetch(`/api/plans/${planId}`, { headers })
+    apiFetch(`/api/plans/${planId}`, { headers })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => setPlan(data))
       .catch(() => {
@@ -71,7 +72,7 @@ function CheckoutPage() {
       })
       .finally(() => setLoading(false));
 
-    fetch("/api/plan-purchase/active", { headers })
+    apiFetch("/api/plan-purchase/active", { headers })
       .then((r) => r.json())
       .then((data) => {
         const id = data?.purchase?.planId?._id || data?.purchase?.planId;
@@ -88,7 +89,7 @@ function CheckoutPage() {
         // PayPal metadata fallback: activate the plan directly so the user
         // isn't charged without the plan being turned on.
         const token = getStoredToken();
-        const res = await fetch("/api/plan-purchase/activate", {
+        const res = await apiFetch("/api/plan-purchase/activate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

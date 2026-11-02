@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { Instagram, MessageCircle, Bot, Workflow, Sparkles } from "lucide-react";
@@ -21,7 +22,7 @@ function InstagramBotPage() {
   const [oauthNotice, setOauthNotice] = useState("");
 
   const fetchAccount = useCallback(() => {
-    fetch("/api/instagram/accounts", {
+    apiFetch("/api/instagram/accounts", {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())

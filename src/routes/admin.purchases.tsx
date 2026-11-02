@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -58,7 +59,7 @@ function AdminPurchases() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/admin/purchases", { headers })
+    apiFetch("/api/admin/purchases", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setPurchases(data);

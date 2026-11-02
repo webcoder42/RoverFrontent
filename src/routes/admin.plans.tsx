@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -73,7 +74,7 @@ function AdminPlans() {
     : { "Content-Type": "application/json" };
 
   const fetchPlans = () => {
-    fetch("/api/plans", { headers })
+    apiFetch("/api/plans", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setPlans(data);
@@ -150,8 +151,8 @@ function AdminPlans() {
         expiresInDays: Number(expiresInDays),
       });
       const res = editingId
-        ? await fetch(`/api/plans/${editingId}`, { method: "PUT", headers, body })
-        : await fetch("/api/plans", { method: "POST", headers, body });
+        ? await apiFetch(`/api/plans/${editingId}`, { method: "PUT", headers, body })
+        : await apiFetch("/api/plans", { method: "POST", headers, body });
       if (!res.ok) throw new Error("Failed to save plan");
       resetForm();
       setShowForm(false);
@@ -166,7 +167,7 @@ function AdminPlans() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this plan?")) return;
     try {
-      await fetch(`/api/plans/${id}`, { method: "DELETE", headers });
+      await apiFetch(`/api/plans/${id}`, { method: "DELETE", headers });
       fetchPlans();
     } catch {}
   };

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Loader2, MailCheck, RefreshCw } from "lucide-react";
 import { GradientButton } from "@/components/common/GradientButton";
@@ -87,7 +88,7 @@ export function VerifyEmailCard({
       setErrorMsg("");
       setInfoMsg("");
       try {
-        const res = await fetch("/api/auth/verify-email", {
+        const res = await apiFetch("/api/auth/verify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, code: value }),
@@ -187,7 +188,7 @@ export function VerifyEmailCard({
     setErrorMsg("");
     setInfoMsg("");
     try {
-      const res = await fetch("/api/auth/resend-verification", {
+      const res = await apiFetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

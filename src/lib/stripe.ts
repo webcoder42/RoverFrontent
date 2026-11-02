@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { getAuthHeaders } from "@/lib/auth";
 
 export interface StripeConnectStatus {
@@ -12,7 +13,7 @@ export interface StripeConnectStatus {
 }
 
 async function stripeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api/stripe${path}`, {
+  const res = await apiFetch(`/api/stripe${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

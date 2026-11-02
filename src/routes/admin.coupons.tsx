@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -109,7 +110,7 @@ function AdminCoupons() {
   };
 
   const load = () => {
-    fetch("/api/admin/coupons", { headers: headers() })
+    apiFetch("/api/admin/coupons", { headers: headers() })
       .then((r) => r.json())
       .then((data) => {
         setCoupons(Array.isArray(data?.coupons) ? data.coupons : []);
@@ -129,7 +130,7 @@ function AdminCoupons() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-    fetch("/api/plans", { headers: headers() })
+    apiFetch("/api/plans", { headers: headers() })
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load plans");
         return r.json();
@@ -150,7 +151,7 @@ function AdminCoupons() {
       setUsersError("");
       try {
         const query = userSearch.trim();
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/admin/users${query ? `?search=${encodeURIComponent(query)}` : ""}`,
           { headers: headers(), signal: controller.signal },
         );
@@ -187,7 +188,7 @@ function AdminCoupons() {
     }
     setIssuing(true);
     try {
-      const res = await fetch("/api/admin/coupons", {
+      const res = await apiFetch("/api/admin/coupons", {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
@@ -216,7 +217,7 @@ function AdminCoupons() {
     if (!confirm(`Revoke ${code}? The user will no longer be able to use it.`)) return;
     setRevoking(code);
     try {
-      const res = await fetch(`/api/admin/coupons/${code}/revoke`, {
+      const res = await apiFetch(`/api/admin/coupons/${code}/revoke`, {
         method: "PATCH",
         headers: headers(),
       });

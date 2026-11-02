@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useState } from "react";
 import {
   Bot,
@@ -75,7 +76,7 @@ export function FacebookBotCustomizationPanel({ accountId }: FacebookBotCustomiz
     if (!accountId) return;
     setLoading(true);
     setError("");
-    fetch(`/api/facebook/accounts/${accountId}/config`, {
+    apiFetch(`/api/facebook/accounts/${accountId}/config`, {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())
@@ -103,7 +104,7 @@ export function FacebookBotCustomizationPanel({ accountId }: FacebookBotCustomiz
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`/api/facebook/accounts/${accountId}/config`, {
+      const res = await apiFetch(`/api/facebook/accounts/${accountId}/config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -136,7 +137,7 @@ export function FacebookBotCustomizationPanel({ accountId }: FacebookBotCustomiz
     setGeneratingFor(svcId);
 
     try {
-      const res = await fetch("/api/facebook/generate-flow", {
+      const res = await apiFetch("/api/facebook/generate-flow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

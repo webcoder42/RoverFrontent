@@ -1,4 +1,5 @@
-﻿import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bot,
@@ -142,7 +143,7 @@ function LoginPage() {
         : { username, email, password, purpose, profession, workType, heardFrom };
 
       const makeRequest = () =>
-        fetch(endpoint, {
+        apiFetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -171,7 +172,7 @@ function LoginPage() {
         }
 
         // Fallback for a server that does not gate registration yet.
-        const loginRes = await fetch("/api/auth/login", {
+        const loginRes = await apiFetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),

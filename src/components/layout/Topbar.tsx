@@ -13,7 +13,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { clearAuth, getStoredUser } from "@/lib/auth";
 
-export function Topbar() {
+export function Topbar({ hideSidebarMenu = false }: { hideSidebarMenu?: boolean }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -29,17 +29,19 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl md:px-8">
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <button className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card text-foreground/80 md:hidden">
-            <Menu className="h-4.5 w-4.5" />
-          </button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar onNavigate={() => setOpen(false)} />
-        </SheetContent>
-      </Sheet>
+      {!hideSidebarMenu && (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <button className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card text-foreground/80 md:hidden">
+              <Menu className="h-4.5 w-4.5" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <Sidebar onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      )}
 
       <div className="relative hidden flex-1 max-w-md md:block">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -62,7 +64,9 @@ export function Topbar() {
               </span>
               <span className="text-left">
                 <span className="block text-[13px] font-semibold leading-tight">{username}</span>
-                <span className="block text-[11px] leading-tight text-muted-foreground">{role}</span>
+                <span className="block text-[11px] leading-tight text-muted-foreground">
+                  {role}
+                </span>
               </span>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import {
   Bot,
@@ -54,7 +55,7 @@ export function ConnectBotForm({ chatbots, loadingChatbots, onConnected }: Conne
 
     setLoading(true);
     try {
-      const res = await fetch("/api/bots/connect", {
+      const res = await apiFetch("/api/bots/connect", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

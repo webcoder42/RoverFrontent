@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Bot, Workflow, Sparkles, Phone } from "lucide-react";
@@ -21,7 +22,7 @@ function WhatsAppBotPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchAccount = useCallback(() => {
-    fetch("/api/whatsapp/accounts", {
+    apiFetch("/api/whatsapp/accounts", {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())
@@ -33,7 +34,7 @@ function WhatsAppBotPage() {
   }, []);
 
   const fetchSetupInfo = useCallback(() => {
-    fetch("/api/whatsapp/setup-info", {
+    apiFetch("/api/whatsapp/setup-info", {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())

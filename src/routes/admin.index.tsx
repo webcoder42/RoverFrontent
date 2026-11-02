@@ -1,4 +1,5 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
@@ -47,7 +48,7 @@ function AdminDashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/admin/stats", { headers })
+    apiFetch("/api/admin/stats", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (data.message && !data.totalUsers) throw new Error(data.message);

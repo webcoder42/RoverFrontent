@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import {
   createFileRoute,
   Outlet,
@@ -49,7 +50,7 @@ function ApiKeysLayout() {
   useEffect(() => {
     const token = getStoredToken();
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/plan-purchase/active", { headers })
+    apiFetch("/api/plan-purchase/active", { headers })
       .then((r) => r.json())
       .then((data) => {
         const p = data?.purchase;

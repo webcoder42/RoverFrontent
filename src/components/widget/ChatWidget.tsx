@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useRef, useState } from "react";
 import {
   Bot,
@@ -419,7 +420,7 @@ export function ChatWidget({ botId }: { botId: string }) {
 
   // Fetch chatbot settings & start a fresh session
   useEffect(() => {
-    fetch(`/api/chatbot/public/${id}`, { headers: embedHeaders })
+    apiFetch(`/api/chatbot/public/${id}`, { headers: embedHeaders })
       .then((r) => {
         if (!r.ok) throw new Error("Chatbot not found or inactive");
         return r.json();
@@ -474,7 +475,7 @@ export function ChatWidget({ botId }: { botId: string }) {
 
   // Fetch Stripe publishable key for inline payments
   useEffect(() => {
-    fetch("/api/stripe/config")
+    apiFetch("/api/stripe/config")
       .then((r) => r.json())
       .then((data) => {
         if (data.publishableKey) setPublishableKey(data.publishableKey);
@@ -518,7 +519,7 @@ export function ChatWidget({ botId }: { botId: string }) {
     voiceRef.current?.endConversation?.();
     // Register session on server with welcome message & clear old session memory
     try {
-      await fetch(`/api/chatbot/public/${id}/session/new`, {
+      await apiFetch(`/api/chatbot/public/${id}/session/new`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...embedHeaders },
         body: JSON.stringify({
@@ -571,7 +572,7 @@ export function ChatWidget({ botId }: { botId: string }) {
         isTaskStep || Boolean(pageSnapshotRef.current) || bot?.flowMode !== "disabled";
       const apiUrl = isAutoFlow ? `/api/autoflow/chat` : `/api/chatbot/public/${id}/chat`;
 
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1869,7 +1870,7 @@ export function ChatWidget({ botId }: { botId: string }) {
                           (async () => {
                             if (m.orderId) {
                               try {
-                                await fetch("/api/stripe/confirm-payment", {
+                                await apiFetch("/api/stripe/confirm-payment", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ orderId: m.orderId }),

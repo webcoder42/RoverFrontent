@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -71,8 +72,8 @@ function AdminStorage() {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     Promise.all([
-      fetch("/api/admin/chatbots", { headers }).then((r) => r.json()).catch(() => []),
-      fetch("/api/admin/stats", { headers }).then((r) => r.json()).catch(() => ({} as any)),
+      apiFetch("/api/admin/chatbots", { headers }).then((r) => r.json()).catch(() => []),
+      apiFetch("/api/admin/stats", { headers }).then((r) => r.json()).catch(() => ({} as any)),
     ])
       .then(([bots]) => {
         const botList = (Array.isArray(bots) ? bots : []) as StorageChatbot[];
@@ -154,7 +155,7 @@ function AdminStorage() {
       setDetailLoading(false);
       return;
     }
-    fetch(`/api/admin/users/${ownerId}/storage`, { headers })
+    apiFetch(`/api/admin/users/${ownerId}/storage`, { headers })
       .then((r) => r.json())
       .then((d) => {
         setDetail({ storage: d.storage, user: d.user });

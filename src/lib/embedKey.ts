@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { getAuthHeaders } from "@/lib/auth";
 
 /**
@@ -51,13 +52,13 @@ export async function fetchEmbedKey(botId: string): Promise<string> {
   const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
 
   const reveal = () =>
-    fetch(`/api/chatbot/${botId}/api-key/reveal`, { method: "POST", headers });
+    apiFetch(`/api/chatbot/${botId}/api-key/reveal`, { method: "POST", headers });
 
   let res = await reveal();
 
   // First-time bots have no key yet — mint one, then reveal it.
   if (res.status === 404) {
-    await fetch(`/api/chatbot/${botId}/api-key`, {
+    await apiFetch(`/api/chatbot/${botId}/api-key`, {
       method: "POST",
       headers,
       body: JSON.stringify({ name: "Embed" }),

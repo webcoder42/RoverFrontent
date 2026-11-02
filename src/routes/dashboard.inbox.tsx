@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import {
@@ -160,7 +161,7 @@ function InboxPage() {
       setChatbotsError("");
 
       try {
-        const res = await fetch(`/api/chatbot/user/${userId}`, {
+        const res = await apiFetch(`/api/chatbot/user/${userId}`, {
           headers: {
             ...getAuthHeaders(),
             "Content-Type": "application/json",
@@ -206,7 +207,7 @@ function InboxPage() {
     if (!bot) return;
     const updated = (bot.installedUrls || []).filter((u) => u !== url);
     try {
-      const res = await fetch(`/api/chatbot/${botId}`, {
+      const res = await apiFetch(`/api/chatbot/${botId}`, {
         method: "PUT",
         headers: {
           ...getAuthHeaders(),
@@ -230,7 +231,7 @@ function InboxPage() {
   const fetchScanStatus = async (botId: string) => {
     try {
       setScanLogsError("");
-      const res = await fetch(`/api/autoflow/${botId}/scan-status`, {
+      const res = await apiFetch(`/api/autoflow/${botId}/scan-status`, {
         headers: {
           ...getAuthHeaders(),
           "Content-Type": "application/json",

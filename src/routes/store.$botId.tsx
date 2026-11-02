@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -86,7 +87,7 @@ function StorefrontPage() {
   const [payState] = useState(() => new URLSearchParams(window.location.search).get("payment"));
 
   useEffect(() => {
-    fetch(`${config.apiBaseUrl}/api/store/public/${botId}`)
+    apiFetch(`${config.apiBaseUrl}/api/store/public/${botId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         setCfg({ botName: d.name || "Store", currencySymbol: d.currencySymbol || "$", activated: !!d.activated, customization: d.customization || null });
@@ -98,7 +99,7 @@ function StorefrontPage() {
             colors: { ...DEFAULT_CUST.colors, ...(d.customization.colors || {}) },
           });
         }
-        return fetch(`${config.apiBaseUrl}/api/store/public/${botId}/products`)
+        return apiFetch(`${config.apiBaseUrl}/api/store/public/${botId}/products`)
           .then((r) => (r.ok ? r.json() : { products: [] }))
           .then((pd) => setProducts(pd.products || []));
       })
@@ -556,7 +557,7 @@ function CartDrawer({
     }
     setPlacing(true);
     try {
-      const res = await fetch(`${config.apiBaseUrl}/api/store/public/${botId}/checkout`, {
+      const res = await apiFetch(`${config.apiBaseUrl}/api/store/public/${botId}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customer: form, items: cart, paymentMethod: method }),

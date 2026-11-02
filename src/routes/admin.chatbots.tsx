@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Bot, Search, X, HardDrive, MessageSquare, ShoppingCart, FileText, Database, Cpu, Globe, Layers, CreditCard, Download, User, Calendar } from "lucide-react";
@@ -96,7 +97,7 @@ function AdminChatbots() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/admin/chatbots", { headers })
+    apiFetch("/api/admin/chatbots", { headers })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setChatbots(data); })
       .catch(() => {})
@@ -229,7 +230,7 @@ function AdminChatbots() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); if (tab.id !== "overview" && !details) { setDetailsLoading(true); fetch(`/api/admin/chatbots/${selected._id}/details`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }).then(r => r.json()).then(d => setDetails(d)).catch(() => {}).finally(() => setDetailsLoading(false)); } }}
+                  onClick={() => { setActiveTab(tab.id); if (tab.id !== "overview" && !details) { setDetailsLoading(true); apiFetch(`/api/admin/chatbots/${selected._id}/details`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }).then(r => r.json()).then(d => setDetails(d)).catch(() => {}).finally(() => setDetailsLoading(false)); } }}
                   className={"flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors shrink-0 " + (activeTab === tab.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
                 >
                   <tab.icon className="h-3.5 w-3.5" />

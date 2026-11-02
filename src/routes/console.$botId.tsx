@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -133,7 +134,7 @@ const clearSession = () => {
   } catch {}
 };
 const consoleFetch = (url: string, init?: RequestInit) =>
-  fetch(url, {
+  apiFetch(url, {
     ...init,
     headers: { ...(init?.headers || {}), "x-console-session": getSessionToken() },
   });

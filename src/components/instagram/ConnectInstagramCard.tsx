@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import {
   Instagram,
@@ -44,7 +45,7 @@ export function ConnectInstagramCard({
     setNotice("");
     setConnecting(true);
     try {
-      const res = await fetch("/api/instagram/oauth-url", {
+      const res = await apiFetch("/api/instagram/oauth-url", {
         headers: getAuthHeaders() as Record<string, string>,
       });
       const data = await res.json();
@@ -71,7 +72,7 @@ export function ConnectInstagramCard({
     setDisconnecting(true);
     setError("");
     try {
-      const res = await fetch(`/api/instagram/accounts/${account._id}`, {
+      const res = await apiFetch(`/api/instagram/accounts/${account._id}`, {
         method: "DELETE",
         headers: getAuthHeaders() as Record<string, string>,
       });

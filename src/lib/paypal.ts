@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { getAuthHeaders } from "@/lib/auth";
 
 export interface PayPalConfig {
@@ -42,7 +43,7 @@ async function paypalRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`/api/paypal${path}`, {
+  const res = await apiFetch(`/api/paypal${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

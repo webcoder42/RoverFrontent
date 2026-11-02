@@ -1,4 +1,5 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
@@ -123,7 +124,7 @@ function CouponsTab() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/coupons/mine", { headers: getAuthHeaders() })
+    apiFetch("/api/coupons/mine", { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((data) => setCoupons(Array.isArray(data?.coupons) ? data.coupons : []))
       .catch(() => setCoupons([]));
@@ -198,19 +199,22 @@ function CouponsTab() {
                 </div>
 
                 <div className="min-w-[180px] flex-1">
-                  <button
-                    onClick={() => copyCode(c.code)}
-                    disabled={status !== "active"}
-                    className="group inline-flex items-center gap-2 rounded-lg px-1 py-0.5 font-mono text-base font-bold tracking-wider transition-colors enabled:hover:text-primary disabled:cursor-default"
-                  >
-                    {c.code}
-                    {status === "active" &&
-                      (copiedCode === c.code ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-base font-bold tracking-wider">{c.code}</span>
+                    <button
+                      type="button"
+                      onClick={() => copyCode(c.code)}
+                      aria-label={`Copy coupon code ${c.code}`}
+                      title="Copy coupon code"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {copiedCode === c.code ? (
                         <Check className="h-4 w-4 text-emerald-600" />
                       ) : (
-                        <Copy className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                      ))}
-                  </button>
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                     <span>{c.title || sourceLabel(c.source)}</span>
                     <span>ï¿½</span>
@@ -283,7 +287,7 @@ function SettingsPage() {
   const [planRenews, setPlanRenews] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/plan-purchase/active", { headers: getAuthHeaders() })
+    apiFetch("/api/plan-purchase/active", { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((data) => {
         const p = data?.purchase;
@@ -326,7 +330,7 @@ function SettingsPage() {
 
   const loadEmailConfig = async () => {
     try {
-      const res = await fetch("/api/email-config", { headers: getAuthHeaders() });
+      const res = await apiFetch("/api/email-config", { headers: getAuthHeaders() });
       const data = await res.json();
       if (res.ok) {
         const configs: any[] = Array.isArray(data.configs)
@@ -360,7 +364,7 @@ function SettingsPage() {
     setDetecting(true);
     setDetectNote("");
     try {
-      const res = await fetch("/api/email-config/detect", {
+      const res = await apiFetch("/api/email-config/detect", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ email }),
@@ -435,7 +439,7 @@ function SettingsPage() {
         body.apiKey = resendKey.trim();
         body.fromEmail = resendFrom.trim();
       }
-      const res = await fetch("/api/email-config/test", {
+      const res = await apiFetch("/api/email-config/test", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(body),
@@ -482,7 +486,7 @@ function SettingsPage() {
         body.fromEmail = resendFrom.trim().toLowerCase();
       }
 
-      const res = await fetch("/api/email-config", {
+      const res = await apiFetch("/api/email-config", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(body),
@@ -554,7 +558,7 @@ function SettingsPage() {
     const id = targetId ?? null;
     setEmailRemoving(true);
     try {
-      const res = await fetch(id ? `/api/email-config?id=${encodeURIComponent(id)}` : "/api/email-config", {
+      const res = await apiFetch(id ? `/api/email-config?id=${encodeURIComponent(id)}` : "/api/email-config", {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -583,7 +587,7 @@ function SettingsPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/auth/update", {
+      const res = await apiFetch("/api/auth/update", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: storedUser.id, username: name }),
@@ -607,7 +611,7 @@ function SettingsPage() {
   const handleOpenBilling = async () => {
     setOpeningPortal(true);
     try {
-      const response = await fetch("/api/paddle/portal", {
+      const response = await apiFetch("/api/paddle/portal", {
         method: "POST",
         headers: getAuthHeaders(),
       });

@@ -1,4 +1,5 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Send, Bot, MessageCircle, Sparkles } from "lucide-react";
 import { PageTransition } from "@/components/common/PageTransition";
@@ -27,7 +28,7 @@ function TelegramBotPage() {
   const uid = (user?.id as string) || "";
 
   const fetchBots = () => {
-    fetch(`/api/bots`, { headers: getAuthHeaders() as Record<string, string> })
+    apiFetch(`/api/bots`, { headers: getAuthHeaders() as Record<string, string> })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data.bots)) setBots(data.bots);
@@ -42,7 +43,7 @@ function TelegramBotPage() {
       setLoadingChatbots(false);
       return;
     }
-    fetch(`/api/chatbot/user/${uid}`, {
+    apiFetch(`/api/chatbot/user/${uid}`, {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())

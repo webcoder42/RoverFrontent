@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import {
   Loader2,
@@ -47,7 +48,7 @@ export function ConnectWhatsAppCard({
     setNotice("");
     setConnecting(true);
     try {
-      const res = await fetch("/api/whatsapp/connect", {
+      const res = await apiFetch("/api/whatsapp/connect", {
         method: "POST",
         headers: getAuthHeaders() as Record<string, string>,
       });
@@ -76,7 +77,7 @@ export function ConnectWhatsAppCard({
     setDisconnecting(true);
     setError("");
     try {
-      const res = await fetch(`/api/whatsapp/accounts/${account._id}`, {
+      const res = await apiFetch(`/api/whatsapp/accounts/${account._id}`, {
         method: "DELETE",
         headers: getAuthHeaders() as Record<string, string>,
       });

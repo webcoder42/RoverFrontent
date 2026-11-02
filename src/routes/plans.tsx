@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles,
@@ -22,6 +23,7 @@ import {
   BadgeCheck,
   CircleX,
   Ban,
+  SlidersHorizontal,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getStoredUser, isAuthenticated, getStoredToken } from "@/lib/auth";
@@ -316,7 +318,7 @@ function PlansPage() {
   useEffect(() => {
     if (!isAuthenticated()) return;
     const token = getStoredToken();
-    fetch("/api/coupons/mine", {
+    apiFetch("/api/coupons/mine", {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => r.json())
@@ -351,7 +353,7 @@ function PlansPage() {
     setPaddleError(null);
     try {
       const token = getStoredToken();
-      const response = await fetch("/api/coupons/validate", {
+      const response = await apiFetch("/api/coupons/validate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -381,7 +383,7 @@ function PlansPage() {
 
   const loadPaymentFailure = useCallback(() => {
     const token = getStoredToken();
-    fetch("/api/paddle/payment-failure", {
+    apiFetch("/api/paddle/payment-failure", {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => r.json())
@@ -416,7 +418,7 @@ function PlansPage() {
         if (appliedCoupon) {
           try {
             const token = getStoredToken();
-            const vres = await fetch("/api/coupons/validate", {
+            const vres = await apiFetch("/api/coupons/validate", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -476,7 +478,7 @@ function PlansPage() {
     setActivatingId(plan._id);
     try {
       const token = getStoredToken();
-      const res = await fetch("/api/plan-purchase/activate", {
+      const res = await apiFetch("/api/plan-purchase/activate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -500,7 +502,7 @@ function PlansPage() {
   useEffect(() => {
     const token = getStoredToken();
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/plans", { headers })
+    apiFetch("/api/plans", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -522,7 +524,7 @@ function PlansPage() {
       })
       .finally(() => setLoading(false));
 
-    fetch("/api/plan-purchase/active", { headers })
+    apiFetch("/api/plan-purchase/active", { headers })
       .then((r) => r.json())
       .then((data) => {
         const purchase = data?.purchase;
@@ -535,7 +537,7 @@ function PlansPage() {
       })
       .catch(() => {});
 
-    fetch("/api/plan-purchase/history", { headers })
+    apiFetch("/api/plan-purchase/history", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data?.history)) setHistory(data.history);
@@ -560,7 +562,7 @@ function PlansPage() {
     const failurePoll = setInterval(loadPaymentFailure, 15000);
 
     // Country detection improves localized previews but must not block Paddle prices.
-    fetch("/api/paddle/config")
+    apiFetch("/api/paddle/config")
       .then(async (response) => {
         const data = (await response.json().catch(() => ({}))) as {
           countryCode?: string;
@@ -954,6 +956,17 @@ function PlansPage() {
                           {activePurchase.periodDays || plan.expiresInDays || 30} days
                         </p>
                       )}
+                      {activePurchase?.status === "active" &&
+                        activePurchase.paymentStatus === "paid" &&
+                        !activePurchase.isDefault && (
+                          <Link
+                            to="/dashboard/increase-limits"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+                          >
+                            <SlidersHorizontal className="h-4 w-4" />
+                            Increase plan limits
+                          </Link>
+                        )}
                     </div>
                   ) : (
                     <button

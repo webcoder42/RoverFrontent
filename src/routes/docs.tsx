@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -2775,7 +2776,7 @@ function WidgetSetupTool() {
       let acc = "";
       let truncated = true;
       for (let round = 0; round < 4 && truncated; round += 1) {
-        const res = await fetch("/api/docs/widget-setup", {
+        const res = await apiFetch("/api/docs/widget-setup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(round === 0 ? { code } : { code, resume: acc }),

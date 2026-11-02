@@ -1,4 +1,5 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+﻿import { apiFetch } from "@/lib/apiFetch";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   HardDrive, Database, TrendingUp, Shield, ArrowUpCircle,
@@ -70,9 +71,9 @@ function StoragePage() {
       try {
         const headers = { ...getAuthHeaders(), "Content-Type": "application/json" } as Record<string, string>;
         const [usageRes, colRes, activeRes] = await Promise.all([
-          fetch("/api/storage/usage", { headers }),
-          fetch("/api/storage/collections", { headers }),
-          fetch("/api/plan-purchase/active", { headers }),
+          apiFetch("/api/storage/usage", { headers }),
+          apiFetch("/api/storage/collections", { headers }),
+          apiFetch("/api/plan-purchase/active", { headers }),
         ]);
         if (usageRes.status === 401 || colRes.status === 401) { clearAuth(); navigate({ to: "/" }); return; }
         if (!usageRes.ok) throw new Error("Failed to load storage data");

@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
@@ -31,7 +32,7 @@ function ConsoleGate() {
     setChecking(true);
     setError("");
     try {
-      const res = await fetch(`${config.apiBaseUrl}/api/store/public/console/verify`, {
+      const res = await apiFetch(`${config.apiBaseUrl}/api/store/public/console/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key }),

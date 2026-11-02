@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useState } from "react";
 import {
   Bot,
@@ -73,7 +74,7 @@ export function WhatsAppBotCustomizationPanel({ accountId }: WhatsAppBotCustomiz
     if (!accountId) return;
     setLoading(true);
     setError("");
-    fetch(`/api/whatsapp/accounts/${accountId}/config`, {
+    apiFetch(`/api/whatsapp/accounts/${accountId}/config`, {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())
@@ -100,7 +101,7 @@ export function WhatsAppBotCustomizationPanel({ accountId }: WhatsAppBotCustomiz
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`/api/whatsapp/accounts/${accountId}/config`, {
+      const res = await apiFetch(`/api/whatsapp/accounts/${accountId}/config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -133,7 +134,7 @@ export function WhatsAppBotCustomizationPanel({ accountId }: WhatsAppBotCustomiz
     setGeneratingFor(svcId);
 
     try {
-      const res = await fetch("/api/whatsapp/generate-flow", {
+      const res = await apiFetch("/api/whatsapp/generate-flow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

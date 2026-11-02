@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { getAuthHeaders } from "@/lib/auth";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -344,7 +345,7 @@ function CreateBot() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    fetch("/api/storage/usage?minimal=1", {
+    apiFetch("/api/storage/usage?minimal=1", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? r.json() : null))
@@ -362,7 +363,7 @@ function CreateBot() {
       if (rawUser) {
         try {
           const user = JSON.parse(rawUser) as { id: string };
-          fetch(`/api/chatbot/user/${user.id}`, {
+          apiFetch(`/api/chatbot/user/${user.id}`, {
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -400,9 +401,9 @@ function CreateBot() {
         const parsedUser = rawUser ? JSON.parse(rawUser) : null;
 
         const [flowsRes, botsRes] = await Promise.all([
-          fetch("/api/flow/defaults"),
+          apiFetch("/api/flow/defaults"),
           parsedUser?.id
-            ? fetch(`/api/chatbot/user/${parsedUser.id}`, {
+            ? apiFetch(`/api/chatbot/user/${parsedUser.id}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
               })
             : Promise.resolve(null),
@@ -547,7 +548,7 @@ function CreateBot() {
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(extension);
     const uploadResourceType = isImage ? "image" : "raw";
 
-    const signRes = await fetch("/api/chatbot/upload/cloudinary", {
+    const signRes = await apiFetch("/api/chatbot/upload/cloudinary", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ resourceType: uploadResourceType }),
@@ -571,7 +572,7 @@ function CreateBot() {
     formData.append("signature", signature);
     formData.append("folder", folder);
 
-    const uploadRes = await fetch(
+    const uploadRes = await apiFetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/${uploadResourceType}/upload`,
       {
         method: "POST",
@@ -713,7 +714,7 @@ function CreateBot() {
         setUploadStatus("Extracting services with AI...");
         try {
           const token = localStorage.getItem("token");
-          const res = await fetch("/api/chatbot/extract-services", {
+          const res = await apiFetch("/api/chatbot/extract-services", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ text: combinedContent.substring(0, 15000) }),
@@ -1051,7 +1052,7 @@ function CreateBot() {
       step: botType === "agency" ? step + 1 : step === 0 ? 1 : step,
       ...payload,
     };
-    fetch("/api/wizard/track", {
+    apiFetch("/api/wizard/track", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
@@ -1223,7 +1224,7 @@ function CreateBot() {
         body.productCollection = prodDbc;
       }
 
-      const res = await fetch("/api/chatbot", {
+      const res = await apiFetch("/api/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
@@ -3187,7 +3188,7 @@ function CreateBot() {
 
                             const toastId = toast.loading("Testing connection...");
                             try {
-                              const res = await fetch("/api/chatbot/test-collection", {
+                              const res = await apiFetch("/api/chatbot/test-collection", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(body),
@@ -3454,7 +3455,7 @@ function CreateBot() {
 
                           const toastId = toast.loading("Testing connection...");
                           try {
-                            const res = await fetch("/api/chatbot/test-collection", {
+                            const res = await apiFetch("/api/chatbot/test-collection", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(body),

@@ -7,13 +7,11 @@ import {
   useRouter,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
-import {
-  SITE_NAME,
-  organizationJsonLd,
-  websiteJsonLd,
-} from "@/lib/seo";
+import { queryClient } from "@/lib/queryClient";
+import { SITE_NAME, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -119,9 +117,36 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <CacheChangeSync />
       <HeadContent />
       <Outlet />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
+}
+
+function CacheChangeSync() {
+  useEffect(() => {
+    const source = new EventSource("/api/cache-events");
+    let refreshTimer: number | undefined;
+
+    const refreshCachedResponses = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void queryClient
+          .invalidateQueries({ queryKey: ["api"], refetchType: "none" })
+          .then(() => queryClient.refetchQueries({ queryKey: ["api"], type: "all" }));
+      }, 100);
+    };
+
+    source.addEventListener("cache-change", refreshCachedResponses);
+    source.addEventListener("open", refreshCachedResponses);
+
+    return () => {
+      window.clearTimeout(refreshTimer);
+      source.close();
+    };
+  }, []);
+
+  return null;
 }

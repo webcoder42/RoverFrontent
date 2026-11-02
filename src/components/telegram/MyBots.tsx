@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -63,7 +64,7 @@ export function MyBots({ bots, loading, onRefresh }: MyBotsProps) {
     setTesting(bot._id);
     setError("");
     try {
-      const res = await fetch(`/api/bots/${bot._id}/test`, {
+      const res = await apiFetch(`/api/bots/${bot._id}/test`, {
         method: "POST",
         headers: getAuthHeaders() as Record<string, string>,
       });
@@ -86,7 +87,7 @@ export function MyBots({ bots, loading, onRefresh }: MyBotsProps) {
     setDisconnecting(bot._id);
     setError("");
     try {
-      const res = await fetch(`/api/bots/${bot._id}`, {
+      const res = await apiFetch(`/api/bots/${bot._id}`, {
         method: "DELETE",
         headers: getAuthHeaders() as Record<string, string>,
       });

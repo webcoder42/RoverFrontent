@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Bot, Workflow, Sparkles, Globe } from "lucide-react";
@@ -21,7 +22,7 @@ function FacebookBotPage() {
   const [oauthNotice, setOauthNotice] = useState("");
 
   const fetchAccount = useCallback(() => {
-    fetch("/api/facebook/accounts", {
+    apiFetch("/api/facebook/accounts", {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())

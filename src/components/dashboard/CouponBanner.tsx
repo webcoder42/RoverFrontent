@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,7 +34,7 @@ export default function CouponBanner() {
 
   useEffect(() => {
     if (!getAuthHeaders()) return;
-    fetch("/api/coupons/mine", { headers: getAuthHeaders() })
+    apiFetch("/api/coupons/mine", { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((data) => {
         const coupons: CouponData[] = Array.isArray(data?.coupons) ? data.coupons : [];

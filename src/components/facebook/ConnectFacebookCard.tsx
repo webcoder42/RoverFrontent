@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useState } from "react";
 import {
   Loader2,
@@ -42,7 +43,7 @@ export function ConnectFacebookCard({
     setError("");
     setConnecting(true);
     try {
-      const res = await fetch("/api/facebook/oauth-url", {
+      const res = await apiFetch("/api/facebook/oauth-url", {
         headers: getAuthHeaders() as Record<string, string>,
       });
       const data = await res.json();
@@ -68,7 +69,7 @@ export function ConnectFacebookCard({
     setDisconnecting(true);
     setError("");
     try {
-      const res = await fetch(`/api/facebook/accounts/${account._id}`, {
+      const res = await apiFetch(`/api/facebook/accounts/${account._id}`, {
         method: "DELETE",
         headers: getAuthHeaders() as Record<string, string>,
       });

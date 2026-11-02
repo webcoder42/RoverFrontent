@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Users, Search, X, Bot, HardDrive, Cpu, Database, MessageSquare, Shield, TrendingUp, Loader2, ArrowUpCircle } from "lucide-react";
@@ -74,7 +75,7 @@ function AdminUsers() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/admin/stats", { headers })
+    apiFetch("/api/admin/stats", { headers })
       .then((r) => r.json())
       .then((data) => {
         if (data.recentUsers) setUsers(data.recentUsers);
@@ -95,7 +96,7 @@ function AdminUsers() {
     setDetailLoading(true);
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch(`/api/admin/users/${user._id}/storage`, { headers })
+    apiFetch(`/api/admin/users/${user._id}/storage`, { headers })
       .then((r) => r.json())
       .then((d) => setDetail(d))
       .catch(() => setDetail(null))

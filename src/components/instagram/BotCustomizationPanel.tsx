@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { useEffect, useState } from "react";
 import {
   Bot,
@@ -76,7 +77,7 @@ export function BotCustomizationPanel({ accountId }: BotCustomizationPanelProps)
     if (!accountId) return;
     setLoading(true);
     setError("");
-    fetch(`/api/instagram/accounts/${accountId}/config`, {
+    apiFetch(`/api/instagram/accounts/${accountId}/config`, {
       headers: getAuthHeaders() as Record<string, string>,
     })
       .then((r) => r.json())
@@ -104,7 +105,7 @@ export function BotCustomizationPanel({ accountId }: BotCustomizationPanelProps)
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`/api/instagram/accounts/${accountId}/config`, {
+      const res = await apiFetch(`/api/instagram/accounts/${accountId}/config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -137,7 +138,7 @@ export function BotCustomizationPanel({ accountId }: BotCustomizationPanelProps)
     setGeneratingFor(svcId);
 
     try {
-      const res = await fetch("/api/instagram/generate-flow", {
+      const res = await apiFetch("/api/instagram/generate-flow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

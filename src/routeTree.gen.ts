@@ -43,6 +43,7 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardCreateRouteImport } from './routes/dashboard.create'
 import { Route as DashboardFacebookRouteImport } from './routes/dashboard.facebook'
 import { Route as DashboardInboxRouteImport } from './routes/dashboard.inbox'
+import { Route as DashboardIncreaseLimitsRouteImport } from './routes/dashboard.increase-limits'
 import { Route as DashboardInstagramRouteImport } from './routes/dashboard.instagram'
 import { Route as DashboardScriptsRouteImport } from './routes/dashboard.scripts'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
@@ -226,6 +227,11 @@ const DashboardInboxRoute = DashboardInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardIncreaseLimitsRoute = DashboardIncreaseLimitsRouteImport.update({
+  id: '/increase-limits',
+  path: '/increase-limits',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardInstagramRoute = DashboardInstagramRouteImport.update({
   id: '/instagram',
   path: '/instagram',
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/increase-limits': typeof DashboardIncreaseLimitsRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -364,6 +371,7 @@ export interface FileRoutesByTo {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/increase-limits': typeof DashboardIncreaseLimitsRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -413,6 +421,7 @@ export interface FileRoutesById {
   '/dashboard/create': typeof DashboardCreateRoute
   '/dashboard/facebook': typeof DashboardFacebookRoute
   '/dashboard/inbox': typeof DashboardInboxRoute
+  '/dashboard/increase-limits': typeof DashboardIncreaseLimitsRoute
   '/dashboard/instagram': typeof DashboardInstagramRoute
   '/dashboard/scripts': typeof DashboardScriptsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/facebook'
     | '/dashboard/inbox'
+    | '/dashboard/increase-limits'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
@@ -508,6 +518,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/facebook'
     | '/dashboard/inbox'
+    | '/dashboard/increase-limits'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/dashboard/create'
     | '/dashboard/facebook'
     | '/dashboard/inbox'
+    | '/dashboard/increase-limits'
     | '/dashboard/instagram'
     | '/dashboard/scripts'
     | '/dashboard/settings'
@@ -836,6 +848,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardInboxRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/increase-limits': {
+      id: '/dashboard/increase-limits'
+      path: '/increase-limits'
+      fullPath: '/dashboard/increase-limits'
+      preLoaderRoute: typeof DashboardIncreaseLimitsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/instagram': {
       id: '/dashboard/instagram'
       path: '/instagram'
@@ -984,6 +1003,7 @@ interface DashboardRouteChildren {
   DashboardCreateRoute: typeof DashboardCreateRoute
   DashboardFacebookRoute: typeof DashboardFacebookRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
+  DashboardIncreaseLimitsRoute: typeof DashboardIncreaseLimitsRoute
   DashboardInstagramRoute: typeof DashboardInstagramRoute
   DashboardScriptsRoute: typeof DashboardScriptsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -998,6 +1018,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardCreateRoute: DashboardCreateRoute,
   DashboardFacebookRoute: DashboardFacebookRoute,
   DashboardInboxRoute: DashboardInboxRoute,
+  DashboardIncreaseLimitsRoute: DashboardIncreaseLimitsRoute,
   DashboardInstagramRoute: DashboardInstagramRoute,
   DashboardScriptsRoute: DashboardScriptsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,

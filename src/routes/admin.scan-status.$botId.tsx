@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -31,7 +32,7 @@ function ScanStatusPage() {
     try {
       setError("");
       const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/autoflow/${botId}/scan-status`, {
+      const res = await apiFetch(`/api/autoflow/${botId}/scan-status`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error("Failed to fetch");

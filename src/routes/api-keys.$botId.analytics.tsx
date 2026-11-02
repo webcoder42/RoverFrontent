@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -38,7 +39,7 @@ function AnalyticsKeyPage() {
 
   const fetchKey = useCallback(async () => {
     try {
-      const res = await fetch("/api/store/my/console-keys", {
+      const res = await apiFetch("/api/store/my/console-keys", {
         headers: getAuthHeaders(),
       });
       if (res.ok) {

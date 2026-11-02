@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -221,9 +222,9 @@ function ScriptsPage() {
     }
 
     Promise.all([
-      fetch(`/api/chatbot/user/${user.id}`, { headers: getAuthHeaders() }).then((r) => r.json()),
-      fetch("/api/templates", { headers: getAuthHeaders() }).then((r) => r.json()),
-      fetch("/api/storage/usage", { headers: getAuthHeaders() })
+      apiFetch(`/api/chatbot/user/${user.id}`, { headers: getAuthHeaders() }).then((r) => r.json()),
+      apiFetch("/api/templates", { headers: getAuthHeaders() }).then((r) => r.json()),
+      apiFetch("/api/storage/usage", { headers: getAuthHeaders() })
         .then((r) => r.json())
         .catch(() => null),
     ])
@@ -306,7 +307,7 @@ function ScriptsPage() {
 
   useEffect(() => {
     if (!editingBot) return;
-    fetch("/api/email-config", { headers: getAuthHeaders() })
+    apiFetch("/api/email-config", { headers: getAuthHeaders() })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const configs: any[] = Array.isArray(d?.configs) ? d.configs : d?.config ? [d.config] : [];
@@ -421,7 +422,7 @@ ${
     const scriptText = buildEmbedScript(botId, botName, currentBot || undefined);
 
     try {
-      const res = await fetch(`/api/chatbot/${botId}`, {
+      const res = await apiFetch(`/api/chatbot/${botId}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify({ embedScript: scriptText }),
@@ -446,7 +447,7 @@ ${
     setGenerating((prev) => ({ ...prev, [slug]: true }));
 
     try {
-      const res = await fetch(`/api/templates/${slug}/init`, {
+      const res = await apiFetch(`/api/templates/${slug}/init`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({ adminUserId: user.id }),
@@ -478,7 +479,7 @@ ${
           widgetSmartPosition: data.chatbot.widget?.smartPosition,
           widgetCustomCss: data.chatbot.widget?.customCss,
         });
-        await fetch(`/api/chatbot/${botId}`, {
+        await apiFetch(`/api/chatbot/${botId}`, {
           method: "PUT",
           headers: getAuthHeaders(),
           body: JSON.stringify({ embedScript: scriptText }),
@@ -487,7 +488,7 @@ ${
 
       const user2 = getUserContext();
       if (user2?.id) {
-        const botsRes = await fetch(`/api/chatbot/user/${user2.id}`, { headers: getAuthHeaders() });
+        const botsRes = await apiFetch(`/api/chatbot/user/${user2.id}`, { headers: getAuthHeaders() });
         const botsData = await botsRes.json();
         if (botsData.chatbots) setChatbots(botsData.chatbots.map(mapChatbot));
       }
@@ -567,7 +568,7 @@ ${
       silent ? "Fetching catalog fields..." : "Testing catalog connection...",
     );
     try {
-      const res = await fetch("/api/chatbot/test-collection", {
+      const res = await apiFetch("/api/chatbot/test-collection", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(body),
@@ -767,7 +768,7 @@ ${
     try {
       const botId = editingBot?.id;
       if (!botId) return;
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/chatbot/${botId}/file-content?filename=${encodeURIComponent(f.name)}`,
         {
           headers: getAuthHeaders(),
@@ -796,7 +797,7 @@ ${
   useEffect(() => {
     let alive = true;
     if (editingBot?.id) {
-      fetch(`/api/autoflow/${editingBot.id}/scan-status`, { headers: getAuthHeaders() })
+      apiFetch(`/api/autoflow/${editingBot.id}/scan-status`, { headers: getAuthHeaders() })
         .then((r) => r.json())
         .then((d) => {
           if (!alive) return;
@@ -847,7 +848,7 @@ ${
     };
     (async () => {
       try {
-        const res = await fetch("/api/flow/defaults");
+        const res = await apiFetch("/api/flow/defaults");
         const data = await res.json();
         if (!alive) return;
         if (data?.success && Array.isArray(data.flows) && data.flows.length > 0) {
@@ -1012,7 +1013,7 @@ ${
             }
           : undefined;
 
-      const res = await fetch("/api/orders/detect-schema", {
+      const res = await apiFetch("/api/orders/detect-schema", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -1084,7 +1085,7 @@ ${
         ...new Set([...(draft.trainingSheetServices || []), ...(draft.extractedServices || [])]),
       ].filter(Boolean);
 
-      const res = await fetch("/api/chatbot/generate-flow", {
+      const res = await apiFetch("/api/chatbot/generate-flow", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -1146,7 +1147,7 @@ ${
   const uploadToCloudinary = async (file: File, dataUrl: string) => {
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(extension);
-    const signRes = await fetch("/api/chatbot/upload/cloudinary", {
+    const signRes = await apiFetch("/api/chatbot/upload/cloudinary", {
       method: "POST",
       headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ resourceType: isImage ? "image" : "raw" }),
@@ -1165,7 +1166,7 @@ ${
     formData.append("timestamp", signData.timestamp);
     formData.append("signature", signData.signature);
     formData.append("folder", signData.folder);
-    const uploadRes = await fetch(
+    const uploadRes = await apiFetch(
       `https://api.cloudinary.com/v1_1/${signData.cloudName}/${isImage ? "image" : "raw"}/upload`,
       { method: "POST", body: formData },
     );
@@ -1515,7 +1516,7 @@ ${
       } else if (!draft.orderSystemEnabled) {
         payload.productCollection = null;
       }
-      const res = await fetch(`/api/chatbot/${editingBot.id}`, {
+      const res = await apiFetch(`/api/chatbot/${editingBot.id}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
@@ -1537,7 +1538,7 @@ ${
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/chatbot/${deleteTarget.id}`, {
+      const res = await apiFetch(`/api/chatbot/${deleteTarget.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -2965,7 +2966,7 @@ ${
 
                                   const toastId = toast.loading("Testing storage connection...");
                                   try {
-                                    const res = await fetch("/api/chatbot/test-collection", {
+                                    const res = await apiFetch("/api/chatbot/test-collection", {
                                       method: "POST",
                                       headers: getAuthHeaders(),
                                       body: JSON.stringify(body),
@@ -3696,7 +3697,7 @@ ${
                                       });
                                       // Try to auto-generate via API for better flow
                                       try {
-                                        const res = await fetch("/api/orders/generate-flow", {
+                                        const res = await apiFetch("/api/orders/generate-flow", {
                                           method: "POST",
                                           headers: getAuthHeaders(),
                                           body: JSON.stringify({
